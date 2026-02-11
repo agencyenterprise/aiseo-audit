@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const ReportFormatSchema = z.enum(["pretty", "json", "md"]);
+export const ReportFormatSchema = z.enum(["pretty", "json", "md", "html"]);
 
 export const RenderOptionsSchema = z.object({
   format: ReportFormatSchema.default("pretty"),

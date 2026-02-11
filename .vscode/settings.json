@@ -22,5 +22,6 @@
     "**/package-lock.json": true,
     "**/drizzle/meta/**": true,
     "**/*.gen.ts": true
-  }
+  },
+  "liveServer.settings.port": 5501
 }

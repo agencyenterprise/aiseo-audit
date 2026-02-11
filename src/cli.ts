@@ -14,8 +14,13 @@ program
   .version("0.1.0")
   .argument("<url>", "URL to audit")
   .option("--json", "Output as JSON (shorthand for --format json)")
-  .option("--format <format>", "Output format: pretty, json, md", "pretty")
-  .option("--out <path>", "Write JSON output to a file")
+  .option("--html", "Output as HTML (shorthand for --format html)")
+  .option(
+    "--format <format>",
+    "Output format: pretty, json, md, html",
+    "pretty",
+  )
+  .option("--out <path>", "Write rendered output to a file")
   .option(
     "--fail-under <score>",
     "Exit with code 1 if score is below threshold",
@@ -29,6 +34,7 @@ program
       url: string,
       opts: {
         json?: boolean;
+        html?: boolean;
         format?: string;
         out?: string;
         failUnder?: number;
@@ -49,7 +55,9 @@ program
         // 2. Merge CLI options over config
         const format: ReportFormat = opts.json
           ? "json"
-          : (opts.format as ReportFormat) || config.format;
+          : opts.html
+            ? "html"
+            : (opts.format as ReportFormat) || config.format;
 
         const timeout = opts.timeout ?? config.timeout;
         const userAgent = opts.userAgent ?? config.userAgent;
@@ -60,15 +68,14 @@ program
           config,
         );
 
-        // 4. Write to file if requested
-        if (opts.out) {
-          await writeOutputFile(opts.out, JSON.stringify(result, null, 2));
-          console.error(`Results written to ${opts.out}`);
-        }
-
-        // 5. Render and output
         const output = renderReport(result, { format });
-        console.log(output);
+
+        if (opts.out) {
+          await writeOutputFile(opts.out, output);
+          console.error(`Results written to ${opts.out}`);
+        } else {
+          console.log(output);
+        }
 
         // 6. Check fail-under threshold
         if (
