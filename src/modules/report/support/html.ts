@@ -8,7 +8,7 @@ function scoreColorHex(pct: number): string {
 
 function scoreTextColorHex(pct: number): string {
   if (pct >= 90) return "#008800";
-  if (pct >= 50) return "#b45309";
+  if (pct >= 50) return "#ffaa33";
   return "#cc0000";
 }
 
@@ -191,7 +191,7 @@ export function renderHtml(result: AnalyzerResultType): string {
   --pass: #00cc66;
   --pass-text: #008800;
   --average: #ffaa33;
-  --average-text: #b45309;
+  --average-text: #ffaa33;
   --fail: #ff3333;
   --fail-text: #cc0000;
   --bg: #fff;
