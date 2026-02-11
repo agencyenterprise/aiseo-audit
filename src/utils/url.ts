@@ -6,7 +6,7 @@ export function normalizeUrl(input: string): string {
   }
 
   const parsed = new URL(url);
-  return parsed.toString().replace(/\/+$/, '');
+  return parsed.toString().replace(/\/+$/, "");
 }
 
 export function isValidUrl(input: string): boolean {

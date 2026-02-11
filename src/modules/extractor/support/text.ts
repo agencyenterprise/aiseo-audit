@@ -1,15 +1,13 @@
-import type { CheerioAPI } from 'cheerio';
+import type { CheerioAPI } from "cheerio";
 
 export function normalizeWhitespace(text: string): string {
-  return text.replace(/\s+/g, ' ').trim();
+  return text.replace(/\s+/g, " ").trim();
 }
 
 export function splitSentences(text: string): string[] {
-  return text
-    .split(/(?<=[.!?])\s+/)
-    .filter(s => s.trim().length > 5);
+  return text.split(/(?<=[.!?])\s+/).filter((s) => s.trim().length > 5);
 }
 
 export function extractCleanText($: CheerioAPI): string {
-  return normalizeWhitespace($('body').text());
+  return normalizeWhitespace($("body").text());
 }

@@ -1,11 +1,11 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export const RecommendationSchema = z.object({
   category: z.string(),
   factor: z.string(),
   currentValue: z.string(),
-  priority: z.enum(['high', 'medium', 'low']),
+  priority: z.enum(["high", "medium", "low"]),
   recommendation: z.string(),
 });
 
-export type Recommendation = z.infer<typeof RecommendationSchema>;
+export type RecommendationType = z.infer<typeof RecommendationSchema>;

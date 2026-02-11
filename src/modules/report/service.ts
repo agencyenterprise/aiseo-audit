@@ -1,19 +1,19 @@
-import type { AnalyzerResult } from '../analyzer/schema.js';
-import type { RenderOptions } from './schema.js';
-import { renderPretty } from './support/pretty.js';
-import { renderJson } from './support/json.js';
-import { renderMarkdown } from './support/markdown.js';
+import type { AnalyzerResultType } from "../analyzer/schema.js";
+import type { RenderOptions } from "./schema.js";
+import { renderJson } from "./support/json.js";
+import { renderMarkdown } from "./support/markdown.js";
+import { renderPretty } from "./support/pretty.js";
 
 export function renderReport(
-  result: AnalyzerResult,
-  options: RenderOptions
+  result: AnalyzerResultType,
+  options: RenderOptions,
 ): string {
   switch (options.format) {
-    case 'json':
+    case "json":
       return renderJson(result);
-    case 'md':
+    case "md":
       return renderMarkdown(result);
-    case 'pretty':
+    case "pretty":
     default:
       return renderPretty(result);
   }

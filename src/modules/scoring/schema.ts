@@ -1,7 +1,17 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export const GradeSchema = z.enum([
-  'A+', 'A', 'A-', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F',
+  "A+",
+  "A",
+  "A-",
+  "B+",
+  "B",
+  "B-",
+  "C+",
+  "C",
+  "C-",
+  "D",
+  "F",
 ]);
 
 export const ScoreSummarySchema = z.object({

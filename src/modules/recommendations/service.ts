@@ -1,9 +1,11 @@
-import type { AuditResult } from '../audits/schema.js';
-import type { Recommendation } from './schema.js';
-import { RECOMMENDATION_MAP } from './constants.js';
+import type { AuditResultType } from "../audits/schema.js";
+import { RECOMMENDATION_MAP } from "./constants.js";
+import type { RecommendationType } from "./schema.js";
 
-export function generateRecommendations(auditResult: AuditResult): Recommendation[] {
-  const recommendations: Recommendation[] = [];
+export function generateRecommendations(
+  auditResult: AuditResultType,
+): RecommendationType[] {
+  const recommendations: RecommendationType[] = [];
 
   for (const category of Object.values(auditResult.categories)) {
     for (const factor of category.factors) {
@@ -11,11 +13,12 @@ export function generateRecommendations(auditResult: AuditResult): Recommendatio
 
       if (pct >= 0.7) continue;
 
-      const priority: 'high' | 'medium' | 'low' =
-        pct < 0.3 ? 'high' : pct < 0.5 ? 'medium' : 'low';
+      const priority: "high" | "medium" | "low" =
+        pct < 0.3 ? "high" : pct < 0.5 ? "medium" : "low";
 
-      const recText = RECOMMENDATION_MAP[factor.name]
-        || `Review and improve "${factor.name}" based on best practices for generative engine readiness.`;
+      const recText =
+        RECOMMENDATION_MAP[factor.name] ||
+        `Review and improve "${factor.name}" based on best practices for generative engine readiness.`;
 
       recommendations.push({
         category: category.name,

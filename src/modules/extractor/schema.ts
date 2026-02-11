@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import type { CheerioAPI } from 'cheerio';
+import type { CheerioAPI } from "cheerio";
+import { z } from "zod";
 
 export const PageStatsSchema = z.object({
   wordCount: z.number(),

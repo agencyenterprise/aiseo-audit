@@ -75,45 +75,72 @@ export const DIRECT_ANSWER_PATTERNS = [
 ];
 
 export const TRANSITION_WORDS = [
-  'however', 'therefore', 'moreover', 'furthermore', 'consequently',
-  'additionally', 'in contrast', 'similarly', 'as a result', 'for example',
-  'for instance', 'on the other hand', 'nevertheless', 'meanwhile',
-  'likewise', 'in addition', 'specifically', 'in particular', 'notably',
-  'importantly',
+  "however",
+  "therefore",
+  "moreover",
+  "furthermore",
+  "consequently",
+  "additionally",
+  "in contrast",
+  "similarly",
+  "as a result",
+  "for example",
+  "for instance",
+  "on the other hand",
+  "nevertheless",
+  "meanwhile",
+  "likewise",
+  "in addition",
+  "specifically",
+  "in particular",
+  "notably",
+  "importantly",
 ];
 
 export const AUTHOR_SELECTORS = [
   '[rel="author"]',
-  '.author',
-  '.byline',
+  ".author",
+  ".byline",
   '[itemprop="author"]',
-  '.post-author',
-  '.entry-author',
+  ".post-author",
+  ".entry-author",
   'meta[name="author"]',
 ];
 
 export const DATE_SELECTORS = [
-  'time[datetime]',
+  "time[datetime]",
   '[itemprop="datePublished"]',
   '[itemprop="dateModified"]',
-  '.published',
-  '.post-date',
-  '.entry-date',
+  ".published",
+  ".post-date",
+  ".entry-date",
   'meta[property="article:published_time"]',
   'meta[property="article:modified_time"]',
 ];
 
 export const CREDENTIAL_TERMS = [
-  'expert', 'specialist', 'certified', 'professional',
-  'years of experience', 'phd', 'doctor', 'professor',
-  'degree', 'qualification', 'researcher',
+  "expert",
+  "specialist",
+  "certified",
+  "professional",
+  "years of experience",
+  "phd",
+  "doctor",
+  "professor",
+  "degree",
+  "qualification",
+  "researcher",
 ];
 
 export const FAQ_INDICATORS = [
-  'faq', 'frequently asked', 'common questions', 'q&a',
+  "faq",
+  "frequently asked",
+  "common questions",
+  "q&a",
 ];
 
-export const QUESTION_HEADING_PATTERN = /^(?:what|how|why|when|where|which|who|can|do|does|is|are|should|will)\b/i;
+export const QUESTION_HEADING_PATTERN =
+  /^(?:what|how|why|when|where|which|who|can|do|does|is|are|should|will)\b/i;
 
 export const QUOTED_ATTRIBUTION_PATTERNS = [
   /"[^"]{10,}"\s*[-\u2013\u2014]\s*[A-Z][a-z]+/g,
@@ -125,11 +152,11 @@ export const QUOTED_ATTRIBUTION_PATTERNS = [
 ];
 
 export const AI_CRAWLERS = [
-  'GPTBot',
-  'ChatGPT-User',
-  'ClaudeBot',
-  'PerplexityBot',
-  'Google-Extended',
+  "GPTBot",
+  "ChatGPT-User",
+  "ClaudeBot",
+  "PerplexityBot",
+  "Google-Extended",
 ];
 
 export const MODIFIED_DATE_SELECTORS = [
@@ -138,7 +165,7 @@ export const MODIFIED_DATE_SELECTORS = [
 ];
 
 export const PUBLISH_DATE_SELECTORS = [
-  'time[datetime]',
+  "time[datetime]",
   '[itemprop="datePublished"]',
   'meta[property="article:published_time"]',
 ];

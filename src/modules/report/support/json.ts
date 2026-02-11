@@ -1,5 +1,5 @@
-import type { AnalyzerResult } from '../../analyzer/schema.js';
+import type { AnalyzerResultType } from "../../analyzer/schema.js";
 
-export function renderJson(result: AnalyzerResult): string {
+export function renderJson(result: AnalyzerResultType): string {
   return JSON.stringify(result, null, 2);
 }

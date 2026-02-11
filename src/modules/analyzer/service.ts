@@ -1,53 +1,57 @@
-import axios from 'axios';
-import { fetchUrl } from '../fetcher/service.js';
-import { extractPage } from '../extractor/service.js';
-import { runAudits, type DomainSignals } from '../audits/service.js';
-import { computeScore } from '../scoring/service.js';
-import { generateRecommendations } from '../recommendations/service.js';
-import { normalizeUrl, getDomain } from '../../utils/url.js';
-import type { GeoJsonConfig } from '../config/schema.js';
-import type { AnalyzerOptions, AnalyzerResult } from './schema.js';
-import { VERSION } from './constants.js';
+import axios from "axios";
+import { getDomain, normalizeUrl } from "../../utils/url.js";
+import type { DomainSignalsType } from "../audits/schema.js";
+import { runAudits } from "../audits/service.js";
+import type { GeoJsonConfig } from "../config/schema.js";
+import { extractPage } from "../extractor/service.js";
+import { fetchUrl } from "../fetcher/service.js";
+import { generateRecommendations } from "../recommendations/service.js";
+import { computeScore } from "../scoring/service.js";
+import { VERSION } from "./constants.js";
+import type { AnalyzerOptionsType, AnalyzerResultType } from "./schema.js";
 
 async function fetchDomainSignals(
   domain: string,
   timeout: number,
-  userAgent: string
-): Promise<DomainSignals> {
+  userAgent: string,
+): Promise<DomainSignalsType> {
   const baseUrl = `https://${domain}`;
 
   const [robotsRes, llmsRes, llmsFullRes] = await Promise.allSettled([
     axios.get(`${baseUrl}/robots.txt`, {
       timeout: Math.min(timeout, 5000),
-      headers: { 'User-Agent': userAgent },
-      responseType: 'text',
+      headers: { "User-Agent": userAgent },
+      responseType: "text",
       validateStatus: () => true,
     }),
     axios.head(`${baseUrl}/llms.txt`, {
       timeout: Math.min(timeout, 5000),
-      headers: { 'User-Agent': userAgent },
+      headers: { "User-Agent": userAgent },
       validateStatus: () => true,
     }),
     axios.head(`${baseUrl}/llms-full.txt`, {
       timeout: Math.min(timeout, 5000),
-      headers: { 'User-Agent': userAgent },
+      headers: { "User-Agent": userAgent },
       validateStatus: () => true,
     }),
   ]);
 
   return {
-    robotsTxt: robotsRes.status === 'fulfilled' && robotsRes.value.status === 200
-      ? String(robotsRes.value.data)
-      : null,
-    llmsTxtExists: llmsRes.status === 'fulfilled' && llmsRes.value.status === 200,
-    llmsFullTxtExists: llmsFullRes.status === 'fulfilled' && llmsFullRes.value.status === 200,
+    robotsTxt:
+      robotsRes.status === "fulfilled" && robotsRes.value.status === 200
+        ? String(robotsRes.value.data)
+        : null,
+    llmsTxtExists:
+      llmsRes.status === "fulfilled" && llmsRes.value.status === 200,
+    llmsFullTxtExists:
+      llmsFullRes.status === "fulfilled" && llmsFullRes.value.status === 200,
   };
 }
 
 export async function analyzeUrl(
-  options: AnalyzerOptions,
-  config: GeoJsonConfig
-): Promise<AnalyzerResult> {
+  options: AnalyzerOptionsType,
+  config: GeoJsonConfig,
+): Promise<AnalyzerResultType> {
   const startTime = Date.now();
   const url = normalizeUrl(options.url);
 

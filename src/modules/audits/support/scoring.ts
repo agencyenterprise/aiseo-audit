@@ -1,8 +1,8 @@
-import type { FactorResult, FactorStatus } from '../schema.js';
+import type { FactorResultType, FactorStatusType } from "../schema.js";
 
 export function thresholdScore(
   value: number,
-  brackets: Array<[number, number]>
+  brackets: Array<[number, number]>,
 ): number {
   for (const [threshold, score] of brackets) {
     if (value >= threshold) return score;
@@ -14,7 +14,7 @@ export function rangeScore(
   value: number,
   idealMin: number,
   idealMax: number,
-  maxScore: number = 100
+  maxScore: number = 100,
 ): number {
   if (value >= idealMin && value <= idealMax) return maxScore;
   if (value < idealMin) {
@@ -30,11 +30,14 @@ export function booleanScore(value: boolean, maxScore: number = 100): number {
   return value ? maxScore : 0;
 }
 
-export function statusFromScore(score: number, maxScore: number): FactorStatus {
+export function statusFromScore(
+  score: number,
+  maxScore: number,
+): FactorStatusType {
   const pct = maxScore > 0 ? score / maxScore : 0;
-  if (pct >= 0.7) return 'good';
-  if (pct >= 0.3) return 'needs_improvement';
-  return 'critical';
+  if (pct >= 0.7) return "good";
+  if (pct >= 0.3) return "needs_improvement";
+  return "critical";
 }
 
 export function makeFactor(
@@ -42,8 +45,8 @@ export function makeFactor(
   score: number,
   maxScore: number,
   value: string,
-  statusOverride?: FactorStatus
-): FactorResult {
+  statusOverride?: FactorStatusType,
+): FactorResultType {
   return {
     name,
     score: Math.round(Math.min(score, maxScore)),
@@ -53,10 +56,10 @@ export function makeFactor(
   };
 }
 
-export function sumFactors(factors: FactorResult[]): number {
+export function sumFactors(factors: FactorResultType[]): number {
   return factors.reduce((sum, f) => sum + f.score, 0);
 }
 
-export function maxFactors(factors: FactorResult[]): number {
+export function maxFactors(factors: FactorResultType[]): number {
   return factors.reduce((sum, f) => sum + f.maxScore, 0);
 }

@@ -1,11 +1,11 @@
-import type { CategoryResult } from '../audits/schema.js';
-import type { CategoryWeight } from '../config/schema.js';
-import type { Grade, ScoreSummary } from './schema.js';
-import { GRADE_THRESHOLDS } from './constants.js';
+import type { CategoryResultType } from "../audits/schema.js";
+import type { CategoryWeight } from "../config/schema.js";
+import { GRADE_THRESHOLDS } from "./constants.js";
+import type { Grade, ScoreSummary } from "./schema.js";
 
 export function computeScore(
-  categories: Record<string, CategoryResult>,
-  weights: CategoryWeight
+  categories: Record<string, CategoryResultType>,
+  weights: CategoryWeight,
 ): ScoreSummary {
   const weightMap: Record<string, number> = {
     contentExtractability: weights.contentExtractability,
@@ -28,9 +28,8 @@ export function computeScore(
 
     const w = weightMap[key] ?? 1;
     const normalizedWeight = totalWeight > 0 ? w / totalWeight : 1 / 7;
-    const categoryPct = category.maxScore > 0
-      ? (category.score / category.maxScore) * 100
-      : 0;
+    const categoryPct =
+      category.maxScore > 0 ? (category.score / category.maxScore) * 100 : 0;
     weightedScore += categoryPct * normalizedWeight;
   }
 
@@ -44,5 +43,5 @@ function computeGrade(score: number): Grade {
   for (const [threshold, grade] of GRADE_THRESHOLDS) {
     if (score >= threshold) return grade;
   }
-  return 'F';
+  return "F";
 }

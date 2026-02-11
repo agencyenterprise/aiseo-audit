@@ -1,6 +1,10 @@
-import axios from 'axios';
-import { FetchOptionsSchema, type FetchOptions, type FetchResult } from './schema.js';
-import { DEFAULT_HEADERS, MAX_RESPONSE_SIZE } from './constants.js';
+import axios from "axios";
+import { DEFAULT_HEADERS, MAX_RESPONSE_SIZE } from "./constants.js";
+import {
+  FetchOptionsSchema,
+  type FetchOptions,
+  type FetchResult,
+} from "./schema.js";
 
 export async function fetchUrl(options: FetchOptions): Promise<FetchResult> {
   const opts = FetchOptionsSchema.parse(options);
@@ -8,20 +12,21 @@ export async function fetchUrl(options: FetchOptions): Promise<FetchResult> {
 
   const response = await axios.get(opts.url, {
     headers: {
-      'User-Agent': opts.userAgent,
+      "User-Agent": opts.userAgent,
       ...DEFAULT_HEADERS,
     },
     timeout: opts.timeout,
     maxRedirects: 5,
-    responseType: 'text',
+    responseType: "text",
     maxContentLength: MAX_RESPONSE_SIZE,
     validateStatus: (status) => status < 500,
   });
 
   const fetchTimeMs = Date.now() - start;
-  const html = typeof response.data === 'string' ? response.data : String(response.data);
+  const html =
+    typeof response.data === "string" ? response.data : String(response.data);
   const finalUrl = response.request?.res?.responseUrl || opts.url;
-  const contentType = response.headers['content-type'] || 'unknown';
+  const contentType = response.headers["content-type"] || "unknown";
 
   if (response.status >= 400) {
     throw new Error(`HTTP ${response.status}: Page returned an error`);
@@ -33,7 +38,7 @@ export async function fetchUrl(options: FetchOptions): Promise<FetchResult> {
     statusCode: response.status,
     contentType,
     html,
-    byteLength: Buffer.byteLength(html, 'utf-8'),
+    byteLength: Buffer.byteLength(html, "utf-8"),
     fetchTimeMs,
     redirected: finalUrl !== opts.url,
   };

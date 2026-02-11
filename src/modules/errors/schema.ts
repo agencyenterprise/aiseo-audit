@@ -1,12 +1,12 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export const ErrorCodeSchema = z.enum([
-  'FETCH_ERROR',
-  'TIMEOUT_ERROR',
-  'PARSE_ERROR',
-  'VALIDATION_ERROR',
-  'CONFIG_ERROR',
-  'UNKNOWN_ERROR',
+  "FETCH_ERROR",
+  "TIMEOUT_ERROR",
+  "PARSE_ERROR",
+  "VALIDATION_ERROR",
+  "CONFIG_ERROR",
+  "UNKNOWN_ERROR",
 ]);
 
 export const NormalizedErrorSchema = z.object({
