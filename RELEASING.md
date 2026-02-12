@@ -2,7 +2,8 @@
 
 ## Prerequisites
 
-- All changes merged from `staging` → `main`
+- All PRs merged to `main`
+- CI is green on `main`
 - You're on the `main` branch locally
 
 ## Steps
@@ -65,6 +66,10 @@ git push origin main --tags
 
 > **Tip**: Click "Generate release notes" in GitHub to auto-generate a commit list, then edit it to be human-readable.
 
+### 5. Update the changelog
+
+Add the new version to `CHANGELOG.md` with a summary of changes.
+
 ## Version Naming
 
 | Type      | When to use                       | Example       |
@@ -72,3 +77,7 @@ git push origin main --tags
 | **patch** | Bug fixes, minor improvements     | 1.0.0 → 1.0.1 |
 | **minor** | New features, backward compatible | 1.0.0 → 1.1.0 |
 | **major** | Breaking changes                  | 1.0.0 → 2.0.0 |
+
+## Version in Code
+
+The version string is read from `package.json` at build time via tsup's `define` option. Running `npm version` + `npm run build` keeps everything in sync automatically. There is no need to update version strings manually anywhere in the source code.

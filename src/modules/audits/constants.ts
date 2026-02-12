@@ -9,5 +9,3 @@ export const CATEGORY_DISPLAY_NAMES: Record<CategoryNameType, string> = {
   authorityContext: "Authority Context",
   readabilityForCompression: "Readability for Compression",
 };
-
-export const CATEGORY_MAX_SCORE = 100;

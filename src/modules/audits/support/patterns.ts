@@ -118,27 +118,6 @@ export const DATE_SELECTORS = [
   'meta[property="article:modified_time"]',
 ];
 
-export const CREDENTIAL_TERMS = [
-  "expert",
-  "specialist",
-  "certified",
-  "professional",
-  "years of experience",
-  "phd",
-  "doctor",
-  "professor",
-  "degree",
-  "qualification",
-  "researcher",
-];
-
-export const FAQ_INDICATORS = [
-  "faq",
-  "frequently asked",
-  "common questions",
-  "q&a",
-];
-
 export const QUESTION_HEADING_PATTERN =
   /^(?:what|how|why|when|where|which|who|can|do|does|is|are|should|will)\b/i;
 

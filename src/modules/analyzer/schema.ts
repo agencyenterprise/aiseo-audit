@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { AuditRawDataSchema, CategoryResultSchema } from "../audits/schema.js";
 import { RecommendationSchema } from "../recommendations/schema.js";
+import { VERSION } from "./constants.js";
 
 export const AnalyzerOptionsSchema = z.object({
   url: z.string(),
   timeout: z.number().positive().default(45000),
-  userAgent: z.string().default("GEOAudit/0.1.0"),
+  userAgent: z.string().default(`GEOAudit/${VERSION}`),
 });
 
 export const AnalyzerResultSchema = z.object({

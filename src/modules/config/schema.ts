@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { VERSION } from "../analyzer/constants.js";
+
+const DEFAULT_USER_AGENT = `GEOAudit/${VERSION}`;
 
 const DEFAULT_WEIGHTS = {
   contentExtractability: 1,
@@ -25,14 +28,14 @@ export const CategoryWeightSchema = z
 export const GeoJsonConfigSchema = z
   .object({
     timeout: z.number().positive().default(45000),
-    userAgent: z.string().default("GEOAudit/0.1.0"),
+    userAgent: z.string().default(DEFAULT_USER_AGENT),
     format: z.enum(["pretty", "json", "md", "html"]).default("pretty"),
     failUnder: z.number().min(0).max(100).optional(),
     weights: CategoryWeightSchema,
   })
   .default({
     timeout: 45000,
-    userAgent: "GEOAudit/0.1.0",
+    userAgent: DEFAULT_USER_AGENT,
     format: "pretty" as const,
     weights: DEFAULT_WEIGHTS,
   });

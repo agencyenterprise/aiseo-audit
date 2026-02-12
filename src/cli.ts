@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { VERSION } from "./modules/analyzer/constants.js";
 import { analyzeUrl } from "./modules/analyzer/service.js";
 import { loadConfig } from "./modules/config/service.js";
 import type { ReportFormatType } from "./modules/report/schema.js";
@@ -11,7 +12,7 @@ const program = new Command();
 program
   .name("geoaudit")
   .description("Audit web pages for generative engine readiness")
-  .version("0.1.0")
+  .version(VERSION)
   .argument("<url>", "URL to audit")
   .option("--json", "Output as JSON")
   .option("--md", "Output as Markdown")
@@ -45,10 +46,8 @@ program
           process.exit(2);
         }
 
-        // 1. Load config
         const config = await loadConfig(opts.config);
 
-        // 2. Merge CLI options over config
         const format: ReportFormatType = opts.json
           ? "json"
           : opts.md
@@ -60,7 +59,6 @@ program
         const timeout = opts.timeout ?? config.timeout;
         const userAgent = opts.userAgent ?? config.userAgent;
 
-        // 3. Run analysis
         const result = await analyzeUrl(
           { url: normalizeUrl(url), timeout, userAgent },
           config,
@@ -75,7 +73,6 @@ program
           console.log(output);
         }
 
-        // 6. Check fail-under threshold
         if (
           opts.failUnder !== undefined &&
           result.overallScore < opts.failUnder

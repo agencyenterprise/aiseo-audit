@@ -1,6 +1,6 @@
 {
   "timeout": 45000,
-  "userAgent": "GEOAudit/0.1.0",
+  "userAgent": "GEOAudit/0.2.0",
   "format": "pretty",
   "failUnder": 50,
   "weights": {

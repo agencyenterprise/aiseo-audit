@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  booleanScore,
   makeFactor,
   maxFactors,
-  rangeScore,
   statusFromScore,
   sumFactors,
   thresholdScore,
@@ -33,37 +31,6 @@ describe("thresholdScore", () => {
 
     expect(thresholdScore(0, brackets)).toBe(0);
     expect(thresholdScore(24, brackets)).toBe(0);
-  });
-});
-
-describe("rangeScore", () => {
-  it("returns maxScore when value is within ideal range", () => {
-    expect(rangeScore(50, 30, 70, 100)).toBe(100);
-    expect(rangeScore(30, 30, 70, 100)).toBe(100);
-    expect(rangeScore(70, 30, 70, 100)).toBe(100);
-  });
-
-  it("scales down when below ideal minimum", () => {
-    expect(rangeScore(15, 30, 70, 100)).toBe(50);
-    expect(rangeScore(0, 30, 70, 100)).toBe(10);
-  });
-
-  it("penalizes excess above ideal maximum", () => {
-    const score = rangeScore(140, 30, 70, 100);
-    expect(score).toBeLessThan(100);
-    expect(score).toBeGreaterThan(0);
-  });
-});
-
-describe("booleanScore", () => {
-  it("returns maxScore for true", () => {
-    expect(booleanScore(true, 10)).toBe(10);
-    expect(booleanScore(true, 100)).toBe(100);
-  });
-
-  it("returns 0 for false", () => {
-    expect(booleanScore(false, 10)).toBe(0);
-    expect(booleanScore(false, 100)).toBe(0);
   });
 });
 

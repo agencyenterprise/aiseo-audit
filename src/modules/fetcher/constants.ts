@@ -1,5 +1,3 @@
-export const DEFAULT_TIMEOUT = 45000;
-export const DEFAULT_USER_AGENT = "GEOAudit/0.1.0";
 export const MAX_RESPONSE_SIZE = 10 * 1024 * 1024; // 10MB
 
 export const DEFAULT_HEADERS: Record<string, string> = {

@@ -10,26 +10,6 @@ export function thresholdScore(
   return 0;
 }
 
-export function rangeScore(
-  value: number,
-  idealMin: number,
-  idealMax: number,
-  maxScore: number = 100,
-): number {
-  if (value >= idealMin && value <= idealMax) return maxScore;
-  if (value < idealMin) {
-    const ratio = idealMin > 0 ? value / idealMin : 0;
-    return Math.round(maxScore * Math.max(0.1, ratio));
-  }
-  const excess = value - idealMax;
-  const penalty = Math.min(excess / idealMax, 0.6);
-  return Math.round(maxScore * (1 - penalty));
-}
-
-export function booleanScore(value: boolean, maxScore: number = 100): number {
-  return value ? maxScore : 0;
-}
-
 export function statusFromScore(
   score: number,
   maxScore: number,

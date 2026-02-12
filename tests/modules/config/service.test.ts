@@ -63,7 +63,7 @@ describe("loadConfig", () => {
 
         expect(config.timeout).toBe(45000);
         expect(config.format).toBe("pretty");
-        expect(config.userAgent).toBe("GEOAudit/0.1.0");
+        expect(config.userAgent).toMatch(/^GEOAudit\/\d+\.\d+\.\d+$/);
       } finally {
         process.chdir(originalCwd);
       }
@@ -91,7 +91,7 @@ describe("loadConfig", () => {
 
       expect(config.timeout).toBe(20000);
       expect(config.format).toBe("pretty");
-      expect(config.userAgent).toBe("GEOAudit/0.1.0");
+      expect(config.userAgent).toMatch(/^GEOAudit\/\d+\.\d+\.\d+$/);
     });
 
     it("allows custom weights", async () => {

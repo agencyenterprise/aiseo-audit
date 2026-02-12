@@ -51,23 +51,23 @@ geoaudit https://example.com --config geo.json
 
 ## CLI Options
 
-| Option              | Description                           | Default          |
-| ------------------- | ------------------------------------- | ---------------- |
-| `<url>`             | URL to audit (required)               | -                |
-| `--json`            | Output as JSON                        | -                |
-| `--md`              | Output as Markdown                    | -                |
-| `--html`            | Output as HTML                        | -                |
-| `--out <path>`      | Write rendered output to a file       | -                |
-| `--fail-under <n>`  | Exit with code 1 if score < threshold | -                |
-| `--timeout <ms>`    | Request timeout in ms                 | `45000`          |
-| `--user-agent <ua>` | Custom User-Agent string              | `GEOAudit/0.1.0` |
-| `--config <path>`   | Path to config file                   | -                |
+| Option              | Description                           | Default              |
+| ------------------- | ------------------------------------- | -------------------- |
+| `<url>`             | URL to audit (required)               | -                    |
+| `--json`            | Output as JSON                        | -                    |
+| `--md`              | Output as Markdown                    | -                    |
+| `--html`            | Output as HTML                        | -                    |
+| `--out <path>`      | Write rendered output to a file       | -                    |
+| `--fail-under <n>`  | Exit with code 1 if score < threshold | -                    |
+| `--timeout <ms>`    | Request timeout in ms                 | `45000`              |
+| `--user-agent <ua>` | Custom User-Agent string              | `GEOAudit/<version>` |
+| `--config <path>`   | Path to config file                   | -                    |
 
 If no output flag is given, the default is `pretty` (color-coded terminal output). The default format can also be set in the config file.
 
 ## User Agent
 
-By default, all HTTP requests (page fetch, `robots.txt`, `llms.txt`) are sent with the header `User-Agent: GEOAudit/0.1.0`. This is intentional. If a site blocks unknown bots, that is a meaningful negative signal for generative engine readiness, and the audit should surface it as a failing "Fetch Success" score.
+By default, all HTTP requests (page fetch, `robots.txt`, `llms.txt`) are sent with the header `User-Agent: GEOAudit/<version>`. This is intentional. If a site blocks unknown bots, that is a meaningful negative signal for generative engine readiness, and the audit should surface it as a failing "Fetch Success" score.
 
 The `--user-agent` flag exists as an escape hatch for cases where you want to bypass bot detection and test the content independently of access policy. It does not change the audit logic, only what the server sees in the request header.
 
@@ -116,7 +116,7 @@ You can also pass an explicit path with `--config path/to/config.json`.
 ```json
 {
   "timeout": 45000,
-  "userAgent": "GEOAudit/0.1.0",
+  "userAgent": "GEOAudit/0.2.0",
   "format": "pretty",
   "failUnder": 50,
   "weights": {
