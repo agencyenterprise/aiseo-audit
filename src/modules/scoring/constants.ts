@@ -1,6 +1,6 @@
-import type { Grade } from "./schema.js";
+import type { GradeType } from "./schema.js";
 
-export const GRADE_THRESHOLDS: Array<[number, Grade]> = [
+export const GRADE_THRESHOLDS: Array<[number, GradeType]> = [
   [95, "A+"],
   [90, "A"],
   [85, "A-"],
