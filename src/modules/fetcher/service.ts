@@ -1,5 +1,4 @@
-import axios from "axios";
-import { DEFAULT_HEADERS, MAX_RESPONSE_SIZE } from "./constants.js";
+import { httpGet } from "../../utils/http.js";
 import {
   FetchOptionsSchema,
   type FetchOptionsType,
@@ -12,16 +11,10 @@ export async function fetchUrl(
   const opts = FetchOptionsSchema.parse(options);
   const start = Date.now();
 
-  const response = await axios.get(opts.url, {
-    headers: {
-      "User-Agent": opts.userAgent,
-      ...DEFAULT_HEADERS,
-    },
+  const response = await httpGet({
+    url: opts.url,
     timeout: opts.timeout,
-    maxRedirects: 5,
-    responseType: "text",
-    maxContentLength: MAX_RESPONSE_SIZE,
-    validateStatus: (status) => status < 500,
+    userAgent: opts.userAgent,
   });
 
   const fetchTimeMs = Date.now() - start;
@@ -29,10 +22,6 @@ export async function fetchUrl(
     typeof response.data === "string" ? response.data : String(response.data);
   const finalUrl = response.request?.res?.responseUrl || opts.url;
   const contentType = response.headers["content-type"] || "unknown";
-
-  if (response.status >= 400) {
-    throw new Error(`HTTP ${response.status}: Page returned an error`);
-  }
 
   return {
     url: opts.url,

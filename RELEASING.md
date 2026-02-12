@@ -66,10 +66,6 @@ git push origin main --tags
 
 > **Tip**: Click "Generate release notes" in GitHub to auto-generate a commit list, then edit it to be human-readable.
 
-### 5. Update the changelog
-
-Add the new version to `CHANGELOG.md` with a summary of changes.
-
 ## Version Naming
 
 | Type      | When to use                       | Example       |

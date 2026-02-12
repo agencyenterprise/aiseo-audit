@@ -73,12 +73,10 @@ program
           console.log(output);
         }
 
-        if (
-          opts.failUnder !== undefined &&
-          result.overallScore < opts.failUnder
-        ) {
+        const failUnder = opts.failUnder ?? config.failUnder;
+        if (failUnder !== undefined && result.overallScore < failUnder) {
           console.error(
-            `\nScore ${result.overallScore} is below threshold ${opts.failUnder}`,
+            `\nScore ${result.overallScore} is below threshold ${failUnder}`,
           );
           process.exit(1);
         }

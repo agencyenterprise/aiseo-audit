@@ -1,5 +1,4 @@
-import { access, writeFile as fsWriteFile, readFile } from "node:fs/promises";
-import type { ZodType } from "zod";
+import { access, writeFile as fsWriteFile } from "node:fs/promises";
 
 export async function fileExists(path: string): Promise<boolean> {
   try {
@@ -8,15 +7,6 @@ export async function fileExists(path: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-export async function readJsonFile<T>(
-  path: string,
-  schema: ZodType<T>,
-): Promise<T> {
-  const content = await readFile(path, "utf-8");
-  const parsed = JSON.parse(content);
-  return schema.parse(parsed);
 }
 
 export async function writeOutputFile(

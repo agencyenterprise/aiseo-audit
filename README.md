@@ -116,7 +116,6 @@ You can also pass an explicit path with `--config path/to/config.json`.
 ```json
 {
   "timeout": 45000,
-  "userAgent": "GEOAudit/0.2.0",
   "format": "pretty",
   "failUnder": 50,
   "weights": {
@@ -187,6 +186,20 @@ It is:
 | `0`  | Success                                         |
 | `1`  | Score below `--fail-under` threshold            |
 | `2`  | Runtime error (fetch failed, invalid URL, etc.) |
+
+## Compatibility Notes
+
+**Node.js** -- Requires Node 20 or later. The `engines` field in `package.json` enforces this. Earlier versions will produce runtime errors.
+
+**Zod** -- Uses [Zod 4](https://zod.dev). If you consume the library API and also use Zod in your project, ensure you are on Zod 4+ to avoid type incompatibilities.
+
+**CJS bin entry** -- The `bin/geoaudit.js` executable uses `require()` (CommonJS). This is compatible with all Node 20+ environments regardless of your project's module system. The library exports support both ESM (`import`) and CJS (`require`).
+
+**Config discovery** -- When using the programmatic API, `loadConfig()` searches for config files starting from `process.cwd()`. If your application's working directory differs from where your config file lives, pass an explicit path:
+
+```typescript
+const config = await loadConfig("/path/to/geo.json");
+```
 
 ## License
 

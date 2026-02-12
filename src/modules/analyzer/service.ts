@@ -1,4 +1,4 @@
-import axios from "axios";
+import { httpGet, httpHead } from "../../utils/http.js";
 import { getDomain, normalizeUrl } from "../../utils/url.js";
 import type { DomainSignalsType } from "../audits/schema.js";
 import { runAudits } from "../audits/service.js";
@@ -7,7 +7,7 @@ import { extractPage } from "../extractor/service.js";
 import { fetchUrl } from "../fetcher/service.js";
 import { generateRecommendations } from "../recommendations/service.js";
 import { computeScore } from "../scoring/service.js";
-import { VERSION } from "./constants.js";
+import { DOMAIN_SIGNAL_TIMEOUT_CAP, VERSION } from "./constants.js";
 import type { AnalyzerOptionsType, AnalyzerResultType } from "./schema.js";
 
 async function fetchDomainSignals(
@@ -16,23 +16,23 @@ async function fetchDomainSignals(
   userAgent: string,
 ): Promise<DomainSignalsType> {
   const baseUrl = `https://${domain}`;
+  const cappedTimeout = Math.min(timeout, DOMAIN_SIGNAL_TIMEOUT_CAP);
 
   const [robotsRes, llmsRes, llmsFullRes] = await Promise.allSettled([
-    axios.get(`${baseUrl}/robots.txt`, {
-      timeout: Math.min(timeout, 5000),
-      headers: { "User-Agent": userAgent },
-      responseType: "text",
-      validateStatus: () => true,
+    httpGet({
+      url: `${baseUrl}/robots.txt`,
+      timeout: cappedTimeout,
+      userAgent,
     }),
-    axios.head(`${baseUrl}/llms.txt`, {
-      timeout: Math.min(timeout, 5000),
-      headers: { "User-Agent": userAgent },
-      validateStatus: () => true,
+    httpHead({
+      url: `${baseUrl}/llms.txt`,
+      timeout: cappedTimeout,
+      userAgent,
     }),
-    axios.head(`${baseUrl}/llms-full.txt`, {
-      timeout: Math.min(timeout, 5000),
-      headers: { "User-Agent": userAgent },
-      validateStatus: () => true,
+    httpHead({
+      url: `${baseUrl}/llms-full.txt`,
+      timeout: cappedTimeout,
+      userAgent,
     }),
   ]);
 
@@ -55,26 +55,20 @@ export async function analyzeUrl(
   const startTime = Date.now();
   const url = normalizeUrl(options.url);
 
-  // 1. Fetch page
   const timeout = options.timeout ?? config.timeout;
   const userAgent = options.userAgent ?? config.userAgent;
 
   const fetchResult = await fetchUrl({ url, timeout, userAgent });
 
-  // 2. Fetch domain-level signals (robots.txt, llms.txt, llms-full.txt)
   const domain = getDomain(fetchResult.finalUrl || url);
   const domainSignals = await fetchDomainSignals(domain, timeout, userAgent);
 
-  // 3. Extract
   const page = extractPage(fetchResult.html, url);
 
-  // 4. Audit
   const auditResult = runAudits(page, fetchResult, domainSignals);
 
-  // 5. Score
   const scoring = computeScore(auditResult.categories, config.weights);
 
-  // 6. Recommendations
   const recommendations = generateRecommendations(auditResult);
 
   const analysisDurationMs = Date.now() - startTime;

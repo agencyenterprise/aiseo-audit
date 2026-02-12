@@ -27,14 +27,14 @@ src/
 ├── index.ts                # Library entry point
 ├── modules/
 │   ├── analyzer/           # Orchestrates the audit pipeline
-│   ├── audits/             # 7 audit category functions + scoring helpers
+│   ├── audits/             # Audit orchestrator, categories/, scoring helpers
 │   ├── config/             # Config loading and schema
 │   ├── extractor/          # HTML parsing and content extraction
 │   ├── fetcher/            # HTTP fetching
 │   ├── recommendations/    # Recommendation generation
 │   ├── report/             # Report rendering (pretty, json, md, html)
 │   └── scoring/            # Score computation and grading
-└── utils/                  # Shared utilities (fs, strings, url)
+└── utils/                  # Shared utilities (fs, http, strings, url)
 ```
 
 Each module follows a consistent pattern:

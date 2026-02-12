@@ -16,8 +16,3 @@ export function countSyllables(word: string): number {
   const matches = word.match(/[aeiouy]{1,2}/g);
   return matches ? Math.max(matches.length, 1) : 1;
 }
-
-export function truncate(str: string, maxLen: number): string {
-  if (str.length <= maxLen) return str;
-  return str.substring(0, maxLen - 3) + "...";
-}

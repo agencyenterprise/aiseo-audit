@@ -3,7 +3,6 @@ import {
   countSentences,
   countSyllables,
   countWords,
-  truncate,
 } from "../../src/utils/strings.js";
 
 describe("countWords", () => {
@@ -28,7 +27,9 @@ describe("countSentences", () => {
   });
 
   it("counts sentences ending with different punctuation", () => {
-    expect(countSentences("Hello there! How are you doing? I am doing fine.")).toBe(3);
+    expect(
+      countSentences("Hello there! How are you doing? I am doing fine."),
+    ).toBe(3);
   });
 
   it("ignores very short segments", () => {
@@ -60,22 +61,5 @@ describe("countSyllables", () => {
   it("handles complex words", () => {
     expect(countSyllables("implementation")).toBeGreaterThanOrEqual(4);
     expect(countSyllables("methodology")).toBeGreaterThanOrEqual(4);
-  });
-});
-
-describe("truncate", () => {
-  it("returns original string if under limit", () => {
-    expect(truncate("Hello", 10)).toBe("Hello");
-    expect(truncate("Hello", 5)).toBe("Hello");
-  });
-
-  it("truncates and adds ellipsis", () => {
-    expect(truncate("Hello world", 8)).toBe("Hello...");
-    expect(truncate("This is a long string", 10)).toBe("This is...");
-  });
-
-  it("handles edge cases", () => {
-    expect(truncate("Hi", 3)).toBe("Hi");
-    expect(truncate("Hello", 3)).toBe("...");
   });
 });

@@ -214,6 +214,45 @@ describe("Pipeline Integration", () => {
     });
   });
 
+  describe("broken pages", () => {
+    it("produces a partial report for 404 pages", async () => {
+      mockedGet.mockImplementation(async (url: string) => {
+        if (url.includes("robots.txt")) {
+          return { status: 200, data: "User-agent: *\nAllow: /", headers: {} };
+        }
+        return {
+          status: 404,
+          data: "<html><body><h1>Not Found</h1></body></html>",
+          headers: { "content-type": "text/html" },
+        };
+      });
+
+      mockedHead.mockImplementation(async () => {
+        return { status: 404, data: "", headers: {} };
+      });
+
+      const config = await loadConfig();
+      const result = await analyzeUrl(
+        {
+          url: "https://example.com/missing",
+          timeout: 5000,
+          userAgent: "Test",
+        },
+        config,
+      );
+
+      expect(result).toBeDefined();
+      expect(result.overallScore).toBeGreaterThanOrEqual(0);
+      expect(result.overallScore).toBeLessThanOrEqual(100);
+      expect(result.categories.contentExtractability).toBeDefined();
+      expect(
+        result.categories.contentExtractability.factors.find(
+          (f) => f.name === "Fetch Success",
+        )?.score,
+      ).toBe(0);
+    });
+  });
+
   describe("weights", () => {
     it("applies custom weights to overall score", async () => {
       const html = loadFixture("well-structured.html");

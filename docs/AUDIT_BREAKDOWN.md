@@ -628,15 +628,23 @@ The audits module is the largest and most important module. Here's how it's orga
 ```
 audits/
   schema.ts              CategoryResult, FactorResult, AuditResult, AuditRawData types
-  service.ts             runAudits() - calls all 7 audit functions
-  constants.ts           CATEGORY_DISPLAY_NAMES, CATEGORY_MAX_SCORE
+  service.ts             runAudits() orchestrator - imports and calls all 7 category audits
+  constants.ts           CATEGORY_DISPLAY_NAMES
+  categories/
+    content-extractability.ts   auditContentExtractability()
+    content-structure.ts        auditContentStructure()
+    answerability.ts            auditAnswerability()
+    entity-clarity.ts           auditEntityClarity()
+    grounding-signals.ts        auditGroundingSignals()
+    authority-context.ts        auditAuthorityContext()
+    readability.ts              auditReadabilityForCompression()
   support/
     patterns.ts          All regex patterns (definitions, citations, steps, etc.)
     scoring.ts           Scoring utilities (thresholdScore, makeFactor, etc.)
     language.ts          NLP helpers (compromise entities, Flesch, syllables, schema, entity)
 ```
 
-**`service.ts`** exports a single function `runAudits(page, fetchResult, domainSignals?)` that calls 7 private functions. Each returns a `CategoryAuditOutput` containing both its category result and its typed raw diagnostic data:
+**`service.ts`** exports a single function `runAudits(page, fetchResult, domainSignals?)` that imports and calls the 7 category audit functions. Each returns a `CategoryAuditOutput` containing both its category result and its typed raw diagnostic data:
 
 ```
 auditContentExtractability(page, fetchResult, domainSignals)
