@@ -40,16 +40,19 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function buildGaugeSvg(score: number, size: "big" | "small" = "big"): string {
+function buildGaugeSvg(
+  score: number,
+  size: "large" | "small" = "small",
+): string {
   const pct = Math.max(0, Math.min(100, score));
   const arcColor = scoreColorHex(pct);
   const textColor = scoreTextColorHex(pct);
   const radius = 56;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - pct / 100);
-  const dim = size === "big" ? 96 : 64;
-  const fontSize = size === "big" ? 38 : 22;
-  const strokeWidth = size === "big" ? 8 : 7;
+  const dim = size === "large" ? 120 : 64;
+  const fontSize = size === "large" ? 40 : 22;
+  const strokeWidth = size === "large" ? 8 : 7;
 
   return `<svg class="gauge" viewBox="0 0 120 120" width="${dim}" height="${dim}">
       <circle cx="60" cy="60" r="${radius}" fill="none" stroke="#e0e0e0" stroke-width="${strokeWidth}"/>
@@ -214,9 +217,6 @@ body {
 
 /* Topbar */
 .topbar {
-  position: sticky;
-  top: 0;
-  z-index: 100;
   display: flex;
   align-items: center;
   height: 40px;
@@ -232,7 +232,6 @@ body {
 }
 .topbar-url {
   color: var(--text-secondary);
-  text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -245,14 +244,14 @@ body {
   padding: 0 32px;
 }
 
-/* Score header */
-.scores-header {
+/* Category gauges row */
+.gauges-row {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   align-items: flex-start;
   gap: 12px;
-  padding: 28px 0;
+  padding: 24px 0;
   border-bottom: 1px solid var(--border);
 }
 .gauge-item {
@@ -279,25 +278,26 @@ body {
   line-height: 1.25;
 }
 
-/* Overall score callout */
+/* Overall score */
 .overall {
   display: flex;
   align-items: center;
   flex-direction: column;
-  padding: 10px 24px 8px;
-  width: 150px;
+  padding: 24px 0 20px;
+  border-bottom: 1px solid var(--border);
 }
-.overall .gauge { margin-bottom: 4px; }
+.overall .gauge { margin-bottom: 6px; }
 .overall-grade {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
 }
 .overall-grade.pass { color: var(--pass-text); }
 .overall-grade.average { color: var(--average-text); }
 .overall-grade.fail { color: var(--fail-text); }
 .overall-sub {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-secondary);
+  margin-top: 2px;
 }
 
 /* Score scale legend */
@@ -448,9 +448,8 @@ body {
 
 @media (max-width: 600px) {
   .report { padding: 0 16px; }
-  .scores-header { gap: 4px; }
+  .gauges-row { gap: 4px; }
   .gauge-item { width: 80px; padding: 8px 4px; }
-  .overall { width: 110px; }
   .audit-row { flex-wrap: wrap; }
   .audit-name { min-width: 140px; }
   .rec-row { flex-wrap: wrap; }
@@ -465,13 +464,14 @@ body {
 </div>
 
 <div class="report">
-  <div class="scores-header">
-    <div class="overall">
-      ${buildGaugeSvg(result.overallScore, "big")}
-      <span class="overall-grade ${scoreClass(result.overallScore)}">${escapeHtml(result.grade)}</span>
-      <span class="overall-sub">${result.totalPoints}/${result.maxPoints} pts</span>
-    </div>
+  <div class="gauges-row">
     ${gauges}
+  </div>
+
+  <div class="overall">
+    ${buildGaugeSvg(result.overallScore, "large")}
+    <span class="overall-grade ${scoreClass(result.overallScore)}">${escapeHtml(result.grade)}</span>
+    <span class="overall-sub">${result.totalPoints}/${result.maxPoints} pts</span>
   </div>
 
   <div class="score-scale">
