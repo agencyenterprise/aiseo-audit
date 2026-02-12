@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+const DEFAULT_WEIGHTS = {
+  contentExtractability: 1,
+  contentStructure: 1,
+  answerability: 1,
+  entityClarity: 1,
+  groundingSignals: 1,
+  authorityContext: 1,
+  readabilityForCompression: 1,
+} as const;
+
 export const CategoryWeightSchema = z
   .object({
     contentExtractability: z.number().min(0).default(1),
@@ -10,7 +20,7 @@ export const CategoryWeightSchema = z
     authorityContext: z.number().min(0).default(1),
     readabilityForCompression: z.number().min(0).default(1),
   })
-  .default({});
+  .default(DEFAULT_WEIGHTS);
 
 export const GeoJsonConfigSchema = z
   .object({
@@ -20,7 +30,12 @@ export const GeoJsonConfigSchema = z
     failUnder: z.number().min(0).max(100).optional(),
     weights: CategoryWeightSchema,
   })
-  .default({});
+  .default({
+    timeout: 45000,
+    userAgent: "GEOAudit/0.1.0",
+    format: "pretty" as const,
+    weights: DEFAULT_WEIGHTS,
+  });
 
 export type CategoryWeightType = z.infer<typeof CategoryWeightSchema>;
 export type GeoJsonConfigType = z.infer<typeof GeoJsonConfigSchema>;
