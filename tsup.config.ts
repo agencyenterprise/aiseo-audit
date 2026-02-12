@@ -13,7 +13,7 @@ export default defineConfig({
   splitting: false,
   sourcemap: true,
   clean: true,
-  target: "node18",
+  target: "node20",
   shims: true,
   define: {
     __PACKAGE_VERSION__: JSON.stringify(version),
