@@ -1,6 +1,6 @@
-import type { ErrorCode } from "./schema.js";
+import type { ErrorCodeType } from "./schema.js";
 
-export const ERROR_MESSAGES: Record<ErrorCode, string> = {
+export const ERROR_MESSAGES: Record<ErrorCodeType, string> = {
   FETCH_ERROR: "Failed to fetch the URL",
   TIMEOUT_ERROR: "Request timed out",
   PARSE_ERROR: "Failed to parse page content",

@@ -17,5 +17,5 @@ export const FetchResultSchema = z.object({
   redirected: z.boolean(),
 });
 
-export type FetchOptions = z.infer<typeof FetchOptionsSchema>;
-export type FetchResult = z.infer<typeof FetchResultSchema>;
+export type FetchOptionsType = z.infer<typeof FetchOptionsSchema>;
+export type FetchResultType = z.infer<typeof FetchResultSchema>;

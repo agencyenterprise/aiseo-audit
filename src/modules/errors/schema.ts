@@ -15,5 +15,5 @@ export const NormalizedErrorSchema = z.object({
   details: z.record(z.unknown()).optional(),
 });
 
-export type ErrorCode = z.infer<typeof ErrorCodeSchema>;
-export type NormalizedError = z.infer<typeof NormalizedErrorSchema>;
+export type ErrorCodeType = z.infer<typeof ErrorCodeSchema>;
+export type NormalizedErrorType = z.infer<typeof NormalizedErrorSchema>;

@@ -21,5 +21,5 @@ export const ScoreSummarySchema = z.object({
   maxPoints: z.number(),
 });
 
-export type Grade = z.infer<typeof GradeSchema>;
-export type ScoreSummary = z.infer<typeof ScoreSummarySchema>;
+export type GradeType = z.infer<typeof GradeSchema>;
+export type ScoreSummaryType = z.infer<typeof ScoreSummarySchema>;

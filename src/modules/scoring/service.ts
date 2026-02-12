@@ -1,12 +1,12 @@
 import type { CategoryResultType } from "../audits/schema.js";
-import type { CategoryWeight } from "../config/schema.js";
+import type { CategoryWeightType } from "../config/schema.js";
 import { GRADE_THRESHOLDS } from "./constants.js";
-import type { Grade, ScoreSummary } from "./schema.js";
+import type { GradeType, ScoreSummaryType } from "./schema.js";
 
 export function computeScore(
   categories: Record<string, CategoryResultType>,
-  weights: CategoryWeight,
-): ScoreSummary {
+  weights: CategoryWeightType,
+): ScoreSummaryType {
   const weightMap: Record<string, number> = {
     contentExtractability: weights.contentExtractability,
     contentStructure: weights.contentStructure,
@@ -39,7 +39,7 @@ export function computeScore(
   return { overallScore, grade, totalPoints, maxPoints };
 }
 
-function computeGrade(score: number): Grade {
+function computeGrade(score: number): GradeType {
   for (const [threshold, grade] of GRADE_THRESHOLDS) {
     if (score >= threshold) return grade;
   }

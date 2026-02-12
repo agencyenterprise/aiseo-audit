@@ -1,4 +1,4 @@
-# generative-engine-audit-cli
+# geoaudit
 
 Deterministic CLI that audits web pages for **generative engine readiness**. Think Lighthouse, but for how well LLMs and generative AI engines can fetch, extract, understand, and reuse your content.
 
@@ -7,13 +7,13 @@ Deterministic CLI that audits web pages for **generative engine readiness**. Thi
 ## Install
 
 ```bash
-npm install -g generative-engine-audit-cli
+npm install -g geoaudit
 ```
 
 Or use directly with npx:
 
 ```bash
-npx generative-engine-audit-cli https://example.com
+npx geoaudit https://example.com
 ```
 
 ## Usage
@@ -26,10 +26,15 @@ geoaudit https://example.com
 geoaudit https://example.com --json
 
 # Markdown output
-geoaudit https://example.com --format md
+geoaudit https://example.com --md
 
-# Write JSON to file
-geoaudit https://example.com --out report.json
+# HTML report (Lighthouse-style)
+geoaudit https://example.com --html
+
+# Write output to a file (uses the selected format)
+geoaudit https://example.com --html --out report.html
+geoaudit https://example.com --md --out report.md
+geoaudit https://example.com --json --out report.json
 
 # CI/CD: fail if score below threshold
 geoaudit https://example.com --fail-under 70
@@ -46,87 +51,67 @@ geoaudit https://example.com --config geo.json
 
 ## CLI Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `<url>` | URL to audit (required) | - |
-| `--json` | Output as JSON | `false` |
-| `--format <fmt>` | Output format: `pretty`, `json`, `md` | `pretty` |
-| `--out <path>` | Write JSON results to file | - |
-| `--fail-under <n>` | Exit code 1 if score < threshold | - |
-| `--timeout <ms>` | Request timeout in ms | `45000` |
-| `--user-agent <ua>` | Custom User-Agent string | `GEOAudit/0.1.0` |
-| `--config <path>` | Path to `geo.json` config file | - |
+| Option              | Description                           | Default          |
+| ------------------- | ------------------------------------- | ---------------- |
+| `<url>`             | URL to audit (required)               | -                |
+| `--json`            | Output as JSON                        | -                |
+| `--md`              | Output as Markdown                    | -                |
+| `--html`            | Output as HTML                        | -                |
+| `--out <path>`      | Write rendered output to a file       | -                |
+| `--fail-under <n>`  | Exit with code 1 if score < threshold | -                |
+| `--timeout <ms>`    | Request timeout in ms                 | `45000`          |
+| `--user-agent <ua>` | Custom User-Agent string              | `GEOAudit/0.1.0` |
+| `--config <path>`   | Path to config file                   | -                |
+
+If no output flag is given, the default is `pretty` (color-coded terminal output). The default format can also be set in the config file.
+
+## User Agent
+
+By default, all HTTP requests (page fetch, `robots.txt`, `llms.txt`) are sent with the header `User-Agent: GEOAudit/0.1.0`. This is intentional. If a site blocks unknown bots, that is a meaningful negative signal for generative engine readiness, and the audit should surface it as a failing "Fetch Success" score.
+
+The `--user-agent` flag exists as an escape hatch for cases where you want to bypass bot detection and test the content independently of access policy. It does not change the audit logic, only what the server sees in the request header.
 
 ## Audit Categories
 
 The audit evaluates 7 categories of generative engine readiness:
 
-| Category | What It Measures |
-|----------|-----------------|
-| **Content Extractability** | Can generative engines successfully fetch and extract meaningful text from the page? |
-| **Content Structure for Reuse** | Is the content organized with headings, lists, and tables that engines can segment? |
-| **Answerability** | Does the content provide clear definitions, direct answers, and step-by-step patterns? |
-| **Entity Clarity** | Are named entities (people, orgs, places) clearly present and consistent with the topic? |
-| **Grounding Signals** | Does the content cite external sources, include statistics, and attribute claims? |
-| **Authority Context** | Is there author attribution, organization identity, publish dates, and structured data? |
+| Category                        | What It Measures                                                                         |
+| ------------------------------- | ---------------------------------------------------------------------------------------- |
+| **Content Extractability**      | Can generative engines successfully fetch and extract meaningful text from the page?     |
+| **Content Structure for Reuse** | Is the content organized with headings, lists, and tables that engines can segment?      |
+| **Answerability**               | Does the content provide clear definitions, direct answers, and step-by-step patterns?   |
+| **Entity Clarity**              | Are named entities (people, orgs, places) clearly present and consistent with the topic? |
+| **Grounding Signals**           | Does the content cite external sources, include statistics, and attribute claims?        |
+| **Authority Context**           | Is there author attribution, organization identity, publish dates, and structured data?  |
 | **Readability for Compression** | Is the content written at a readability level that compresses well for AI summarization? |
 
-## Output Schema (JSON)
+## Output Formats
 
-```json
-{
-  "url": "https://example.com",
-  "analyzedAt": "2026-01-01T00:00:00.000Z",
-  "overallScore": 72,
-  "grade": "B-",
-  "totalPoints": 302,
-  "maxPoints": 420,
-  "categories": {
-    "contentExtractability": {
-      "name": "Content Extractability",
-      "key": "contentExtractability",
-      "score": 50,
-      "maxScore": 60,
-      "factors": [
-        {
-          "name": "Fetch Success",
-          "score": 15,
-          "maxScore": 15,
-          "value": "HTTP 200 in 120ms",
-          "status": "good"
-        }
-      ]
-    }
-  },
-  "recommendations": [
-    {
-      "category": "Authority Context",
-      "factor": "Author Attribution",
-      "currentValue": "Not found",
-      "priority": "high",
-      "recommendation": "Add visible author information..."
-    }
-  ],
-  "rawData": {
-    "title": "Example Page",
-    "wordCount": 1200,
-    "entities": {
-      "people": [],
-      "organizations": [],
-      "places": [],
-      "topics": ["example"]
-    }
-  },
-  "meta": {
-    "version": "0.1.0",
-    "analysisDurationMs": 450
-  }
-}
-```
+### Pretty (default)
 
-## Config File (`geo.json`)
+Color-coded terminal output with scores, factor breakdowns, and top recommendations. Best for quick checks during development.
 
-Create a `geo.json` in your project root to customize behavior:
+### JSON
+
+Full structured output with all scores, factor details, raw data, and recommendations. Best for integrations, CI/CD pipelines, and programmatic consumption.
+
+### Markdown
+
+Structured report with category tables, factor details, and recommendations grouped by category. Best for documentation, PRs, and sharing.
+
+### HTML
+
+Self-contained single-file report with SVG score gauges, color-coded sections, and recommendations grouped by category. Best for stakeholder reports and visual review.
+
+## Config File
+
+Create a config file in your project root to customize behavior. The CLI automatically discovers your config by searching from the current directory up to the filesystem root, looking for (in order):
+
+- `geo.json`
+- `.geo.json`
+- `geo.config.json`
+
+You can also pass an explicit path with `--config path/to/config.json`.
 
 ```json
 {
@@ -146,43 +131,62 @@ Create a `geo.json` in your project root to customize behavior:
 }
 ```
 
-Weights are relative - set a category to `2` to double its importance, or `0` to exclude it.
+Weights are relative. Set a category to `2` to double its importance, or `0` to exclude it.
 
 ## Programmatic API
 
 ```typescript
-import { analyzeUrl, loadConfig, renderReport } from 'generative-engine-audit-cli';
+import { analyzeUrl, loadConfig, renderReport } from "geoaudit";
 
 const config = await loadConfig();
 const result = await analyzeUrl(
-  { url: 'https://example.com', timeout: 45000, userAgent: 'MyApp/1.0' },
-  config
+  { url: "https://example.com", timeout: 45000, userAgent: "MyApp/1.0" },
+  config,
 );
 
 console.log(result.overallScore); // 72
-console.log(result.grade);       // "B-"
+console.log(result.grade); // "B-"
 
-// Render as markdown
-const md = renderReport(result, { format: 'md' });
+// Render in any format
+const html = renderReport(result, { format: "html" });
+const md = renderReport(result, { format: "md" });
+const json = renderReport(result, { format: "json" });
+```
+
+### Exported Types
+
+```typescript
+import type {
+  AnalyzerResultType,
+  AnalyzerOptionsType,
+  AuditResultType,
+  CategoryNameType,
+  CategoryResultType,
+  FactorResultType,
+  RecommendationType,
+  ReportFormatType,
+  GeoJsonConfigType,
+} from "geoaudit";
 ```
 
 ## Philosophy
 
-This tool measures **generative reusability** - how well a page's content can be fetched, extracted, understood, and reused by generative AI engines like ChatGPT, Claude, Perplexity, and Gemini.
+This tool measures **generative reusability**: how well a page's content can be fetched, extracted, understood, and reused by generative AI engines like ChatGPT, Claude, Perplexity, and Gemini.
 
 It is:
-- **Deterministic** - No AI API calls. Same URL produces the same score.
-- **Engine-agnostic** - Not optimized for any specific AI platform.
-- **Content-focused** - Analyzes what's on the page, not external signals.
-- **Lightweight** - Fast CLI with minimal dependencies.
+
+- **Deterministic**: No AI API calls. Same URL produces the same score.
+- **Engine-agnostic**: Not optimized for any specific AI platform.
+- **Content-focused**: Analyzes what's on the page, not external signals.
+- **Lightweight**: Fast CLI with minimal dependencies.
 
 ## Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| `0` | Success |
-| `1` | Score below `--fail-under` threshold |
-| `2` | Runtime error (fetch failed, invalid URL, etc.) |
+| Code | Meaning                                         |
+| ---- | ----------------------------------------------- |
+| `0`  | Success                                         |
+| `1`  | Score below `--fail-under` threshold            |
+| `2`  | Runtime error (fetch failed, invalid URL, etc.) |
 
 ## License
 

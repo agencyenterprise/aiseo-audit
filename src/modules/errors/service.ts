@@ -1,9 +1,9 @@
 import { AxiosError } from "axios";
 import { ZodError } from "zod";
 import { ERROR_MESSAGES } from "./constants.js";
-import type { NormalizedError } from "./schema.js";
+import type { NormalizedErrorType } from "./schema.js";
 
-export function normalizeError(error: unknown): NormalizedError {
+export function normalizeError(error: unknown): NormalizedErrorType {
   if (error instanceof AxiosError) {
     if (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT") {
       return {

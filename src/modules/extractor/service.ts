@@ -1,11 +1,11 @@
 import * as cheerio from "cheerio";
 import { countSentences, countWords } from "../../utils/strings.js";
 import { getDomain } from "../../utils/url.js";
-import type { ExtractedPage, PageStats } from "./schema.js";
+import type { ExtractedPageType, PageStatsType } from "./schema.js";
 import { removeBoilerplate } from "./support/boilerplate.js";
 import { extractCleanText } from "./support/text.js";
 
-export function extractPage(html: string, url: string): ExtractedPage {
+export function extractPage(html: string, url: string): ExtractedPageType {
   const $ = cheerio.load(html);
 
   const title =
@@ -63,7 +63,7 @@ export function extractPage(html: string, url: string): ExtractedPage {
       ? Math.max(0, Math.min(1, 1 - cleanTextLength / rawText.length))
       : 0;
 
-  const stats: PageStats = {
+  const stats: PageStatsType = {
     wordCount: countWords(cleanText),
     sentenceCount: countSentences(cleanText),
     paragraphCount,

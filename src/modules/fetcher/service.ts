@@ -2,11 +2,13 @@ import axios from "axios";
 import { DEFAULT_HEADERS, MAX_RESPONSE_SIZE } from "./constants.js";
 import {
   FetchOptionsSchema,
-  type FetchOptions,
-  type FetchResult,
+  type FetchOptionsType,
+  type FetchResultType,
 } from "./schema.js";
 
-export async function fetchUrl(options: FetchOptions): Promise<FetchResult> {
+export async function fetchUrl(
+  options: FetchOptionsType,
+): Promise<FetchResultType> {
   const opts = FetchOptionsSchema.parse(options);
   const start = Date.now();
 

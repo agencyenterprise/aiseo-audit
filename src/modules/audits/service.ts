@@ -1,7 +1,7 @@
 import { countWords } from "../../utils/strings.js";
 import { getDomain } from "../../utils/url.js";
-import type { ExtractedPage } from "../extractor/schema.js";
-import type { FetchResult } from "../fetcher/schema.js";
+import type { ExtractedPageType } from "../extractor/schema.js";
+import type { FetchResultType } from "../fetcher/schema.js";
 import { CATEGORY_DISPLAY_NAMES } from "./constants.js";
 import type {
   AuditResultType,
@@ -47,8 +47,8 @@ import {
 } from "./support/scoring.js";
 
 export function runAudits(
-  page: ExtractedPage,
-  fetchResult: FetchResult,
+  page: ExtractedPageType,
+  fetchResult: FetchResultType,
   domainSignals?: DomainSignalsType,
 ): AuditResultType {
   const extractability = auditContentExtractability(
@@ -89,8 +89,8 @@ export function runAudits(
 }
 
 function auditContentExtractability(
-  page: ExtractedPage,
-  fetchResult: FetchResult,
+  page: ExtractedPageType,
+  fetchResult: FetchResultType,
   domainSignals?: DomainSignalsType,
 ): CategoryAuditOutput {
   const factors: FactorResultType[] = [];
@@ -233,7 +233,7 @@ function auditContentExtractability(
   };
 }
 
-function auditContentStructure(page: ExtractedPage): CategoryAuditOutput {
+function auditContentStructure(page: ExtractedPageType): CategoryAuditOutput {
   const $ = page.$;
   const factors: FactorResultType[] = [];
 
@@ -354,7 +354,7 @@ function auditContentStructure(page: ExtractedPage): CategoryAuditOutput {
   };
 }
 
-function auditAnswerability(page: ExtractedPage): CategoryAuditOutput {
+function auditAnswerability(page: ExtractedPageType): CategoryAuditOutput {
   const text = page.cleanText;
   const $ = page.$;
   const factors: FactorResultType[] = [];
@@ -480,7 +480,7 @@ function auditAnswerability(page: ExtractedPage): CategoryAuditOutput {
   };
 }
 
-function auditEntityClarity(page: ExtractedPage): CategoryAuditOutput {
+function auditEntityClarity(page: ExtractedPageType): CategoryAuditOutput {
   const text = page.cleanText;
   const factors: FactorResultType[] = [];
 
@@ -572,7 +572,7 @@ function auditEntityClarity(page: ExtractedPage): CategoryAuditOutput {
   };
 }
 
-function auditGroundingSignals(page: ExtractedPage): CategoryAuditOutput {
+function auditGroundingSignals(page: ExtractedPageType): CategoryAuditOutput {
   const $ = page.$;
   const text = page.cleanText;
   const factors: FactorResultType[] = [];
@@ -696,7 +696,7 @@ function auditGroundingSignals(page: ExtractedPage): CategoryAuditOutput {
   };
 }
 
-function auditAuthorityContext(page: ExtractedPage): CategoryAuditOutput {
+function auditAuthorityContext(page: ExtractedPageType): CategoryAuditOutput {
   const $ = page.$;
   const factors: FactorResultType[] = [];
   const rawData: CategoryAuditOutput["rawData"] = {};
@@ -882,7 +882,7 @@ function auditAuthorityContext(page: ExtractedPage): CategoryAuditOutput {
 }
 
 function auditReadabilityForCompression(
-  page: ExtractedPage,
+  page: ExtractedPageType,
 ): CategoryAuditOutput {
   const text = page.cleanText;
   const factors: FactorResultType[] = [];

@@ -6,5 +6,5 @@ export const RenderOptionsSchema = z.object({
   format: ReportFormatSchema.default("pretty"),
 });
 
-export type ReportFormat = z.infer<typeof ReportFormatSchema>;
-export type RenderOptions = z.infer<typeof RenderOptionsSchema>;
+export type ReportFormatType = z.infer<typeof ReportFormatSchema>;
+export type RenderOptionsType = z.infer<typeof RenderOptionsSchema>;

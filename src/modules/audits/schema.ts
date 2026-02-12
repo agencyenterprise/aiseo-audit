@@ -22,7 +22,6 @@ export const DomainSignalsSchema = z.object({
   llmsTxtExists: z.boolean(),
   llmsFullTxtExists: z.boolean(),
 });
-export type DomainSignalsType = z.infer<typeof DomainSignalsSchema>;
 
 export const FactorResultSchema = z.object({
   name: z.string(),
@@ -45,14 +44,12 @@ export const CrawlerAccessResultSchema = z.object({
   blocked: z.array(z.string()),
   unknown: z.array(z.string()),
 });
-export type CrawlerAccessResultType = z.infer<typeof CrawlerAccessResultSchema>;
 
 export const SectionLengthResultSchema = z.object({
   sectionCount: z.number(),
   avgWordsPerSection: z.number(),
   sections: z.array(z.number()),
 });
-export type SectionLengthResultType = z.infer<typeof SectionLengthResultSchema>;
 
 export const ExtractedEntitiesSchema = z.object({
   people: z.array(z.string()),
@@ -60,7 +57,6 @@ export const ExtractedEntitiesSchema = z.object({
   places: z.array(z.string()),
   topics: z.array(z.string()),
 });
-export type ExtractedEntitiesType = z.infer<typeof ExtractedEntitiesSchema>;
 
 export const FreshnessResultSchema = z.object({
   publishDate: z.string().nullable(),
@@ -68,7 +64,6 @@ export const FreshnessResultSchema = z.object({
   ageInMonths: z.number().nullable(),
   hasModifiedDate: z.boolean(),
 });
-export type FreshnessResultType = z.infer<typeof FreshnessResultSchema>;
 
 export const AuditRawDataSchema = z.object({
   title: z.string(),
@@ -125,8 +120,6 @@ export const AuditRawDataSchema = z.object({
     .optional(),
 });
 
-export type AuditRawDataType = z.infer<typeof AuditRawDataSchema>;
-
 export interface CategoryAuditOutput {
   category: CategoryResultType;
   rawData: Partial<AuditRawDataType>;
@@ -137,8 +130,14 @@ export const AuditResultSchema = z.object({
   rawData: AuditRawDataSchema,
 });
 
-export type CategoryNameType = z.infer<typeof CategoryNameSchema>;
-export type FactorStatusType = z.infer<typeof FactorStatusSchema>;
-export type FactorResultType = z.infer<typeof FactorResultSchema>;
-export type CategoryResultType = z.infer<typeof CategoryResultSchema>;
+export type AuditRawDataType = z.infer<typeof AuditRawDataSchema>;
 export type AuditResultType = z.infer<typeof AuditResultSchema>;
+export type CategoryNameType = z.infer<typeof CategoryNameSchema>;
+export type CategoryResultType = z.infer<typeof CategoryResultSchema>;
+export type CrawlerAccessResultType = z.infer<typeof CrawlerAccessResultSchema>;
+export type DomainSignalsType = z.infer<typeof DomainSignalsSchema>;
+export type ExtractedEntitiesType = z.infer<typeof ExtractedEntitiesSchema>;
+export type FactorResultType = z.infer<typeof FactorResultSchema>;
+export type FactorStatusType = z.infer<typeof FactorStatusSchema>;
+export type FreshnessResultType = z.infer<typeof FreshnessResultSchema>;
+export type SectionLengthResultType = z.infer<typeof SectionLengthResultSchema>;

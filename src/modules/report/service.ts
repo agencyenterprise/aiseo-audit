@@ -1,5 +1,5 @@
 import type { AnalyzerResultType } from "../analyzer/schema.js";
-import type { RenderOptions } from "./schema.js";
+import type { RenderOptionsType } from "./schema.js";
 import { renderHtml } from "./support/html.js";
 import { renderJson } from "./support/json.js";
 import { renderMarkdown } from "./support/markdown.js";
@@ -7,7 +7,7 @@ import { renderPretty } from "./support/pretty.js";
 
 export function renderReport(
   result: AnalyzerResultType,
-  options: RenderOptions,
+  options: RenderOptionsType,
 ): string {
   switch (options.format) {
     case "json":

@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { analyzeUrl } from "./modules/analyzer/service.js";
 import { loadConfig } from "./modules/config/service.js";
-import type { ReportFormat } from "./modules/report/schema.js";
+import type { ReportFormatType } from "./modules/report/schema.js";
 import { renderReport } from "./modules/report/service.js";
 import { writeOutputFile } from "./utils/fs.js";
 import { isValidUrl, normalizeUrl } from "./utils/url.js";
@@ -13,13 +13,9 @@ program
   .description("Audit web pages for generative engine readiness")
   .version("0.1.0")
   .argument("<url>", "URL to audit")
-  .option("--json", "Output as JSON (shorthand for --format json)")
-  .option("--html", "Output as HTML (shorthand for --format html)")
-  .option(
-    "--format <format>",
-    "Output format: pretty, json, md, html",
-    "pretty",
-  )
+  .option("--json", "Output as JSON")
+  .option("--md", "Output as Markdown")
+  .option("--html", "Output as HTML")
   .option("--out <path>", "Write rendered output to a file")
   .option(
     "--fail-under <score>",
@@ -34,8 +30,8 @@ program
       url: string,
       opts: {
         json?: boolean;
+        md?: boolean;
         html?: boolean;
-        format?: string;
         out?: string;
         failUnder?: number;
         timeout?: number;
@@ -53,11 +49,13 @@ program
         const config = await loadConfig(opts.config);
 
         // 2. Merge CLI options over config
-        const format: ReportFormat = opts.json
+        const format: ReportFormatType = opts.json
           ? "json"
-          : opts.html
-            ? "html"
-            : (opts.format as ReportFormat) || config.format;
+          : opts.md
+            ? "md"
+            : opts.html
+              ? "html"
+              : config.format;
 
         const timeout = opts.timeout ?? config.timeout;
         const userAgent = opts.userAgent ?? config.userAgent;

@@ -30,9 +30,9 @@ export const ExtractedPageDataSchema = z.object({
   stats: PageStatsSchema,
 });
 
-export type PageStats = z.infer<typeof PageStatsSchema>;
-export type ExtractedPageData = z.infer<typeof ExtractedPageDataSchema>;
+export type PageStatsType = z.infer<typeof PageStatsSchema>;
+export type ExtractedPageDataType = z.infer<typeof ExtractedPageDataSchema>;
 
-export interface ExtractedPage extends ExtractedPageData {
+export interface ExtractedPageType extends ExtractedPageDataType {
   $: CheerioAPI;
 }

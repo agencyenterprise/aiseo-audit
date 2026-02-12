@@ -15,9 +15,18 @@ export type {
   DomainSignalsType,
   FactorResultType,
 } from "./modules/audits/schema.js";
-export type { CategoryWeight, GeoJsonConfig } from "./modules/config/schema.js";
-export type { ExtractedPage, PageStats } from "./modules/extractor/schema.js";
-export type { FetchResult } from "./modules/fetcher/schema.js";
+export type {
+  CategoryWeightType,
+  GeoJsonConfigType,
+} from "./modules/config/schema.js";
+export type {
+  ExtractedPageType,
+  PageStatsType,
+} from "./modules/extractor/schema.js";
+export type { FetchResultType } from "./modules/fetcher/schema.js";
 export type { RecommendationType } from "./modules/recommendations/schema.js";
-export type { RenderOptions, ReportFormat } from "./modules/report/schema.js";
-export type { Grade, ScoreSummary } from "./modules/scoring/schema.js";
+export type {
+  RenderOptionsType,
+  ReportFormatType,
+} from "./modules/report/schema.js";
+export type { GradeType, ScoreSummaryType } from "./modules/scoring/schema.js";
