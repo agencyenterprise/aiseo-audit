@@ -1,6 +1,6 @@
 {
   "name": "geoaudit",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "description": "Lighthouse for AI. Audit any webpage for generative engine readiness. 7 categories, 30+ factors, research-backed scoring. Deterministic, engine-agnostic, zero API keys.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
