@@ -1,10 +1,8 @@
 import type { ExtractedPageType } from "../../extractor/schema.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
 import type { CategoryAuditOutput, FactorResultType } from "../schema.js";
-import {
-  countPatternMatches,
-  detectAnswerCapsules,
-} from "../support/language.js";
+import { detectAnswerCapsules } from "../support/dom.js";
+import { countPatternMatches } from "../support/nlp.js";
 import {
   DEFINITION_PATTERNS,
   DIRECT_ANSWER_PATTERNS,
@@ -101,9 +99,9 @@ export function auditAnswerability(
     ),
   );
 
-  const questions = (text.match(/[^.!?]*\?/g) || []).length;
+  const questionMatches = text.match(/[^.!?]*\?/g) || [];
   const queryMatches = countPatternMatches(text, QUESTION_PATTERNS);
-  const qaScore = thresholdScore(questions + queryMatches, [
+  const qaScore = thresholdScore(questionMatches.length + queryMatches, [
     [10, 11],
     [5, 8],
     [2, 5],
@@ -115,7 +113,7 @@ export function auditAnswerability(
       "Q/A Patterns",
       qaScore,
       11,
-      `${questions} questions, ${queryMatches} query patterns`,
+      `${questionMatches.length} questions, ${queryMatches} query patterns`,
     ),
   );
 
@@ -142,7 +140,7 @@ export function auditAnswerability(
     },
     rawData: {
       answerCapsules: capsules,
-      questionsFound: (text.match(/[^.!?]*\?/g) || []).slice(0, 5),
+      questionsFound: questionMatches.slice(0, 5),
     },
   };
 }

@@ -35,7 +35,6 @@ export function renderPretty(result: AnalyzerResultType): string {
   lines.push(divider);
   lines.push("");
 
-  // Overall score
   const sc = scoreColor(result.overallScore, 100);
   const gc = gradeColor(result.grade);
   lines.push(
@@ -45,7 +44,6 @@ export function renderPretty(result: AnalyzerResultType): string {
   lines.push("");
   lines.push(thinDivider);
 
-  // Categories
   for (const category of Object.values(result.categories)) {
     const catColor = scoreColor(category.score, category.maxScore);
     const catPct =
@@ -74,7 +72,6 @@ export function renderPretty(result: AnalyzerResultType): string {
   lines.push("");
   lines.push(thinDivider);
 
-  // Recommendations
   if (result.recommendations.length > 0) {
     lines.push("");
     lines.push(chalk.bold("  Recommendations:"));

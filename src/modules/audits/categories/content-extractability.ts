@@ -6,7 +6,7 @@ import type {
   DomainSignalsType,
   FactorResultType,
 } from "../schema.js";
-import { checkCrawlerAccess } from "../support/language.js";
+import { checkCrawlerAccess } from "../support/robots.js";
 import {
   makeFactor,
   maxFactors,

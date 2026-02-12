@@ -18,9 +18,8 @@ export async function fetchUrl(
   });
 
   const fetchTimeMs = Date.now() - start;
-  const html =
-    typeof response.data === "string" ? response.data : String(response.data);
-  const finalUrl = response.request?.res?.responseUrl || opts.url;
+  const html = response.data;
+  const finalUrl = response.finalUrl || opts.url;
   const contentType = response.headers["content-type"] || "unknown";
 
   return {

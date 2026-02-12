@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   avgSentenceLength,
-  checkCrawlerAccess,
   computeFleschReadingEase,
   countComplexWords,
   countPatternMatches,
   countTransitionWords,
-  evaluateSchemaCompleteness,
   extractEntities,
-} from "../../../../src/modules/audits/support/language.js";
+} from "../../../../src/modules/audits/support/nlp.js";
 import { DEFINITION_PATTERNS } from "../../../../src/modules/audits/support/patterns.js";
+import { checkCrawlerAccess } from "../../../../src/modules/audits/support/robots.js";
+import { evaluateSchemaCompleteness } from "../../../../src/modules/audits/support/schema-analysis.js";
 
 describe("extractEntities", () => {
   it("extracts people from text", () => {

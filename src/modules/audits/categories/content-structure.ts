@@ -1,7 +1,7 @@
 import type { ExtractedPageType } from "../../extractor/schema.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
 import type { CategoryAuditOutput, FactorResultType } from "../schema.js";
-import { measureSectionLengths } from "../support/language.js";
+import { measureSectionLengths } from "../support/dom.js";
 import {
   makeFactor,
   maxFactors,

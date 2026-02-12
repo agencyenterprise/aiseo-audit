@@ -29,6 +29,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "lint": "tsc --noEmit",
+    "format:check": "prettier --check .",
+    "ci": "npm run format:check && npm run lint && npm run test:coverage && npm run build",
     "prepublishOnly": "npm run build"
   },
   "repository": {
@@ -42,7 +44,8 @@
   "author": "Agency Enterprise",
   "license": "MIT",
   "engines": {
-    "node": ">=20"
+    "node": ">=20",
+    "npm": ">=10"
   },
   "keywords": [
     "geo",
@@ -72,7 +75,6 @@
     "web-audit"
   ],
   "dependencies": {
-    "axios": "^1.13.5",
     "chalk": "^5.6.2",
     "cheerio": "^1.2.0",
     "commander": "^14.0.3",
@@ -82,6 +84,7 @@
   "devDependencies": {
     "@types/node": "^25.2.3",
     "@vitest/coverage-v8": "^4.0.18",
+    "prettier": "^3.8.1",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"

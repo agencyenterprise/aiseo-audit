@@ -8,7 +8,6 @@ export function renderMarkdown(result: AnalyzerResultType): string {
   lines.push(`**URL:** ${result.url}`);
   lines.push("");
 
-  // Category scores
   lines.push("| Category | Score | Percentage |");
   lines.push("|----------|-------|------------|");
 
@@ -24,13 +23,11 @@ export function renderMarkdown(result: AnalyzerResultType): string {
 
   lines.push("");
 
-  // Overall score
   lines.push(
     `## Overall: ${result.overallScore}/100 (${result.grade}) - ${result.totalPoints}/${result.maxPoints} pts`,
   );
   lines.push("");
 
-  // Category detail sections
   for (const category of Object.values(result.categories)) {
     const pct =
       category.maxScore > 0
@@ -58,7 +55,6 @@ export function renderMarkdown(result: AnalyzerResultType): string {
     lines.push("");
   }
 
-  // Recommendations grouped by category
   if (result.recommendations.length > 0) {
     lines.push("## Recommendations");
     lines.push("");

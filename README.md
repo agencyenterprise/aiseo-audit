@@ -201,6 +201,10 @@ It is:
 const config = await loadConfig("/path/to/geo.json");
 ```
 
+## Releases
+
+Release notes are published on the [GitHub Releases](https://github.com/agencyenterprise/geoaudit/releases) page. A separate `CHANGELOG.md` is not maintained.
+
 ## License
 
 MIT

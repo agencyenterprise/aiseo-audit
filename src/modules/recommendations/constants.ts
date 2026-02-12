@@ -1,5 +1,4 @@
 export const RECOMMENDATION_MAP: Record<string, string> = {
-  // Content Extractability
   "Fetch Success":
     "Ensure the page returns HTTP 200 without excessive redirect chains. Generative engines cannot extract content from pages that fail to load.",
   "Text Extraction Quality":
@@ -15,7 +14,6 @@ export const RECOMMENDATION_MAP: Record<string, string> = {
   "Image Accessibility":
     "Add descriptive alt text to all images and use <figure> with <figcaption> for semantic image context. Multimodal AI models use this metadata to understand and reference visual content. Avoid generic alt text like filenames.",
 
-  // Content Structure for Reuse
   "Heading Hierarchy":
     "Use a clear H1 > H2 > H3 heading hierarchy. Headings serve as structural anchors that generative engines use to segment and reuse content.",
   "Lists Presence":
@@ -29,7 +27,6 @@ export const RECOMMENDATION_MAP: Record<string, string> = {
   "Section Length":
     "Aim for 120-180 words between headings. Pages with this section length receive 70% more AI citations. Each headed section should be a complete, self-contained unit of information that a generative engine could extract and reuse.",
 
-  // Answerability
   "Definition Patterns":
     'Define key terms and concepts clearly (e.g., "X is defined as..." or "X refers to..."). Clear definitions are directly reusable by generative engines.',
   "Direct Answer Statements":
@@ -43,7 +40,6 @@ export const RECOMMENDATION_MAP: Record<string, string> = {
   "Summary/Conclusion":
     "Add a conclusion section with key takeaways or a summary. This helps generative engines quickly extract the main points.",
 
-  // Entity Clarity
   "Entity Richness":
     "Reference relevant experts, organizations, and places in your field. Named entities help generative engines understand context.",
   "Topic Consistency":
@@ -51,7 +47,6 @@ export const RECOMMENDATION_MAP: Record<string, string> = {
   "Entity Density":
     "Ensure a balanced density of named entities (2-8 per 100 words). Too few makes content vague; too many makes it hard to parse.",
 
-  // Grounding Signals
   "External References":
     "Cite reputable external sources to ground your claims. Generative engines use these to verify and attribute information.",
   "Citation Patterns":
@@ -63,7 +58,6 @@ export const RECOMMENDATION_MAP: Record<string, string> = {
   "Quoted Attribution":
     'Add expert quotes with clear attribution. Use patterns like "Quote text" - Expert Name or "Quote text," said Expert Name. The Princeton GEO study found quotation addition increased generative visibility by 30-40%.',
 
-  // Authority Context
   "Author Attribution":
     "Add visible author information with a byline to establish who created the content.",
   "Organization Identity":
@@ -81,7 +75,6 @@ export const RECOMMENDATION_MAP: Record<string, string> = {
   "Entity Consistency":
     "Ensure your brand or organization name appears consistently across the page title, OG tags, JSON-LD schema, and footer. Consistent entity signals help LLMs confidently attribute content to your brand.",
 
-  // Readability for Compression
   "Sentence Length":
     "Aim for an average sentence length of 12-22 words for optimal readability and compressibility.",
   Readability:

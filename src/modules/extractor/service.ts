@@ -1,7 +1,11 @@
 import * as cheerio from "cheerio";
 import { countSentences, countWords } from "../../utils/strings.js";
 import { getDomain } from "../../utils/url.js";
-import type { ExtractedPageType, PageStatsType } from "./schema.js";
+import type {
+  ExternalLinkType,
+  ExtractedPageType,
+  PageStatsType,
+} from "./schema.js";
 import { removeBoilerplate } from "./support/boilerplate.js";
 import { extractCleanText } from "./support/text.js";
 
@@ -21,7 +25,6 @@ export function extractPage(html: string, url: string): ExtractedPageType {
   const rawText = $("body").text().replace(/\s+/g, " ").trim();
   const rawByteLength = Buffer.byteLength(html, "utf-8");
 
-  // Count stats before boilerplate removal
   const h1Count = $("h1").length;
   const h2Count = $("h2").length;
   const h3Count = $("h3").length;
@@ -33,26 +36,28 @@ export function extractPage(html: string, url: string): ExtractedPageType {
   const tableCount = $("table").length;
   const paragraphCount = $("p").length;
 
-  // Count images with alt
   let imagesWithAlt = 0;
   $("img").each((_, el) => {
     if ($(el).attr("alt")) imagesWithAlt++;
   });
 
-  // Count external links
   const pageDomain = getDomain(url);
-  let externalLinkCount = 0;
+  const externalLinks: ExternalLinkType[] = [];
   $('a[href^="http"]').each((_, el) => {
     const href = $(el).attr("href");
     if (href) {
       try {
-        const linkDomain = getDomain(href);
-        if (linkDomain !== pageDomain) externalLinkCount++;
+        if (getDomain(href) !== pageDomain) {
+          externalLinks.push({
+            url: href,
+            text: $(el).text().trim().substring(0, 50),
+          });
+        }
       } catch {}
     }
   });
+  const externalLinkCount = externalLinks.length;
 
-  // Remove boilerplate for clean text
   const $clean = cheerio.load(html);
   removeBoilerplate($clean);
   const cleanText = extractCleanText($clean);
@@ -91,5 +96,6 @@ export function extractPage(html: string, url: string): ExtractedPageType {
     metaDescription,
     stats,
     $,
+    externalLinks,
   };
 }

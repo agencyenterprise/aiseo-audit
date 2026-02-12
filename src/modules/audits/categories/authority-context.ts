@@ -1,14 +1,14 @@
 import type { ExtractedPageType } from "../../extractor/schema.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
 import type { CategoryAuditOutput, FactorResultType } from "../schema.js";
+import { parseJsonLdObjects } from "../support/dom.js";
 import {
-  evaluateFreshness,
-  evaluateSchemaCompleteness,
   measureEntityConsistency,
-  parseJsonLdObjects,
   resolveEntityName,
-} from "../support/language.js";
+} from "../support/entity.js";
+import { evaluateFreshness } from "../support/freshness.js";
 import { AUTHOR_SELECTORS, DATE_SELECTORS } from "../support/patterns.js";
+import { evaluateSchemaCompleteness } from "../support/schema-analysis.js";
 import { makeFactor, maxFactors, sumFactors } from "../support/scoring.js";
 
 export function auditAuthorityContext(
@@ -166,7 +166,7 @@ export function auditAuthorityContext(
 
   rawData.schemaCompleteness = completeness;
 
-  const entityName = resolveEntityName(page.$, page.html);
+  const entityName = resolveEntityName(page.$);
   const consistency = measureEntityConsistency(page.$, page.title, entityName);
   factors.push(
     makeFactor(

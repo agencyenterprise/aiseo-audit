@@ -30,7 +30,6 @@ export function generateRecommendations(
     }
   }
 
-  // Sort by priority (high first), then by factor name for determinism
   const priorityOrder = { high: 0, medium: 1, low: 2 };
   recommendations.sort((a, b) => {
     const pd = priorityOrder[a.priority] - priorityOrder[b.priority];

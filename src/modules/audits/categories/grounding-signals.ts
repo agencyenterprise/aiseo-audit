@@ -1,8 +1,7 @@
-import { getDomain } from "../../../utils/url.js";
 import type { ExtractedPageType } from "../../extractor/schema.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
 import type { CategoryAuditOutput, FactorResultType } from "../schema.js";
-import { countPatternMatches } from "../support/language.js";
+import { countPatternMatches } from "../support/nlp.js";
 import {
   ATTRIBUTION_PATTERNS,
   CITATION_PATTERNS,
@@ -23,21 +22,7 @@ export function auditGroundingSignals(
   const text = page.cleanText;
   const factors: FactorResultType[] = [];
 
-  const externalLinks: Array<{ url: string; text: string }> = [];
-  const pageDomain = getDomain(page.url);
-  $('a[href^="http"]').each((_, el) => {
-    const href = $(el).attr("href");
-    if (href) {
-      try {
-        if (getDomain(href) !== pageDomain) {
-          externalLinks.push({
-            url: href,
-            text: $(el).text().trim().substring(0, 50),
-          });
-        }
-      } catch {}
-    }
-  });
+  const externalLinks = page.externalLinks;
 
   const extScore = thresholdScore(externalLinks.length, [
     [6, 13],

@@ -1,4 +1,3 @@
-import axios from "axios";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
@@ -12,15 +11,28 @@ import {
 } from "vitest";
 import { analyzeUrl } from "../../src/modules/analyzer/service.js";
 import { loadConfig } from "../../src/modules/config/service.js";
+import type { HttpResponse } from "../../src/utils/http.js";
 
-vi.mock("axios");
-const mockedGet = axios.get as Mock;
-const mockedHead = axios.head as Mock;
+vi.mock("../../src/utils/http.js");
+
+import { httpGet, httpHead } from "../../src/utils/http.js";
+const mockedGet = httpGet as Mock;
+const mockedHead = httpHead as Mock;
 
 const fixturesDir = join(__dirname, "../fixtures/pages");
 
 function loadFixture(name: string): string {
   return readFileSync(join(fixturesDir, name), "utf-8");
+}
+
+function mockResponse(overrides: Partial<HttpResponse>): HttpResponse {
+  return {
+    status: 200,
+    data: "",
+    headers: {},
+    finalUrl: "",
+    ...overrides,
+  };
 }
 
 describe("Pipeline Integration", () => {
@@ -36,22 +48,24 @@ describe("Pipeline Integration", () => {
     it("produces valid result shape", async () => {
       const html = loadFixture("well-structured.html");
 
-      mockedGet.mockImplementation(async (url: string) => {
-        if (url.includes("robots.txt")) {
-          return { status: 200, data: "User-agent: *\nAllow: /", headers: {} };
+      mockedGet.mockImplementation(async (opts: { url: string }) => {
+        if (opts.url.includes("robots.txt")) {
+          return mockResponse({
+            status: 200,
+            data: "User-agent: *\nAllow: /",
+            finalUrl: opts.url,
+          });
         }
-        if (url.includes("llms.txt") || url.includes("llms-full.txt")) {
-          return { status: 404, data: "", headers: {} };
-        }
-        return {
+        return mockResponse({
           status: 200,
           data: html,
           headers: { "content-type": "text/html" },
-        };
+          finalUrl: opts.url,
+        });
       });
 
-      mockedHead.mockImplementation(async () => {
-        return { status: 404, data: "", headers: {} };
+      mockedHead.mockImplementation(async (opts: { url: string }) => {
+        return mockResponse({ status: 404, finalUrl: opts.url });
       });
 
       const config = await loadConfig();
@@ -77,23 +91,27 @@ describe("Pipeline Integration", () => {
       const wellStructuredHtml = loadFixture("well-structured.html");
       const minimalHtml = loadFixture("minimal.html");
 
-      mockedGet.mockImplementation(async (url: string, opts: any) => {
-        if (url.includes("robots.txt")) {
-          return { status: 200, data: "User-agent: *\nAllow: /", headers: {} };
+      mockedGet.mockImplementation(async (opts: { url: string }) => {
+        if (opts.url.includes("robots.txt")) {
+          return mockResponse({
+            status: 200,
+            data: "User-agent: *\nAllow: /",
+            finalUrl: opts.url,
+          });
         }
-        if (url.includes("llms.txt") || url.includes("llms-full.txt")) {
-          return { status: 404, data: "", headers: {} };
-        }
-        const html = url.includes("good") ? wellStructuredHtml : minimalHtml;
-        return {
+        const html = opts.url.includes("good")
+          ? wellStructuredHtml
+          : minimalHtml;
+        return mockResponse({
           status: 200,
           data: html,
           headers: { "content-type": "text/html" },
-        };
+          finalUrl: opts.url,
+        });
       });
 
-      mockedHead.mockImplementation(async () => {
-        return { status: 404, data: "", headers: {} };
+      mockedHead.mockImplementation(async (opts: { url: string }) => {
+        return mockResponse({ status: 404, finalUrl: opts.url });
       });
 
       const config = await loadConfig();
@@ -114,19 +132,24 @@ describe("Pipeline Integration", () => {
     it("generates recommendations for low-scoring factors", async () => {
       const html = loadFixture("minimal.html");
 
-      mockedGet.mockImplementation(async (url: string) => {
-        if (url.includes("robots.txt")) {
-          return { status: 200, data: "User-agent: *\nAllow: /", headers: {} };
+      mockedGet.mockImplementation(async (opts: { url: string }) => {
+        if (opts.url.includes("robots.txt")) {
+          return mockResponse({
+            status: 200,
+            data: "User-agent: *\nAllow: /",
+            finalUrl: opts.url,
+          });
         }
-        return {
+        return mockResponse({
           status: 200,
           data: html,
           headers: { "content-type": "text/html" },
-        };
+          finalUrl: opts.url,
+        });
       });
 
-      mockedHead.mockImplementation(async () => {
-        return { status: 404, data: "", headers: {} };
+      mockedHead.mockImplementation(async (opts: { url: string }) => {
+        return mockResponse({ status: 404, finalUrl: opts.url });
       });
 
       const config = await loadConfig();
@@ -149,19 +172,24 @@ describe("Pipeline Integration", () => {
     it("includes all 7 categories", async () => {
       const html = loadFixture("well-structured.html");
 
-      mockedGet.mockImplementation(async (url: string) => {
-        if (url.includes("robots.txt")) {
-          return { status: 200, data: "User-agent: *\nAllow: /", headers: {} };
+      mockedGet.mockImplementation(async (opts: { url: string }) => {
+        if (opts.url.includes("robots.txt")) {
+          return mockResponse({
+            status: 200,
+            data: "User-agent: *\nAllow: /",
+            finalUrl: opts.url,
+          });
         }
-        return {
+        return mockResponse({
           status: 200,
           data: html,
           headers: { "content-type": "text/html" },
-        };
+          finalUrl: opts.url,
+        });
       });
 
-      mockedHead.mockImplementation(async () => {
-        return { status: 404, data: "", headers: {} };
+      mockedHead.mockImplementation(async (opts: { url: string }) => {
+        return mockResponse({ status: 404, finalUrl: opts.url });
       });
 
       const config = await loadConfig();
@@ -184,19 +212,24 @@ describe("Pipeline Integration", () => {
     it("category scores sum to totalPoints", async () => {
       const html = loadFixture("blog-post.html");
 
-      mockedGet.mockImplementation(async (url: string) => {
-        if (url.includes("robots.txt")) {
-          return { status: 200, data: "User-agent: *\nAllow: /", headers: {} };
+      mockedGet.mockImplementation(async (opts: { url: string }) => {
+        if (opts.url.includes("robots.txt")) {
+          return mockResponse({
+            status: 200,
+            data: "User-agent: *\nAllow: /",
+            finalUrl: opts.url,
+          });
         }
-        return {
+        return mockResponse({
           status: 200,
           data: html,
           headers: { "content-type": "text/html" },
-        };
+          finalUrl: opts.url,
+        });
       });
 
-      mockedHead.mockImplementation(async () => {
-        return { status: 404, data: "", headers: {} };
+      mockedHead.mockImplementation(async (opts: { url: string }) => {
+        return mockResponse({ status: 404, finalUrl: opts.url });
       });
 
       const config = await loadConfig();
@@ -216,19 +249,24 @@ describe("Pipeline Integration", () => {
 
   describe("broken pages", () => {
     it("produces a partial report for 404 pages", async () => {
-      mockedGet.mockImplementation(async (url: string) => {
-        if (url.includes("robots.txt")) {
-          return { status: 200, data: "User-agent: *\nAllow: /", headers: {} };
+      mockedGet.mockImplementation(async (opts: { url: string }) => {
+        if (opts.url.includes("robots.txt")) {
+          return mockResponse({
+            status: 200,
+            data: "User-agent: *\nAllow: /",
+            finalUrl: opts.url,
+          });
         }
-        return {
+        return mockResponse({
           status: 404,
           data: "<html><body><h1>Not Found</h1></body></html>",
           headers: { "content-type": "text/html" },
-        };
+          finalUrl: opts.url,
+        });
       });
 
-      mockedHead.mockImplementation(async () => {
-        return { status: 404, data: "", headers: {} };
+      mockedHead.mockImplementation(async (opts: { url: string }) => {
+        return mockResponse({ status: 404, finalUrl: opts.url });
       });
 
       const config = await loadConfig();
@@ -257,19 +295,24 @@ describe("Pipeline Integration", () => {
     it("applies custom weights to overall score", async () => {
       const html = loadFixture("well-structured.html");
 
-      mockedGet.mockImplementation(async (url: string) => {
-        if (url.includes("robots.txt")) {
-          return { status: 200, data: "User-agent: *\nAllow: /", headers: {} };
+      mockedGet.mockImplementation(async (opts: { url: string }) => {
+        if (opts.url.includes("robots.txt")) {
+          return mockResponse({
+            status: 200,
+            data: "User-agent: *\nAllow: /",
+            finalUrl: opts.url,
+          });
         }
-        return {
+        return mockResponse({
           status: 200,
           data: html,
           headers: { "content-type": "text/html" },
-        };
+          finalUrl: opts.url,
+        });
       });
 
-      mockedHead.mockImplementation(async () => {
-        return { status: 404, data: "", headers: {} };
+      mockedHead.mockImplementation(async (opts: { url: string }) => {
+        return mockResponse({ status: 404, finalUrl: opts.url });
       });
 
       const defaultConfig = await loadConfig();

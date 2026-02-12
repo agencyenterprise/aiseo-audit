@@ -5,7 +5,7 @@ import { loadConfig } from "./modules/config/service.js";
 import type { ReportFormatType } from "./modules/report/schema.js";
 import { renderReport } from "./modules/report/service.js";
 import { writeOutputFile } from "./utils/fs.js";
-import { isValidUrl, normalizeUrl } from "./utils/url.js";
+import { isValidUrl } from "./utils/url.js";
 
 const program = new Command();
 
@@ -59,10 +59,7 @@ program
         const timeout = opts.timeout ?? config.timeout;
         const userAgent = opts.userAgent ?? config.userAgent;
 
-        const result = await analyzeUrl(
-          { url: normalizeUrl(url), timeout, userAgent },
-          config,
-        );
+        const result = await analyzeUrl({ url, timeout, userAgent }, config);
 
         const output = renderReport(result, { format });
 

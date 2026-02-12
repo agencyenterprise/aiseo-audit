@@ -1,9 +1,7 @@
-// Library entrypoint - programmatic API
 export { analyzeUrl } from "./modules/analyzer/service.js";
 export { loadConfig } from "./modules/config/service.js";
 export { renderReport } from "./modules/report/service.js";
 
-// Types
 export type {
   AnalyzerOptionsType,
   AnalyzerResultType,
@@ -20,6 +18,7 @@ export type {
   GeoJsonConfigType,
 } from "./modules/config/schema.js";
 export type {
+  ExternalLinkType,
   ExtractedPageType,
   PageStatsType,
 } from "./modules/extractor/schema.js";

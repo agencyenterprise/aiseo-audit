@@ -39,7 +39,7 @@ async function fetchDomainSignals(
   return {
     robotsTxt:
       robotsRes.status === "fulfilled" && robotsRes.value.status === 200
-        ? String(robotsRes.value.data)
+        ? robotsRes.value.data
         : null,
     llmsTxtExists:
       llmsRes.status === "fulfilled" && llmsRes.value.status === 200,

@@ -33,6 +33,12 @@ export const ExtractedPageDataSchema = z.object({
 export type PageStatsType = z.infer<typeof PageStatsSchema>;
 export type ExtractedPageDataType = z.infer<typeof ExtractedPageDataSchema>;
 
+export interface ExternalLinkType {
+  url: string;
+  text: string;
+}
+
 export interface ExtractedPageType extends ExtractedPageDataType {
   $: CheerioAPI;
+  externalLinks: ExternalLinkType[];
 }

@@ -7,7 +7,7 @@ import {
   computeFleschReadingEase,
   countComplexWords,
   countTransitionWords,
-} from "../support/language.js";
+} from "../support/nlp.js";
 import { TRANSITION_WORDS } from "../support/patterns.js";
 import {
   makeFactor,

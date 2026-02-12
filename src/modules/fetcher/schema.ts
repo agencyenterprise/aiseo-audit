@@ -2,7 +2,7 @@ import { z } from "zod";
 import { VERSION } from "../analyzer/constants.js";
 
 export const FetchOptionsSchema = z.object({
-  url: z.string().url(),
+  url: z.url(),
   timeout: z.number().positive().default(45000),
   userAgent: z.string().default(`GEOAudit/${VERSION}`),
 });
