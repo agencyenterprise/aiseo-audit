@@ -10,8 +10,8 @@ import { isValidUrl } from "./utils/url.js";
 const program = new Command();
 
 program
-  .name("geoaudit")
-  .description("Audit web pages for generative engine readiness")
+  .name("aiseo-audit")
+  .description("Audit web pages for AI search readiness")
   .version(VERSION)
   .argument("<url>", "URL to audit")
   .option("--json", "Output as JSON")
@@ -25,7 +25,7 @@ program
   )
   .option("--timeout <ms>", "Request timeout in milliseconds", parseInt)
   .option("--user-agent <ua>", "Custom User-Agent string")
-  .option("--config <path>", "Path to geo.json config file")
+  .option("--config <path>", "Path to aiseo.config.json config file")
   .action(
     async (
       url: string,

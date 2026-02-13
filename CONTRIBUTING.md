@@ -1,12 +1,12 @@
-# Contributing to GEO Audit
+# Contributing to aiseo-audit
 
-Thank you for your interest in contributing to GEO Audit.
+Thank you for your interest in contributing to aiseo-audit.
 
 ## Development Setup
 
 ```bash
-git clone https://github.com/agencyenterprise/geoaudit.git
-cd geoaudit
+git clone https://github.com/agencyenterprise/aiseo-audit.git
+cd aiseo-audit
 npm install
 ```
 

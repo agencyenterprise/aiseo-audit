@@ -30,7 +30,7 @@ export function renderPretty(result: AnalyzerResultType): string {
 
   lines.push("");
   lines.push(divider);
-  lines.push(chalk.bold("  GEO Audit Report"));
+  lines.push(chalk.bold("  AI SEO Audit Report"));
   lines.push(chalk.dim(`  ${result.url}`));
   lines.push(divider);
   lines.push("");
@@ -95,7 +95,7 @@ export function renderPretty(result: AnalyzerResultType): string {
     if (result.recommendations.length > 8) {
       lines.push(
         chalk.dim(
-          `  ... and ${result.recommendations.length - 8} more recommendations`,
+          `  ... and ${result.recommendations.length - 8} more recommendations. Use --out <path> and print this to a file to see the full list.`,
         ),
       );
     }

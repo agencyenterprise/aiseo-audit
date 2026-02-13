@@ -2,7 +2,7 @@ import { httpGet, httpHead } from "../../utils/http.js";
 import { getDomain, normalizeUrl } from "../../utils/url.js";
 import type { DomainSignalsType } from "../audits/schema.js";
 import { runAudits } from "../audits/service.js";
-import type { GeoJsonConfigType } from "../config/schema.js";
+import type { AiseoConfigType } from "../config/schema.js";
 import { extractPage } from "../extractor/service.js";
 import { fetchUrl } from "../fetcher/service.js";
 import { generateRecommendations } from "../recommendations/service.js";
@@ -50,7 +50,7 @@ async function fetchDomainSignals(
 
 export async function analyzeUrl(
   options: AnalyzerOptionsType,
-  config: GeoJsonConfigType,
+  config: AiseoConfigType,
 ): Promise<AnalyzerResultType> {
   const startTime = Date.now();
   const url = normalizeUrl(options.url);

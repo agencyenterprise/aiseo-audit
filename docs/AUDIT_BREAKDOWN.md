@@ -1,3 +1,5 @@
+[< Back to README](../README.md)
+
 # Audit Breakdown
 
 How every audit category works, what it measures, how it scores, and how the code is structured behind it.
@@ -30,7 +32,7 @@ Category Max   = sum of all factor maxScores in that category
 Category %     = (Category Score / Category Max) * 100
 ```
 
-The **overall score** (0-100) is a weighted average of all 7 category percentages. By default all categories are weighted equally. You can change weights in `geo.json`:
+The **overall score** (0-100) is a weighted average of all 7 category percentages. By default all categories are weighted equally. You can change weights in `aiseo.config.json`:
 
 ```json
 {
@@ -574,13 +576,13 @@ Generative engines don't quote your content verbatim - they compress, summarize,
 
 ### Pipeline
 
-When you run `geoaudit https://example.com`, here's exactly what happens:
+When you run `aiseo-audit https://example.com`, here's exactly what happens:
 
 ```
 cli.ts                          parses args with commander
   |
   v
-config/service.ts               loads geo.json (if present), merges defaults via Zod
+config/service.ts               loads aiseo.config.json (if present), merges defaults via Zod
   |
   v
 analyzer/service.ts             orchestrates the full pipeline:

@@ -1,6 +1,8 @@
-# GEO Research & Gap Analysis
+[< Back to README](../README.md)
 
-What the industry and academic research say about generative engine optimization, what actually moves the needle for AI citations, and where our audit tool has room to grow.
+# AI SEO Research & Gap Analysis
+
+What the industry and academic research say about optimizing content for AI search engines, what actually moves the needle for AI citations, and where our audit tool has room to grow.
 
 ---
 

@@ -14,8 +14,8 @@ export type {
   FactorResultType,
 } from "./modules/audits/schema.js";
 export type {
+  AiseoConfigType,
   CategoryWeightType,
-  GeoJsonConfigType,
 } from "./modules/config/schema.js";
 export type {
   ExternalLinkType,

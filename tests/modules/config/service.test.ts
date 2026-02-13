@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadConfig } from "../../../src/modules/config/service.js";
 
 describe("loadConfig", () => {
-  const testDir = join(tmpdir(), `geoaudit-test-${Date.now()}`);
+  const testDir = join(tmpdir(), `aiseo-audit-test-${Date.now()}`);
   const subDir = join(testDir, "subdir", "nested");
 
   beforeEach(async () => {
@@ -63,7 +63,7 @@ describe("loadConfig", () => {
 
         expect(config.timeout).toBe(45000);
         expect(config.format).toBe("pretty");
-        expect(config.userAgent).toMatch(/^GEOAudit\/\d+\.\d+\.\d+$/);
+        expect(config.userAgent).toMatch(/^AISEOAudit\/\d+\.\d+\.\d+$/);
       } finally {
         process.chdir(originalCwd);
       }
@@ -91,7 +91,7 @@ describe("loadConfig", () => {
 
       expect(config.timeout).toBe(20000);
       expect(config.format).toBe("pretty");
-      expect(config.userAgent).toMatch(/^GEOAudit\/\d+\.\d+\.\d+$/);
+      expect(config.userAgent).toMatch(/^AISEOAudit\/\d+\.\d+\.\d+$/);
     });
 
     it("allows custom weights", async () => {

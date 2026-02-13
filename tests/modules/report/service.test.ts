@@ -152,7 +152,7 @@ describe("renderReport", () => {
       const result = makeMinimalResult();
       const output = renderReport(result, { format: "md" });
 
-      expect(output).toContain("# GEO Audit");
+      expect(output).toContain("# AI SEO Audit");
       expect(output).toContain("##");
     });
 

@@ -2,11 +2,11 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in geoaudit, please report it responsibly.
+If you discover a security vulnerability in aiseo-audit, please report it responsibly.
 
 **Do not open a public issue.**
 
-Instead, use [GitHub's private vulnerability reporting](https://github.com/agencyenterprise/geoaudit/security/advisories/new) to submit your report. This ensures the issue is handled confidentially before any public disclosure.
+Instead, use [GitHub's private vulnerability reporting](https://github.com/agencyenterprise/aiseo-audit/security/advisories/new) to submit your report. This ensures the issue is handled confidentially before any public disclosure.
 
 ## What to Include
 

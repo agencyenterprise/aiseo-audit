@@ -4,7 +4,7 @@ import { VERSION } from "../analyzer/constants.js";
 export const FetchOptionsSchema = z.object({
   url: z.url(),
   timeout: z.number().positive().default(45000),
-  userAgent: z.string().default(`GEOAudit/${VERSION}`),
+  userAgent: z.string().default(`AISEOAudit/${VERSION}`),
 });
 
 export const FetchResultSchema = z.object({

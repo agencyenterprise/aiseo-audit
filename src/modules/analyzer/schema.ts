@@ -6,7 +6,7 @@ import { VERSION } from "./constants.js";
 export const AnalyzerOptionsSchema = z.object({
   url: z.string(),
   timeout: z.number().positive().default(45000),
-  userAgent: z.string().default(`GEOAudit/${VERSION}`),
+  userAgent: z.string().default(`AISEOAudit/${VERSION}`),
 });
 
 export const AnalyzerResultSchema = z.object({

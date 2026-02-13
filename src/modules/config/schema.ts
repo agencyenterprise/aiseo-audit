@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { VERSION } from "../analyzer/constants.js";
 
-const DEFAULT_USER_AGENT = `GEOAudit/${VERSION}`;
+const DEFAULT_USER_AGENT = `AISEOAudit/${VERSION}`;
 
 const DEFAULT_WEIGHTS = {
   contentExtractability: 1,
@@ -25,7 +25,7 @@ export const CategoryWeightSchema = z
   })
   .default(DEFAULT_WEIGHTS);
 
-export const GeoJsonConfigSchema = z
+export const AiseoConfigSchema = z
   .object({
     timeout: z.number().positive().default(45000),
     userAgent: z.string().default(DEFAULT_USER_AGENT),
@@ -41,4 +41,4 @@ export const GeoJsonConfigSchema = z
   });
 
 export type CategoryWeightType = z.infer<typeof CategoryWeightSchema>;
-export type GeoJsonConfigType = z.infer<typeof GeoJsonConfigSchema>;
+export type AiseoConfigType = z.infer<typeof AiseoConfigSchema>;
