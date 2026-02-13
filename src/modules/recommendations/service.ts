@@ -1,5 +1,5 @@
 import type { AuditResultType } from "../audits/schema.js";
-import { RECOMMENDATION_MAP } from "./constants.js";
+import { RECOMMENDATION_BUILDERS } from "./constants.js";
 import type { RecommendationType } from "./schema.js";
 
 export function generateRecommendations(
@@ -16,9 +16,10 @@ export function generateRecommendations(
       const priority: "high" | "medium" | "low" =
         pct < 0.3 ? "high" : pct < 0.5 ? "medium" : "low";
 
-      const recText =
-        RECOMMENDATION_MAP[factor.name] ||
-        `Review and improve "${factor.name}" based on best practices for generative engine readiness.`;
+      const builder = RECOMMENDATION_BUILDERS[factor.name];
+      const recText = builder
+        ? builder(auditResult.rawData)
+        : `Review and improve "${factor.name}" based on best practices for AI search readiness.`;
 
       recommendations.push({
         category: category.name,
