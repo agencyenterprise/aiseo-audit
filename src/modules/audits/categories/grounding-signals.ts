@@ -1,6 +1,6 @@
 import type { ExtractedPageType } from "../../extractor/schema.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
-import type { CategoryAuditOutput, FactorResultType } from "../schema.js";
+import type { CategoryAuditOutputType, FactorResultType } from "../schema.js";
 import { countPatternMatches } from "../support/nlp.js";
 import {
   ATTRIBUTION_PATTERNS,
@@ -17,7 +17,7 @@ import {
 
 export function auditGroundingSignals(
   page: ExtractedPageType,
-): CategoryAuditOutput {
+): CategoryAuditOutputType {
   const $ = page.$;
   const text = page.cleanText;
   const factors: FactorResultType[] = [];

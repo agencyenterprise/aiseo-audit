@@ -2,7 +2,7 @@ import type { ExtractedPageType } from "../../extractor/schema.js";
 import type { FetchResultType } from "../../fetcher/schema.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
 import type {
-  CategoryAuditOutput,
+  CategoryAuditOutputType,
   DomainSignalsType,
   FactorResultType,
 } from "../schema.js";
@@ -18,9 +18,9 @@ export function auditContentExtractability(
   page: ExtractedPageType,
   fetchResult: FetchResultType,
   domainSignals?: DomainSignalsType,
-): CategoryAuditOutput {
+): CategoryAuditOutputType {
   const factors: FactorResultType[] = [];
-  const rawData: CategoryAuditOutput["rawData"] = {};
+  const rawData: CategoryAuditOutputType["rawData"] = {};
 
   const fetchScore =
     fetchResult.statusCode === 200 ? 12 : fetchResult.statusCode < 400 ? 8 : 0;

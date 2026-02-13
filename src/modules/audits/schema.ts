@@ -120,10 +120,10 @@ export const AuditRawDataSchema = z.object({
     .optional(),
 });
 
-export interface CategoryAuditOutput {
-  category: CategoryResultType;
-  rawData: Partial<AuditRawDataType>;
-}
+export const CategoryAuditOutputSchema = z.object({
+  category: CategoryResultSchema,
+  rawData: AuditRawDataSchema.partial(),
+});
 
 export const AuditResultSchema = z.object({
   categories: z.record(CategoryNameSchema, CategoryResultSchema),
@@ -132,6 +132,7 @@ export const AuditResultSchema = z.object({
 
 export type AuditRawDataType = z.infer<typeof AuditRawDataSchema>;
 export type AuditResultType = z.infer<typeof AuditResultSchema>;
+export type CategoryAuditOutputType = z.infer<typeof CategoryAuditOutputSchema>;
 export type CategoryNameType = z.infer<typeof CategoryNameSchema>;
 export type CategoryResultType = z.infer<typeof CategoryResultSchema>;
 export type CrawlerAccessResultType = z.infer<typeof CrawlerAccessResultSchema>;

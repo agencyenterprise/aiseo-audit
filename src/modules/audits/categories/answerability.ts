@@ -1,6 +1,6 @@
 import type { ExtractedPageType } from "../../extractor/schema.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
-import type { CategoryAuditOutput, FactorResultType } from "../schema.js";
+import type { CategoryAuditOutputType, FactorResultType } from "../schema.js";
 import { detectAnswerCapsules } from "../support/dom.js";
 import { countPatternMatches } from "../support/nlp.js";
 import {
@@ -19,7 +19,7 @@ import {
 
 export function auditAnswerability(
   page: ExtractedPageType,
-): CategoryAuditOutput {
+): CategoryAuditOutputType {
   const text = page.cleanText;
   const $ = page.$;
   const factors: FactorResultType[] = [];

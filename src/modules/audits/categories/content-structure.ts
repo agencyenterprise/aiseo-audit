@@ -1,6 +1,6 @@
 import type { ExtractedPageType } from "../../extractor/schema.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
-import type { CategoryAuditOutput, FactorResultType } from "../schema.js";
+import type { CategoryAuditOutputType, FactorResultType } from "../schema.js";
 import { measureSectionLengths } from "../support/dom.js";
 import {
   makeFactor,
@@ -11,7 +11,7 @@ import {
 
 export function auditContentStructure(
   page: ExtractedPageType,
-): CategoryAuditOutput {
+): CategoryAuditOutputType {
   const $ = page.$;
   const factors: FactorResultType[] = [];
 

@@ -1,7 +1,7 @@
 import { countWords } from "../../../utils/strings.js";
 import type { ExtractedPageType } from "../../extractor/schema.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
-import type { CategoryAuditOutput, FactorResultType } from "../schema.js";
+import type { CategoryAuditOutputType, FactorResultType } from "../schema.js";
 import {
   avgSentenceLength,
   computeFleschReadingEase,
@@ -18,7 +18,7 @@ import {
 
 export function auditReadabilityForCompression(
   page: ExtractedPageType,
-): CategoryAuditOutput {
+): CategoryAuditOutputType {
   const text = page.cleanText;
   const factors: FactorResultType[] = [];
 

@@ -2,24 +2,11 @@ import {
   DEFAULT_HEADERS,
   MAX_RESPONSE_SIZE,
 } from "../modules/fetcher/constants.js";
-
-// todo: use zod schema for this and z.infer type instead of interfaces.
-interface HttpRequestOptions {
-  url: string;
-  timeout: number;
-  userAgent: string;
-}
-
-export interface HttpResponse {
-  status: number;
-  data: string;
-  headers: Record<string, string>;
-  finalUrl: string;
-}
+import type { HttpRequestOptionsType, HttpResponseType } from "./schema.js";
 
 export async function httpGet(
-  options: HttpRequestOptions,
-): Promise<HttpResponse> {
+  options: HttpRequestOptionsType,
+): Promise<HttpResponseType> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), options.timeout);
 
@@ -66,8 +53,8 @@ export async function httpGet(
 }
 
 export async function httpHead(
-  options: HttpRequestOptions,
-): Promise<HttpResponse> {
+  options: HttpRequestOptionsType,
+): Promise<HttpResponseType> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), options.timeout);
 

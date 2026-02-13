@@ -1,6 +1,6 @@
 import type { ExtractedPageType } from "../../extractor/schema.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
-import type { CategoryAuditOutput, FactorResultType } from "../schema.js";
+import type { CategoryAuditOutputType, FactorResultType } from "../schema.js";
 import { parseJsonLdObjects } from "../support/dom.js";
 import {
   measureEntityConsistency,
@@ -13,10 +13,10 @@ import { makeFactor, maxFactors, sumFactors } from "../support/scoring.js";
 
 export function auditAuthorityContext(
   page: ExtractedPageType,
-): CategoryAuditOutput {
+): CategoryAuditOutputType {
   const $ = page.$;
   const factors: FactorResultType[] = [];
-  const rawData: CategoryAuditOutput["rawData"] = {};
+  const rawData: CategoryAuditOutputType["rawData"] = {};
 
   let authorFound = false;
   let authorName = "";
