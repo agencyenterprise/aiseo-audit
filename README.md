@@ -2,12 +2,11 @@
 
 [![npm version](https://img.shields.io/npm/v/aiseo-audit.svg)](https://www.npmjs.com/package/aiseo-audit)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://nodejs.org)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D20-red.svg)](https://nodejs.org)
+
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Bundle Size](https://img.shields.io/bundlephobia/minzip/aiseo-audit)](https://bundlephobia.com/package/aiseo-audit)
 [![Coverage](https://codecov.io/gh/agencyenterprise/aiseo-audit/branch/main/graph/badge.svg)](https://codecov.io/gh/agencyenterprise/aiseo-audit)
-[![CLI](https://img.shields.io/badge/CLI-supported-brightgreen)](https://github.com/agencyenterprise/aiseo-audit#quick-start)
-[![API](https://img.shields.io/badge/API-supported-brightgreen)](https://github.com/agencyenterprise/aiseo-audit#programmatic-api)
 
 Deterministic CLI that audits web pages for **AI search readiness**. Think Lighthouse, but for how well AI engines can fetch, extract, understand, and cite your content.
 
@@ -297,3 +296,5 @@ Release notes are published on the [GitHub Releases](https://github.com/agencyen
 ## License
 
 MIT
+
+[![API](https://img.shields.io/badge/API-supported-brightgreen)](https://github.com/agencyenterprise/aiseo-audit#programmatic-api)
