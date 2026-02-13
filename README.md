@@ -1,8 +1,32 @@
 # geoaudit
 
+[![npm version](https://img.shields.io/npm/v/geoaudit.svg)](https://www.npmjs.com/package/geoaudit)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://nodejs.org)
+
 Deterministic CLI that audits web pages for **generative engine readiness**. Think Lighthouse, but for how well LLMs and generative AI engines can fetch, extract, understand, and reuse your content.
 
 **GEO measures generative reusability, not traditional search rankings.**
+
+## What is GEO?
+
+**Generative Engine Optimization (GEO)** is the practice of optimizing web content so that AI engines (ChatGPT, Claude, Perplexity, Gemini, Google AI Overviews) can fetch, understand, and cite it in their responses.
+
+Traditional SEO optimizes for ranking in a list of links. GEO optimizes for being **cited** in generated answers. Different goal, different signals.
+
+geoaudit measures those signals: can the content be extracted? Is it structured for reuse? Does it contain the patterns AI engines actually quote? It runs entirely locally with no AI API calls and no external services.
+
+## Where geoaudit Stands
+
+Most "AI readiness" audits check whether certain files and tags exist. Does the site have llms.txt? Is there a sitemap? Is JSON-LD present? Those are binary checks that tell you very little about whether AI engines will actually use your content.
+
+geoaudit goes deeper:
+
+- **Content analysis, not just tag detection.** NLP-based entity extraction, readability scoring, answer capsule detection, section length analysis, and boilerplate measurement. 30+ factors across 7 research-backed categories.
+- **Research-grounded scoring.** Thresholds and weights are derived from published research on what generative engines actually cite. See [Audit Breakdown](docs/AUDIT_BREAKDOWN.md) for the full methodology and [Research](docs/RESEARCH.md) for where the data comes from.
+- **Configurable weights.** Prioritize the categories that matter to your content via `geo.json`. Zero vendor lock-in.
+- **Four output formats.** Pretty terminal, JSON, Markdown, and self-contained HTML reports.
+- **Zero external dependencies at runtime.** No API keys, no network calls beyond fetching the target URL. Fully deterministic.
 
 ## Install
 
@@ -64,6 +88,23 @@ geoaudit https://example.com --config geo.json
 | `--config <path>`   | Path to config file                   | -                    |
 
 If no output flag is given, the default is `pretty` (color-coded terminal output). The default format can also be set in the config file.
+
+## CI/CD
+
+```yaml
+# .github/workflows/geoaudit.yml
+name: GEO Audit
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npx geoaudit https://yoursite.com --fail-under 70
+```
 
 ## User Agent
 
@@ -200,6 +241,15 @@ It is:
 ```typescript
 const config = await loadConfig("/path/to/geo.json");
 ```
+
+## Documentation
+
+- [Audit Breakdown](docs/AUDIT_BREAKDOWN.md) - Full scoring methodology, every factor, every threshold, with research citations
+- [Research](docs/RESEARCH.md) - Sources and gap analysis
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, project structure, and pull request guidelines.
 
 ## Releases
 
