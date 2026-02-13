@@ -25,5 +25,5 @@ export const AnalyzerResultSchema = z.object({
   }),
 });
 
-export type AnalyzerOptionsType = z.infer<typeof AnalyzerOptionsSchema>;
+export type AnalyzerOptionsType = z.input<typeof AnalyzerOptionsSchema>;
 export type AnalyzerResultType = z.infer<typeof AnalyzerResultSchema>;
