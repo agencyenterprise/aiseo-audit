@@ -147,6 +147,9 @@ When auditing over HTTP, these files are checked against your local server. If y
 
 ## Audit Categories
 
+> [!NOTE]
+> AI SEO (e.g. GEO: Generative Engine Optimization) is a new and developing field. Methodologies and audit criteria may evolve as research and engine behavior advance.
+
 The audit evaluates 7 categories of AI search readiness (_[Detailed Breakdown here](docs/AUDIT_BREAKDOWN.md)_):
 
 | Category                        | What It Measures                                                                         |
