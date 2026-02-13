@@ -3,10 +3,23 @@
 [![npm version](https://img.shields.io/npm/v/aiseo-audit.svg)](https://www.npmjs.com/package/aiseo-audit)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](https://nodejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Bundle Size](https://img.shields.io/bundlephobia/minzip/aiseo-audit)](https://bundlephobia.com/package/aiseo-audit)
+[![Coverage](https://codecov.io/gh/agencyenterprise/aiseo-audit/branch/main/graph/badge.svg)](https://codecov.io/gh/agencyenterprise/aiseo-audit)
+[![CLI](https://img.shields.io/badge/CLI-supported-brightgreen)](https://github.com/agencyenterprise/aiseo-audit#quick-start)
+[![API](https://img.shields.io/badge/API-supported-brightgreen)](https://github.com/agencyenterprise/aiseo-audit#programmatic-api)
 
 Deterministic CLI that audits web pages for **AI search readiness**. Think Lighthouse, but for how well AI engines can fetch, extract, understand, and cite your content.
 
 **AI SEO measures how reusable your content is for generative engines, not traditional search rankings.**
+
+- [Quick Start](#quick-start)
+- [CLI Options](#cli-options)
+- [Local Development](#local-development)
+- [Audit Categories](#audit-categories)
+- [Programmatic API](#programmatic-api)
+- [Compatibility Notes](#compatibility-notes)
+- [Documentation](#documentation)
 
 ## What is AI SEO?
 
@@ -121,6 +134,26 @@ By default, all HTTP requests (page fetch, `robots.txt`, `llms.txt`) are sent wi
 
 The `--user-agent` flag exists as an escape hatch for cases where you want to bypass bot detection and test the content independently of access policy. It does not change the audit logic, only what the server sees in the request header.
 
+## Local Development
+
+You can run the audit against a local dev server to iterate on your content before deploying:
+
+```bash
+aiseo-audit http://localhost:3000
+```
+
+The page analysis (content structure, readability, schema markup, answerability, etc.) works identically to a production audit. These factors depend on your HTML output, which is the same locally as it is in production.
+
+### Domain Signal Files
+
+The audit also checks for three domain-level files that AI crawlers look for:
+
+- **`robots.txt`** controls which bots can access your site. AI crawlers (GPTBot, ClaudeBot, etc.) respect this file to determine whether they are allowed to fetch your content.
+- **`llms.txt`** is a proposed standard that provides LLMs with a concise summary of your site's purpose, key pages, and preferred citation format.
+- **`llms-full.txt`** is the extended version of `llms.txt` with more comprehensive site documentation.
+
+When auditing over HTTP, these files are checked against your local server. If your local server serves them, they will pass. If not, they will show as missing. Keep in mind that your local and production configurations for these files may differ, so verify them separately against your production domain.
+
 ## Audit Categories
 
 The audit evaluates 7 categories of AI search readiness (_[Detailed Breakdown here](docs/AUDIT_BREAKDOWN.md)_):
@@ -188,10 +221,7 @@ Weights are relative. Set a category to `2` to double its importance, or `0` to 
 import { analyzeUrl, loadConfig, renderReport } from "aiseo-audit";
 
 const config = await loadConfig();
-const result = await analyzeUrl(
-  { url: "https://example.com", timeout: 45000, userAgent: "MyApp/1.0" },
-  config,
-);
+const result = await analyzeUrl({ url: "https://example.com" }, config);
 
 console.log(result.overallScore); // 72
 console.log(result.grade); // "B-"

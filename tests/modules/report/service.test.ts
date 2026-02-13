@@ -253,4 +253,55 @@ describe("renderReport", () => {
       expect(defaultOutput).toBe(prettyOutput);
     });
   });
+
+  describe("http note", () => {
+    const httpNote = "Audited over HTTP";
+
+    function makeHttpResult(): AnalyzerResultType {
+      return { ...makeMinimalResult(), url: "http://localhost:3000" };
+    }
+
+    it("shows note in pretty format for http URL", () => {
+      const output = renderReport(makeHttpResult(), { format: "pretty" });
+      expect(output).toContain(httpNote);
+    });
+
+    it("shows note in json format for http URL", () => {
+      const output = renderReport(makeHttpResult(), { format: "json" });
+      const parsed = JSON.parse(output);
+      expect(parsed.notes).toBeDefined();
+      expect(parsed.notes[0]).toContain(httpNote);
+    });
+
+    it("shows note in md format for http URL", () => {
+      const output = renderReport(makeHttpResult(), { format: "md" });
+      expect(output).toContain(httpNote);
+    });
+
+    it("shows note in html format for http URL", () => {
+      const output = renderReport(makeHttpResult(), { format: "html" });
+      expect(output).toContain(httpNote);
+    });
+
+    it("omits note in pretty format for https URL", () => {
+      const output = renderReport(makeMinimalResult(), { format: "pretty" });
+      expect(output).not.toContain(httpNote);
+    });
+
+    it("omits note in json format for https URL", () => {
+      const output = renderReport(makeMinimalResult(), { format: "json" });
+      const parsed = JSON.parse(output);
+      expect(parsed.notes).toBeUndefined();
+    });
+
+    it("omits note in md format for https URL", () => {
+      const output = renderReport(makeMinimalResult(), { format: "md" });
+      expect(output).not.toContain(httpNote);
+    });
+
+    it("omits note in html format for https URL", () => {
+      const output = renderReport(makeMinimalResult(), { format: "html" });
+      expect(output).not.toContain(httpNote);
+    });
+  });
 });

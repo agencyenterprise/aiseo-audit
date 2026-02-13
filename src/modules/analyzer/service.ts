@@ -1,5 +1,5 @@
 import { httpGet, httpHead } from "../../utils/http.js";
-import { getDomain, normalizeUrl } from "../../utils/url.js";
+import { normalizeUrl } from "../../utils/url.js";
 import type { DomainSignalsType } from "../audits/schema.js";
 import { runAudits } from "../audits/service.js";
 import type { AiseoConfigType } from "../config/schema.js";
@@ -11,11 +11,12 @@ import { DOMAIN_SIGNAL_TIMEOUT_CAP, VERSION } from "./constants.js";
 import type { AnalyzerOptionsType, AnalyzerResultType } from "./schema.js";
 
 async function fetchDomainSignals(
-  domain: string,
+  url: string,
   timeout: number,
   userAgent: string,
 ): Promise<DomainSignalsType> {
-  const baseUrl = `https://${domain}`;
+  const { protocol, host } = new URL(url);
+  const baseUrl = `${protocol}//${host}`;
   const cappedTimeout = Math.min(timeout, DOMAIN_SIGNAL_TIMEOUT_CAP);
 
   const [robotsRes, llmsRes, llmsFullRes] = await Promise.allSettled([
@@ -60,8 +61,12 @@ export async function analyzeUrl(
 
   const fetchResult = await fetchUrl({ url, timeout, userAgent });
 
-  const domain = getDomain(fetchResult.finalUrl || url);
-  const domainSignals = await fetchDomainSignals(domain, timeout, userAgent);
+  const resolvedUrl = fetchResult.finalUrl || url;
+  const domainSignals = await fetchDomainSignals(
+    resolvedUrl,
+    timeout,
+    userAgent,
+  );
 
   const page = extractPage(fetchResult.html, url);
 

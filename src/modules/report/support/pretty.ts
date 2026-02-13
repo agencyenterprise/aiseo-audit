@@ -77,9 +77,8 @@ export function renderPretty(result: AnalyzerResultType): string {
     lines.push(chalk.bold("  Recommendations:"));
     lines.push("");
 
-    const top = result.recommendations.slice(0, 8);
-    for (let i = 0; i < top.length; i++) {
-      const rec = top[i];
+    for (let i = 0; i < result.recommendations.length; i++) {
+      const rec = result.recommendations[i];
       const tag =
         rec.priority === "high"
           ? chalk.red(`[HIGH]`)
@@ -91,19 +90,18 @@ export function renderPretty(result: AnalyzerResultType): string {
       lines.push(`     ${chalk.dim(rec.recommendation)}`);
       lines.push("");
     }
-
-    if (result.recommendations.length > 8) {
-      lines.push(
-        chalk.dim(
-          `  ... and ${result.recommendations.length - 8} more recommendations. Use --out <path> and print this to a file to see the full list.`,
-        ),
-      );
-    }
   }
 
   lines.push(divider);
   lines.push(chalk.dim(`  Analyzed at: ${result.analyzedAt}`));
   lines.push(chalk.dim(`  Duration: ${result.meta.analysisDurationMs}ms`));
+  if (result.url.startsWith("http://")) {
+    lines.push(
+      chalk.yellow(
+        "  Note: Audited over HTTP. Domain signals (robots.txt, llms.txt) may differ in production.",
+      ),
+    );
+  }
   lines.push(divider);
   lines.push("");
 

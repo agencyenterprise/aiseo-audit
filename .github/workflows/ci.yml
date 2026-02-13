@@ -25,4 +25,8 @@ jobs:
       - run: npm run format:check
       - run: npm run lint
       - run: npm run test:coverage
+      - uses: codecov/codecov-action@v4
+        if: matrix.node-version == 22
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
       - run: npm run build
