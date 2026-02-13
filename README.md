@@ -42,14 +42,6 @@ aiseo-audit goes deeper:
 
 ## Quick Start
 
-Run a one-off audit without installing:
-
-```bash
-npx aiseo-audit https://example.com
-```
-
-## Install
-
 ```bash
 # As a project dependency
 npm install aiseo-audit
