@@ -63,6 +63,105 @@ function buildGaugeSvg(
     </svg>`;
 }
 
+function buildMultiSegmentGauge(
+  overallScore: number,
+  grade: string,
+  totalPoints: number,
+  maxPoints: number,
+  categories: Array<{
+    key: string;
+    name: string;
+    score: number;
+    maxScore: number;
+  }>,
+): string {
+  const radius = 80;
+  const strokeWidth = 14;
+  const pad = 8;
+  const size = (radius + strokeWidth / 2 + pad) * 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circ = 2 * Math.PI * radius;
+  const textColor = scoreTextColorHex(overallScore);
+
+  const trackCircle = `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#e8e8e8" stroke-width="${strokeWidth}"/>`;
+
+  const arcs: string[] = [];
+  let consumed = 0;
+  let segIdx = 0;
+
+  for (const cat of categories) {
+    const catDeg = maxPoints > 0 ? (cat.score / maxPoints) * 360 : 0;
+    if (catDeg < 0.1) {
+      consumed += catDeg;
+      continue;
+    }
+
+    const catPct =
+      cat.maxScore > 0 ? Math.round((cat.score / cat.maxScore) * 100) : 0;
+    const color = scoreColorHex(catPct);
+    const arcLen = (catDeg / 360) * circ;
+    const offset = circ * 0.25 - (consumed / 360) * circ;
+    const catName = escapeHtml(cat.name);
+    const idx = segIdx;
+
+    arcs.push(
+      `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none"
+        stroke="${color}" stroke-width="${strokeWidth}"
+        stroke-dasharray="${arcLen.toFixed(2)} ${(circ - arcLen).toFixed(2)}"
+        stroke-dashoffset="${offset.toFixed(2)}"
+        class="seg-arc" data-idx="${idx}"
+        onmouseenter="document.getElementById('seg-pop-${idx}').style.display='flex'"
+        onmouseleave="document.getElementById('seg-pop-${idx}').style.display='none'"/>`,
+    );
+
+    consumed += catDeg;
+
+    const divRad = (consumed / 360) * 2 * Math.PI - Math.PI / 2;
+    const half = strokeWidth / 2 + 1;
+    const dx = Math.cos(divRad);
+    const dy = Math.sin(divRad);
+    arcs.push(
+      `<line x1="${(cx + (radius - half) * dx).toFixed(2)}" y1="${(cy + (radius - half) * dy).toFixed(2)}"
+        x2="${(cx + (radius + half) * dx).toFixed(2)}" y2="${(cy + (radius + half) * dy).toFixed(2)}"
+        stroke="#fff" stroke-width="2" pointer-events="none"/>`,
+    );
+
+    segIdx++;
+  }
+
+  const popovers = categories
+    .filter((cat) => cat.score > 0)
+    .map((cat, i) => {
+      const catPct =
+        cat.maxScore > 0 ? Math.round((cat.score / cat.maxScore) * 100) : 0;
+      const color = scoreColorHex(catPct);
+      return `<div id="seg-pop-${i}" class="seg-popover">
+        <span class="seg-popover-dot" style="background:${color}"></span>
+        <span class="seg-popover-name">${escapeHtml(cat.name)}</span>
+        <span class="seg-popover-score">${catPct}%</span>
+        <span class="seg-popover-pts">${cat.score}/${cat.maxScore} pts</span>
+      </div>`;
+    })
+    .join("");
+
+  return `<div class="overall-gauge-wrap">
+    <svg class="gauge" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+      ${trackCircle}
+      ${arcs.join("\n      ")}
+      <text x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="40" font-weight="700" fill="${textColor}">${overallScore}</text>
+      <text x="${cx}" y="${cy + 14}" text-anchor="middle" font-size="14" font-weight="600" fill="${textColor}">${escapeHtml(grade)}</text>
+      <text x="${cx}" y="${cy + 30}" text-anchor="middle" font-size="11" fill="#999">${totalPoints}/${maxPoints} pts</text>
+    </svg>
+    <div class="seg-popovers">${popovers}</div>
+    <div class="score-scale">
+      <span class="scale-fail">0-49</span>
+      <span class="scale-average">50-89</span>
+      <span class="scale-pass">90-100</span>
+    </div>
+  </div>`;
+}
+
 function buildCategoryGauge(category: {
   name: string;
   score: number;
@@ -175,12 +274,26 @@ function buildRecommendationsByCategory(
 }
 
 export function renderHtml(result: AnalyzerResultType): string {
-  const categories = Object.values(result.categories);
+  const categoryEntries = Object.entries(result.categories);
+  const categories = categoryEntries.map(([, c]) => c);
+  const categoriesWithKeys = categoryEntries.map(([key, c]) => ({
+    key,
+    name: c.name,
+    score: c.score,
+    maxScore: c.maxScore,
+  }));
   const gauges = categories.map(buildCategoryGauge).join("");
   const sections = categories.map(buildCategorySection).join("");
   const recsHtml = buildRecommendationsByCategory(
     result.recommendations,
     result.categories,
+  );
+  const overallGauge = buildMultiSegmentGauge(
+    result.overallScore,
+    result.grade,
+    result.totalPoints,
+    result.maxPoints,
+    categoriesWithKeys,
   );
 
   return `<!DOCTYPE html>
@@ -283,29 +396,64 @@ body {
   display: flex;
   align-items: center;
   flex-direction: column;
-  padding: 24px 0 20px;
+  padding: 32px 0 24px;
   border-bottom: 1px solid var(--border);
 }
-.overall .gauge { margin-bottom: 6px; }
-.overall-grade {
-  font-size: 16px;
-  font-weight: 700;
+.overall-gauge-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
 }
-.overall-grade.pass { color: var(--pass-text); }
-.overall-grade.average { color: var(--average-text); }
-.overall-grade.fail { color: var(--fail-text); }
-.overall-sub {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: 2px;
+.overall-gauge-wrap .gauge {
+  display: block;
+  overflow: visible;
 }
+.seg-arc {
+  cursor: pointer;
+  transition: stroke-width 0.15s ease, filter 0.15s ease;
+}
+.seg-arc:hover {
+  stroke-width: 20;
+  filter: brightness(1.1);
+}
+
+/* Segment popovers */
+.seg-popovers {
+  position: relative;
+  min-height: 36px;
+  display: flex;
+  justify-content: center;
+  margin-top: 4px;
+}
+.seg-popover {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.seg-popover-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.seg-popover-name { font-weight: 600; }
+.seg-popover-score { font-weight: 700; }
+.seg-popover-pts { color: var(--text-secondary); }
 
 /* Score scale legend */
 .score-scale {
   display: flex;
   justify-content: center;
   gap: 16px;
-  padding: 8px 0;
+  margin-top: 12px;
   font-size: 11px;
   color: var(--text-secondary);
 }
@@ -469,15 +617,7 @@ body {
   </div>
 
   <div class="overall">
-    ${buildGaugeSvg(result.overallScore, "large")}
-    <span class="overall-grade ${scoreClass(result.overallScore)}">${escapeHtml(result.grade)}</span>
-    <span class="overall-sub">${result.totalPoints}/${result.maxPoints} pts</span>
-  </div>
-
-  <div class="score-scale">
-    <span class="scale-fail">0-49</span>
-    <span class="scale-average">50-89</span>
-    <span class="scale-pass">90-100</span>
+    ${overallGauge}
   </div>
 
   ${sections}
