@@ -40,10 +40,10 @@ export function auditContentExtractability(
   const extractScore =
     extractRatio >= 0.05 && extractRatio <= 0.15
       ? 12
-      : extractRatio >= 0.01
-        ? 8
-        : extractRatio > 0.15
-          ? 10
+      : extractRatio > 0.15
+        ? 10
+        : extractRatio >= 0.01
+          ? 8
           : 2;
   factors.push(
     makeFactor(
@@ -72,7 +72,7 @@ export function auditContentExtractability(
 
   const wc = page.stats.wordCount;
   const wcScore =
-    wc >= 300 && wc <= 3000 ? 12 : wc >= 100 ? 8 : wc > 3000 ? 10 : 2;
+    wc >= 300 && wc <= 3000 ? 12 : wc > 3000 ? 10 : wc >= 100 ? 8 : 2;
   factors.push(makeFactor("Word Count Adequacy", wcScore, 12, `${wc} words`));
 
   if (domainSignals) {
