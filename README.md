@@ -8,6 +8,11 @@
 [![Tests](https://img.shields.io/badge/tests-194%20passed-8FBC8F)](https://github.com/agencyenterprise/aiseo-audit)
 [![Coverage](https://img.shields.io/codecov/c/github/agencyenterprise/aiseo-audit?color=8FBC8F&label=coverage)](https://codecov.io/gh/agencyenterprise/aiseo-audit)
 
+<div align="center">
+  <strong>Testing against local development</strong><br /><br />
+  <img src="docs/assets/ai-seo-bad-site-example.gif" alt="Testing against local development example" width="600" />
+</div>
+
 Deterministic CLI that audits web pages for **AI search readiness**. Think Lighthouse, but for how well AI engines can fetch, extract, understand, and cite your content.
 
 **AI SEO measures how reusable your content is for generative engines, not traditional search rankings.**
