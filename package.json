@@ -1,6 +1,6 @@
 {
   "name": "aiseo-audit",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "description": "Lighthouse for AI SEO. Audit any webpage for AI search readiness. 7 categories, 30+ factors, research-backed scoring. Deterministic, engine-agnostic, zero API keys.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
