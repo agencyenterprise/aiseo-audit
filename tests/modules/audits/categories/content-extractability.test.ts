@@ -30,7 +30,8 @@ function findFactor(
 function buildHtmlWithMetaPadding(metaCount: number, bodyText: string): string {
   const metas = Array.from(
     { length: metaCount },
-    (_, i) => `<meta name="pad${i}" content="padding-content-padding-content" />`,
+    (_, i) =>
+      `<meta name="pad${i}" content="padding-content-padding-content" />`,
   ).join("");
   return `<html><head>${metas}</head><body><p>${bodyText}</p></body></html>`;
 }
