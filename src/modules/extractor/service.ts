@@ -22,7 +22,9 @@ export function extractPage(html: string, url: string): ExtractedPageType {
     $('meta[property="og:description"]').attr("content")?.trim() ||
     "";
 
-  const rawText = $("body").text().replace(/\s+/g, " ").trim();
+  const $raw = cheerio.load(html);
+  $raw("script, style, noscript").remove();
+  const rawText = $raw("body").text().replace(/\s+/g, " ").trim();
   const rawByteLength = Buffer.byteLength(html, "utf-8");
 
   const h1Count = $("h1").length;
