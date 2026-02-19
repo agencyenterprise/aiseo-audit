@@ -16,7 +16,7 @@
 Deterministic CLI that audits web pages for **AI search readiness**. Think Lighthouse, but for how well AI engines can fetch, extract, understand, and cite your content.
 
 > [!TIP]
-> Run `aiseo-audit https://www.aiseo-audit.com` to see an [A+ Score](https://www.aiseo-audit.com/)
+> Run `aiseo-audit https://www.aiseo-audit.com` to see an [A+ Score](https://www.aiseo-audit.com/).
 
 **AI SEO measures how reusable your content is for generative engines, not traditional search rankings.**
 
@@ -287,6 +287,7 @@ const config = await loadConfig("/path/to/aiseo.config.json");
 
 - [Audit Breakdown](docs/AUDIT_BREAKDOWN.md) - Full scoring methodology, every factor, every threshold, with research citations
 - [Research](docs/RESEARCH.md) - Sources and gap analysis
+- 100 out of 100 score using the tool [https://aiseo-audit.com](https://www.aiseo-audit.com/)
 
 ## Contributing
 
