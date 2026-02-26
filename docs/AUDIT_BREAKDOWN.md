@@ -110,6 +110,8 @@ Scoring:
 - PerplexityBot (Perplexity)
 - Google-Extended (Google AI training)
 
+The parser applies proper robots.txt rule evaluation: longest-path-wins specificity, `Allow` overrides `Disallow` at equal path length, and both crawler-specific blocks and `*` wildcard blocks are respected. A crawler is site-blocked only when `Disallow: /` applies without a more-specific `Allow` override. Path-level partial blocks (e.g. `Disallow: /blog/`) are surfaced separately in the audit output as `partiallyBlocked`. These do not count as a full site block but are visible for review.
+
 Scoring: 0 blocked = 10, 1-2 blocked = 6, 3-4 blocked = 3, all blocked = 0
 
 **LLMs.txt Presence** checks for an emerging standard [[8]](#sources) that is gaining traction alongside robots.txt. Unlike robots.txt (which controls access), llms.txt is a curated roadmap that helps AI systems understand your site's content, purpose, and key resources at inference time. OpenAI, Microsoft, and other major providers are actively crawling for these files. No major LLM has confirmed it as a ranking signal yet, but adoption is low-cost and forward-looking.
@@ -125,12 +127,12 @@ Scoring: both found = 6, one found = 4, neither = 0 (scored as `neutral`)
 
 Two sub-checks:
 
-1. Alt text coverage: what ratio of `<img>` elements have a non-empty `alt` attribute?
+1. Alt text coverage: what ratio of `<img>` elements have **meaningful** alt text? An alt value counts as meaningful only if it is more than one word, under 200 characters, and not a generic placeholder (`"image"`, `"photo"`, `"logo"`, `"icon"`, `"picture"`, `"img"`, `"graphic"`, `"thumbnail"`). Empty strings and single-word generics do not count.
 2. Semantic captions: are any images wrapped in `<figure>` with a `<figcaption>` child?
 
 Scoring:
 
-- 90%+ images have alt text = +5, 50-89% = +3, under 50% = +1
+- 90%+ images have meaningful alt text = +5, 50-89% = +3, under 50% = +1
 - Any `<figcaption>` elements present = +3
 - No images on page = 0 (scored as `neutral`)
 
@@ -248,7 +250,9 @@ Scoring: 5+ = 11, 2-4 = 8, 1 = 4, none = 0
 
 Scoring: 70%+ have capsules = 13, 40-69% = 9, some = 5, question H2s but no capsules = 2, no question H2s = 0 (scored as `neutral`)
 
-**Step-by-Step Content** scans for:
+**Step-by-Step Content** combines two detection methods:
+
+Pattern matching scans for:
 
 - `step 1`, `step 2`, etc.
 - Lines starting with `1. `, `2. `, etc.
@@ -256,7 +260,9 @@ Scoring: 70%+ have capsules = 13, 40-69% = 9, some = 5, question H2s but no caps
 - `how to`
 - Presence of `<ol>` elements (adds +2 to count)
 
-Scoring: 5+ = 10, 2-4 = 7, 1 = 3, none = 0
+NLP-based detection (via `compromise`) additionally counts imperative verbs: instruction-mode verbs like "install", "configure", "click", "open", "run". These are semantically step-like even when not numbered, and are missed by pattern matching alone.
+
+Both counts are summed. Scoring: 5+ = 10, 2-4 = 7, 1 = 3, none = 0
 
 **Q/A Patterns** combines two counts:
 
@@ -349,14 +355,18 @@ Generative engines build knowledge graphs internally. When your page mentions sp
 
 Sum scored: 6+ = 13, 3-5 = 9, 1-2 = 5, none = 0
 
-**Numeric Claims** scans for:
+**Numeric Claims** combines two detection methods:
+
+Pattern matching scans for:
 
 - Percentages: `42%`
 - Large numbers: `3 million`, `2 billion`
 - Currency: `$1,200`
 - Change indicators: `increased by`, `decreased by`, `grew by`
 
-Scoring: 9+ = 13, 4-8 = 9, 1-3 = 5, none = 0
+NLP-based detection (via `compromise`) additionally counts all numeric values in the text, including written-out numbers like "five studies" or "three companies" that regex cannot reliably capture.
+
+Both counts are summed. Scoring: 9+ = 13, 4-8 = 9, 1-3 = 5, none = 0
 
 **Attribution Indicators** scans for:
 

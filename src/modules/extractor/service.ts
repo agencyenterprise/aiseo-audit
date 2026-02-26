@@ -38,9 +38,26 @@ export function extractPage(html: string, url: string): ExtractedPageType {
   const tableCount = $("table").length;
   const paragraphCount = $("p").length;
 
+  const GENERIC_ALT_VALUES = new Set([
+    "image",
+    "photo",
+    "logo",
+    "icon",
+    "picture",
+    "img",
+    "graphic",
+    "thumbnail",
+  ]);
+
   let imagesWithAlt = 0;
   $("img").each((_, el) => {
-    if ($(el).attr("alt")) imagesWithAlt++;
+    const alt = $(el).attr("alt")?.trim() ?? "";
+    const words = alt.split(/\s+/).filter((w) => w.length > 0);
+    const isMeaningful =
+      words.length > 1 &&
+      alt.length < 200 &&
+      !GENERIC_ALT_VALUES.has(alt.toLowerCase());
+    if (isMeaningful) imagesWithAlt++;
   });
 
   const pageDomain = getDomain(url);

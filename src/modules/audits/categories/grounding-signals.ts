@@ -1,7 +1,7 @@
 import type { ExtractedPageType } from "../../extractor/schema.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
 import type { CategoryAuditOutputType, FactorResultType } from "../schema.js";
-import { countPatternMatches } from "../support/nlp.js";
+import { countPatternMatches, extractEntities } from "../support/nlp.js";
 import {
   ATTRIBUTION_PATTERNS,
   CITATION_PATTERNS,
@@ -21,6 +21,7 @@ export function auditGroundingSignals(
   const $ = page.$;
   const text = page.cleanText;
   const factors: FactorResultType[] = [];
+  const { numberCount = 0 } = extractEntities(text);
 
   const externalLinks = page.externalLinks;
 
@@ -58,7 +59,8 @@ export function auditGroundingSignals(
   );
 
   const numericCount = countPatternMatches(text, NUMERIC_CLAIM_PATTERNS);
-  const numScore = thresholdScore(numericCount, [
+  const totalNumericSignals = numericCount + numberCount;
+  const numScore = thresholdScore(totalNumericSignals, [
     [9, 13],
     [4, 9],
     [1, 5],
@@ -69,7 +71,7 @@ export function auditGroundingSignals(
       "Numeric Claims",
       numScore,
       13,
-      `${numericCount} statistical references`,
+      `${numericCount} statistical references, ${numberCount} numeric values`,
     ),
   );
 
