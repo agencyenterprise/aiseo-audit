@@ -98,6 +98,10 @@ export function auditContentExtractability(
     );
 
     rawData.crawlerAccess = access;
+    rawData.llmsTxt = {
+      llmsTxtExists: domainSignals.llmsTxtExists,
+      llmsFullTxtExists: domainSignals.llmsFullTxtExists,
+    };
 
     const hasLlms = domainSignals.llmsTxtExists;
     const hasLlmsFull = domainSignals.llmsFullTxtExists;

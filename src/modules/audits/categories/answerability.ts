@@ -2,7 +2,7 @@ import type { ExtractedPageType } from "../../extractor/schema.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
 import type { CategoryAuditOutputType, FactorResultType } from "../schema.js";
 import { detectAnswerCapsules } from "../support/dom.js";
-import { countPatternMatches } from "../support/nlp.js";
+import { countPatternMatches, extractEntities } from "../support/nlp.js";
 import {
   DEFINITION_PATTERNS,
   DIRECT_ANSWER_PATTERNS,
@@ -23,6 +23,7 @@ export function auditAnswerability(
   const text = page.cleanText;
   const $ = page.$;
   const factors: FactorResultType[] = [];
+  const { imperativeVerbCount = 0 } = extractEntities(text);
 
   const defCount = countPatternMatches(text, DEFINITION_PATTERNS);
   const defScore = thresholdScore(defCount, [
@@ -83,7 +84,7 @@ export function auditAnswerability(
 
   const stepCount = countPatternMatches(text, STEP_PATTERNS);
   const hasOl = $("ol").length > 0;
-  const stepTotal = stepCount + (hasOl ? 2 : 0);
+  const stepTotal = stepCount + imperativeVerbCount + (hasOl ? 2 : 0);
   const stepScore = thresholdScore(stepTotal, [
     [5, 10],
     [2, 7],
@@ -95,7 +96,7 @@ export function auditAnswerability(
       "Step-by-Step Content",
       stepScore,
       10,
-      `${stepCount} step indicators${hasOl ? ", ordered lists found" : ""}`,
+      `${stepCount} step indicators, ${imperativeVerbCount} instruction verbs${hasOl ? ", ordered lists found" : ""}`,
     ),
   );
 

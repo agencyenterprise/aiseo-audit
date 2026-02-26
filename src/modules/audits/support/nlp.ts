@@ -21,7 +21,17 @@ export function extractEntities(text: string): ExtractedEntitiesType {
     15,
   );
 
-  return { people, organizations, places, topics };
+  const imperativeVerbCount = doc.verbs().isImperative().length;
+  const numberCount = doc.numbers().length;
+
+  return {
+    people,
+    organizations,
+    places,
+    topics,
+    imperativeVerbCount,
+    numberCount,
+  };
 }
 
 export function computeFleschReadingEase(text: string): number {

@@ -43,9 +43,19 @@ export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
     return `Your robots.txt is blocking ${blocked}. Blocking these crawlers means your content cannot be discovered or cited by AI engines.`;
   },
 
-  "LLMs.txt Presence": static_(
-    "Consider adding llms.txt and llms-full.txt files at your domain root. This emerging standard provides AI systems with a structured overview of your site, helping them understand and reference your content more effectively.",
-  ),
+  "LLMs.txt Presence": (rawData) => {
+    const llms = rawData.llmsTxt;
+    if (!llms) {
+      return "Consider adding llms.txt and llms-full.txt files at your domain root. This emerging standard provides AI systems with a structured overview of your site.";
+    }
+    if (llms.llmsTxtExists && !llms.llmsFullTxtExists) {
+      return "You have llms.txt but are missing llms-full.txt. Adding llms-full.txt provides AI systems with a comprehensive version of your site documentation for deeper ingestion.";
+    }
+    if (!llms.llmsTxtExists && llms.llmsFullTxtExists) {
+      return "You have llms-full.txt but are missing llms.txt. Adding llms.txt provides AI systems with a concise structured overview of your site's purpose and key pages.";
+    }
+    return "Consider adding llms.txt and llms-full.txt files at your domain root. This emerging standard provides AI systems with a structured overview of your site.";
+  },
 
   "Image Accessibility": (rawData) => {
     const images = rawData.imageAccessibility;

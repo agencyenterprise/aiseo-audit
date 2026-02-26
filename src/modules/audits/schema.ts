@@ -43,6 +43,7 @@ export const CrawlerAccessResultSchema = z.object({
   allowed: z.array(z.string()),
   blocked: z.array(z.string()),
   unknown: z.array(z.string()),
+  partiallyBlocked: z.array(z.string()).optional(),
 });
 
 export const SectionLengthResultSchema = z.object({
@@ -56,6 +57,8 @@ export const ExtractedEntitiesSchema = z.object({
   organizations: z.array(z.string()),
   places: z.array(z.string()),
   topics: z.array(z.string()),
+  imperativeVerbCount: z.number().optional(),
+  numberCount: z.number().optional(),
 });
 
 export const FreshnessResultSchema = z.object({
@@ -70,6 +73,9 @@ export const AuditRawDataSchema = z.object({
   metaDescription: z.string(),
   wordCount: z.number(),
   crawlerAccess: CrawlerAccessResultSchema.optional(),
+  llmsTxt: z
+    .object({ llmsTxtExists: z.boolean(), llmsFullTxtExists: z.boolean() })
+    .optional(),
   sectionLengths: SectionLengthResultSchema.optional(),
   answerCapsules: z
     .object({
