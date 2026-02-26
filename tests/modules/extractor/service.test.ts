@@ -132,4 +132,67 @@ describe("extractPage", () => {
       expect(result.title).toBe("OG Title");
     });
   });
+
+  describe("image alt text quality", () => {
+    it("counts descriptive alt text as meaningful", () => {
+      const html = `<html><body>
+        <img src="a.jpg" alt="A chart showing user growth over time" />
+        <img src="b.jpg" alt="Screenshot of the configuration panel" />
+      </body></html>`;
+      const result = extractPage(html, "https://example.com");
+
+      expect(result.stats.imagesWithAlt).toBe(2);
+    });
+
+    it("does not count empty alt text", () => {
+      const html = `<html><body>
+        <img src="a.jpg" alt="" />
+      </body></html>`;
+      const result = extractPage(html, "https://example.com");
+
+      expect(result.stats.imagesWithAlt).toBe(0);
+    });
+
+    it("does not count generic single-word alt values", () => {
+      const html = `<html><body>
+        <img src="a.jpg" alt="image" />
+        <img src="b.jpg" alt="photo" />
+        <img src="c.jpg" alt="logo" />
+        <img src="d.jpg" alt="icon" />
+      </body></html>`;
+      const result = extractPage(html, "https://example.com");
+
+      expect(result.stats.imagesWithAlt).toBe(0);
+    });
+
+    it("does not count alt text that is a single word", () => {
+      const html = `<html><body>
+        <img src="a.jpg" alt="diagram" />
+      </body></html>`;
+      const result = extractPage(html, "https://example.com");
+
+      expect(result.stats.imagesWithAlt).toBe(0);
+    });
+
+    it("does not count alt text over 200 characters", () => {
+      const longAlt = "word ".repeat(50).trim();
+      const html = `<html><body>
+        <img src="a.jpg" alt="${longAlt}" />
+      </body></html>`;
+      const result = extractPage(html, "https://example.com");
+
+      expect(result.stats.imagesWithAlt).toBe(0);
+    });
+
+    it("counts only meaningful alt text when mixed with generic", () => {
+      const html = `<html><body>
+        <img src="a.jpg" alt="image" />
+        <img src="b.jpg" alt="A descriptive caption for this image" />
+        <img src="c.jpg" alt="" />
+      </body></html>`;
+      const result = extractPage(html, "https://example.com");
+
+      expect(result.stats.imagesWithAlt).toBe(1);
+    });
+  });
 });

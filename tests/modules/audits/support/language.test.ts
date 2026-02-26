@@ -43,6 +43,40 @@ describe("extractEntities", () => {
     expect(entities.places.length).toBeLessThanOrEqual(10);
     expect(entities.topics.length).toBeLessThanOrEqual(15);
   });
+
+  it("counts imperative verbs in instructional text", () => {
+    const text =
+      "Install the package. Configure the settings. Click the button and open the dashboard.";
+    const entities = extractEntities(text);
+
+    expect(entities.imperativeVerbCount).toBeDefined();
+    expect(entities.imperativeVerbCount).toBeGreaterThan(0);
+  });
+
+  it("returns zero imperative verbs for non-instructional text", () => {
+    const text = "The weather was nice. She walked to the store.";
+    const entities = extractEntities(text);
+
+    expect(entities.imperativeVerbCount).toBeDefined();
+    expect(entities.imperativeVerbCount).toBe(0);
+  });
+
+  it("counts numeric values including written-out numbers", () => {
+    const text =
+      "There were five studies and three companies involved. Also 42 participants.";
+    const entities = extractEntities(text);
+
+    expect(entities.numberCount).toBeDefined();
+    expect(entities.numberCount).toBeGreaterThan(0);
+  });
+
+  it("returns zero number count for text with no numbers", () => {
+    const text = "The cat sat on the mat.";
+    const entities = extractEntities(text);
+
+    expect(entities.numberCount).toBeDefined();
+    expect(entities.numberCount).toBe(0);
+  });
 });
 
 describe("computeFleschReadingEase", () => {
@@ -183,6 +217,76 @@ Disallow: /
     const result = checkCrawlerAccess(robotsTxt);
 
     expect(result.blocked.length).toBeGreaterThan(0);
+  });
+
+  it("surfaces path-level block in partiallyBlocked without marking crawler as blocked", () => {
+    const robotsTxt = `
+User-agent: GPTBot
+Disallow: /blog/
+`;
+    const result = checkCrawlerAccess(robotsTxt);
+
+    expect(result.blocked).not.toContain("GPTBot");
+    expect(result.allowed).toContain("GPTBot");
+    expect(result.partiallyBlocked).toBeDefined();
+    expect(result.partiallyBlocked?.some((e) => e.includes("GPTBot"))).toBe(
+      true,
+    );
+    expect(result.partiallyBlocked?.some((e) => e.includes("/blog/"))).toBe(
+      true,
+    );
+  });
+
+  it("allow overrides disallow at equal path specificity", () => {
+    const robotsTxt = `
+User-agent: GPTBot
+Disallow: /
+Allow: /
+`;
+    const result = checkCrawlerAccess(robotsTxt);
+
+    expect(result.blocked).not.toContain("GPTBot");
+  });
+
+  it("crawler-specific rule takes precedence over wildcard", () => {
+    const robotsTxt = `
+User-agent: *
+Disallow: /
+
+User-agent: GPTBot
+Allow: /
+`;
+    const result = checkCrawlerAccess(robotsTxt);
+
+    expect(result.allowed).toContain("GPTBot");
+    expect(result.blocked).not.toContain("GPTBot");
+  });
+
+  it("longer allow path wins over shorter disallow for site-level access", () => {
+    const robotsTxt = `
+User-agent: GPTBot
+Disallow: /private/
+Allow: /
+`;
+    const result = checkCrawlerAccess(robotsTxt);
+
+    expect(result.blocked).not.toContain("GPTBot");
+    expect(result.allowed).toContain("GPTBot");
+    expect(result.partiallyBlocked?.some((e) => e.includes("/private/"))).toBe(
+      true,
+    );
+  });
+
+  it("ignores comment lines", () => {
+    const robotsTxt = `
+# Block all AI bots
+User-agent: GPTBot
+# Disallow: /
+Allow: /
+`;
+    const result = checkCrawlerAccess(robotsTxt);
+
+    expect(result.blocked).not.toContain("GPTBot");
   });
 });
 

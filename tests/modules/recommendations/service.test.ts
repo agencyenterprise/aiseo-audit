@@ -444,6 +444,60 @@ describe("context-aware recommendations", () => {
     expect(recs[0].recommendation).toContain("2 external links");
   });
 
+  it("tells user to add both files when neither llms.txt file exists", () => {
+    const auditResult = makeAuditResult(
+      {
+        content: makeCategory("Content", "contentExtractability", [
+          makeFactor("LLMs.txt Presence", 0, 6),
+        ]),
+      },
+      {
+        llmsTxt: { llmsTxtExists: false, llmsFullTxtExists: false },
+      },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].recommendation).toContain("llms.txt");
+    expect(recs[0].recommendation).toContain("llms-full.txt");
+  });
+
+  it("tells user to add llms-full.txt when only llms.txt exists", () => {
+    const auditResult = makeAuditResult(
+      {
+        content: makeCategory("Content", "contentExtractability", [
+          makeFactor("LLMs.txt Presence", 4, 6),
+        ]),
+      },
+      {
+        llmsTxt: { llmsTxtExists: true, llmsFullTxtExists: false },
+      },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].recommendation).toContain("llms-full.txt");
+    expect(recs[0].recommendation).not.toContain("missing llms.txt");
+  });
+
+  it("tells user to add llms.txt when only llms-full.txt exists", () => {
+    const auditResult = makeAuditResult(
+      {
+        content: makeCategory("Content", "contentExtractability", [
+          makeFactor("LLMs.txt Presence", 4, 6),
+        ]),
+      },
+      {
+        llmsTxt: { llmsTxtExists: false, llmsFullTxtExists: true },
+      },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].recommendation).toContain("llms.txt");
+    expect(recs[0].recommendation).not.toContain("missing llms-full.txt");
+  });
+
   it("falls back gracefully when rawData field is missing", () => {
     const auditResult = makeAuditResult(
       {
