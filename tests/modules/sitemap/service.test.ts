@@ -181,7 +181,7 @@ describe("analyzeSitemap", () => {
 
       expect(fetchDomainSignals).toHaveBeenCalledTimes(1);
       expect(fetchDomainSignals).toHaveBeenCalledWith(
-        "https://example.com/sitemap.xml",
+        "https://example.com",
         expect.any(Number),
         expect.any(String),
       );

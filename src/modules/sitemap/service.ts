@@ -116,7 +116,11 @@ export async function analyzeSitemap(
 
   const urls = await fetchSitemapUrls(options.sitemapUrl, timeout, userAgent);
 
-  const signalsBase = options.signalsBase ?? options.sitemapUrl;
+  const sitemapDir = options.sitemapUrl.substring(
+    0,
+    options.sitemapUrl.lastIndexOf("/"),
+  );
+  const signalsBase = options.signalsBase ?? sitemapDir;
   const domainSignals = await fetchDomainSignals(
     signalsBase,
     timeout,
