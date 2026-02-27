@@ -23,14 +23,27 @@ export async function loadConfig(
   configPath?: string,
 ): Promise<AiseoConfigType> {
   if (configPath) {
-    const content = await readFile(resolve(configPath), "utf-8");
-    return AiseoConfigSchema.parse(JSON.parse(content));
+    const resolvedPath = resolve(configPath);
+    const content = await readFile(resolvedPath, "utf-8");
+    try {
+      return AiseoConfigSchema.parse(JSON.parse(content));
+    } catch (err) {
+      throw new Error(
+        `Invalid config file "${resolvedPath}": ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   const found = await findConfigFile(process.cwd());
   if (found) {
     const content = await readFile(found, "utf-8");
-    return AiseoConfigSchema.parse(JSON.parse(content));
+    try {
+      return AiseoConfigSchema.parse(JSON.parse(content));
+    } catch (err) {
+      throw new Error(
+        `Invalid config file "${found}": ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   return AiseoConfigSchema.parse({});

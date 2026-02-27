@@ -54,8 +54,8 @@ export function auditContentExtractability(
     ),
   );
 
-  const bpRatio = page.stats.boilerplateRatio;
-  const bpScore = thresholdScore(1 - bpRatio, [
+  const boilerplateRatio = page.stats.boilerplateRatio;
+  const bpScore = thresholdScore(1 - boilerplateRatio, [
     [0.7, 12],
     [0.5, 9],
     [0.3, 6],
@@ -66,14 +66,22 @@ export function auditContentExtractability(
       "Boilerplate Ratio",
       bpScore,
       12,
-      `${(bpRatio * 100).toFixed(0)}% boilerplate`,
+      `${(boilerplateRatio * 100).toFixed(0)}% boilerplate`,
     ),
   );
 
-  const wc = page.stats.wordCount;
+  const wordCount = page.stats.wordCount;
   const wcScore =
-    wc >= 300 && wc <= 3000 ? 12 : wc > 3000 ? 10 : wc >= 100 ? 8 : 2;
-  factors.push(makeFactor("Word Count Adequacy", wcScore, 12, `${wc} words`));
+    wordCount >= 300 && wordCount <= 3000
+      ? 12
+      : wordCount > 3000
+        ? 10
+        : wordCount >= 100
+          ? 8
+          : 2;
+  factors.push(
+    makeFactor("Word Count Adequacy", wcScore, 12, `${wordCount} words`),
+  );
 
   if (domainSignals) {
     const access = checkCrawlerAccess(domainSignals.robotsTxt);

@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { AnalyzerResultType } from "../../../src/modules/analyzer/schema.js";
-import { renderReport } from "../../../src/modules/report/service.js";
+import {
+  renderReport,
+  renderSitemapReport,
+} from "../../../src/modules/report/service.js";
+import type { SitemapResultType } from "../../../src/modules/sitemap/schema.js";
 
 function makeMinimalResult(): AnalyzerResultType {
   return {
     url: "https://example.com",
+    signalsBase: "https://example.com",
     analyzedAt: "2026-02-11T12:00:00.000Z",
     overallScore: 72,
     grade: "B-",
@@ -254,54 +259,194 @@ describe("renderReport", () => {
     });
   });
 
-  describe("http note", () => {
-    const httpNote = "Audited over HTTP";
-
-    function makeHttpResult(): AnalyzerResultType {
-      return { ...makeMinimalResult(), url: "http://localhost:3000" };
-    }
-
-    it("shows note in pretty format for http URL", () => {
-      const output = renderReport(makeHttpResult(), { format: "pretty" });
-      expect(output).toContain(httpNote);
-    });
-
-    it("shows note in json format for http URL", () => {
-      const output = renderReport(makeHttpResult(), { format: "json" });
-      const parsed = JSON.parse(output);
-      expect(parsed.notes).toBeDefined();
-      expect(parsed.notes[0]).toContain(httpNote);
-    });
-
-    it("shows note in md format for http URL", () => {
-      const output = renderReport(makeHttpResult(), { format: "md" });
-      expect(output).toContain(httpNote);
-    });
-
-    it("shows note in html format for http URL", () => {
-      const output = renderReport(makeHttpResult(), { format: "html" });
-      expect(output).toContain(httpNote);
-    });
-
-    it("omits note in pretty format for https URL", () => {
+  describe("signalsBase display", () => {
+    it("shows signals base in pretty format", () => {
       const output = renderReport(makeMinimalResult(), { format: "pretty" });
-      expect(output).not.toContain(httpNote);
+      expect(output).toContain("Domain signals checked at");
+      expect(output).toContain("example.com");
     });
 
-    it("omits note in json format for https URL", () => {
+    it("includes signalsBase in json output", () => {
       const output = renderReport(makeMinimalResult(), { format: "json" });
       const parsed = JSON.parse(output);
-      expect(parsed.notes).toBeUndefined();
+      expect(parsed.signalsBase).toBe("https://example.com");
     });
 
-    it("omits note in md format for https URL", () => {
+    it("shows signals base in md format", () => {
       const output = renderReport(makeMinimalResult(), { format: "md" });
-      expect(output).not.toContain(httpNote);
+      expect(output).toContain("Domain signals checked at");
+      expect(output).toContain("example.com");
     });
 
-    it("omits note in html format for https URL", () => {
+    it("shows signals base in html format", () => {
       const output = renderReport(makeMinimalResult(), { format: "html" });
-      expect(output).not.toContain(httpNote);
+      expect(output).toContain("Domain signals checked at");
+      expect(output).toContain("example.com");
+    });
+  });
+});
+
+function makeMinimalSitemapResult(): SitemapResultType {
+  const urlResult = makeMinimalResult();
+  return {
+    sitemapUrl: "https://example.com/sitemap.xml",
+    signalsBase: "https://example.com/sitemap.xml",
+    analyzedAt: "2026-02-11T12:00:00.000Z",
+    totalUrls: 2,
+    succeededCount: 1,
+    failedCount: 1,
+    averageScore: 72,
+    averageGrade: "B-",
+    categoryAverages: {
+      contentExtractability: { name: "Content Extractability", averagePct: 80 },
+      authorityContext: { name: "Authority Context", averagePct: 55 },
+    },
+    urlResults: [
+      { status: "success", result: urlResult },
+      {
+        status: "failed",
+        url: "https://example.com/broken",
+        error: "Connection timeout",
+      },
+    ],
+    meta: {
+      version: "0.1.0",
+      analysisDurationMs: 500,
+    },
+  };
+}
+
+describe("renderSitemapReport", () => {
+  describe("pretty format", () => {
+    it("renders without errors", () => {
+      const output = renderSitemapReport(makeMinimalSitemapResult(), {
+        format: "pretty",
+      });
+      expect(typeof output).toBe("string");
+      expect(output.length).toBeGreaterThan(0);
+    });
+
+    it("includes sitemap URL", () => {
+      const output = renderSitemapReport(makeMinimalSitemapResult(), {
+        format: "pretty",
+      });
+      expect(output).toContain("sitemap.xml");
+    });
+
+    it("includes average score", () => {
+      const output = renderSitemapReport(makeMinimalSitemapResult(), {
+        format: "pretty",
+      });
+      expect(output).toContain("72");
+    });
+
+    it("includes signals base", () => {
+      const output = renderSitemapReport(makeMinimalSitemapResult(), {
+        format: "pretty",
+      });
+      expect(output).toContain("Domain signals checked at");
+    });
+
+    it("shows failed URL with error", () => {
+      const output = renderSitemapReport(makeMinimalSitemapResult(), {
+        format: "pretty",
+      });
+      expect(output).toContain("Connection timeout");
+    });
+  });
+
+  describe("json format", () => {
+    it("renders valid JSON", () => {
+      const output = renderSitemapReport(makeMinimalSitemapResult(), {
+        format: "json",
+      });
+      expect(() => JSON.parse(output)).not.toThrow();
+    });
+
+    it("preserves all summary fields", () => {
+      const output = renderSitemapReport(makeMinimalSitemapResult(), {
+        format: "json",
+      });
+      const parsed = JSON.parse(output);
+      expect(parsed.sitemapUrl).toBe("https://example.com/sitemap.xml");
+      expect(parsed.averageScore).toBe(72);
+      expect(parsed.totalUrls).toBe(2);
+      expect(parsed.succeededCount).toBe(1);
+      expect(parsed.failedCount).toBe(1);
+      expect(parsed.signalsBase).toBeDefined();
+      expect(parsed.urlResults).toHaveLength(2);
+    });
+  });
+
+  describe("md format", () => {
+    it("renders without errors", () => {
+      const output = renderSitemapReport(makeMinimalSitemapResult(), {
+        format: "md",
+      });
+      expect(typeof output).toBe("string");
+      expect(output.length).toBeGreaterThan(0);
+    });
+
+    it("includes markdown headers", () => {
+      const output = renderSitemapReport(makeMinimalSitemapResult(), {
+        format: "md",
+      });
+      expect(output).toContain("# AI SEO Sitemap Audit Report");
+    });
+
+    it("includes summary table", () => {
+      const output = renderSitemapReport(makeMinimalSitemapResult(), {
+        format: "md",
+      });
+      expect(output).toContain("| Average Score |");
+      expect(output).toContain("72");
+    });
+
+    it("includes per-URL sections", () => {
+      const output = renderSitemapReport(makeMinimalSitemapResult(), {
+        format: "md",
+      });
+      expect(output).toContain("https://example.com");
+      expect(output).toContain("https://example.com/broken");
+    });
+  });
+
+  describe("html format", () => {
+    it("renders valid HTML", () => {
+      const output = renderSitemapReport(makeMinimalSitemapResult(), {
+        format: "html",
+      });
+      expect(output).toContain("<!DOCTYPE html>");
+      expect(output).toContain("</html>");
+    });
+
+    it("is self-contained with inline CSS", () => {
+      const output = renderSitemapReport(makeMinimalSitemapResult(), {
+        format: "html",
+      });
+      expect(output).toContain("<style>");
+    });
+
+    it("includes average score", () => {
+      const output = renderSitemapReport(makeMinimalSitemapResult(), {
+        format: "html",
+      });
+      expect(output).toContain("72");
+    });
+
+    it("includes signals base", () => {
+      const output = renderSitemapReport(makeMinimalSitemapResult(), {
+        format: "html",
+      });
+      expect(output).toContain("Domain signals checked at");
+    });
+
+    it("includes category averages", () => {
+      const output = renderSitemapReport(makeMinimalSitemapResult(), {
+        format: "html",
+      });
+      expect(output).toContain("Content Extractability");
+      expect(output).toContain("80%");
     });
   });
 });

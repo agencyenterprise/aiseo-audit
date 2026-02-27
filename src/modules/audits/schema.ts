@@ -18,6 +18,7 @@ export const FactorStatusSchema = z.enum([
 ]);
 
 export const DomainSignalsSchema = z.object({
+  signalsBase: z.string(),
   robotsTxt: z.string().nullable(),
   llmsTxtExists: z.boolean(),
   llmsFullTxtExists: z.boolean(),

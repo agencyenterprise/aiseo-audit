@@ -5,12 +5,14 @@ import { VERSION } from "./constants.js";
 
 export const AnalyzerOptionsSchema = z.object({
   url: z.string(),
+  signalsBase: z.string().optional(),
   timeout: z.number().positive().default(45000),
   userAgent: z.string().default(`AISEOAudit/${VERSION}`),
 });
 
 export const AnalyzerResultSchema = z.object({
   url: z.string(),
+  signalsBase: z.string(),
   analyzedAt: z.string(),
   overallScore: z.number(),
   grade: z.string(),

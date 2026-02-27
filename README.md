@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-7EB6D7.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-7EB6D7.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-7EB6D7?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-238%20passed-8FBC8F)](https://github.com/agencyenterprise/aiseo-audit)
+[![Tests](https://img.shields.io/badge/tests-259%20passed-8FBC8F)](https://github.com/agencyenterprise/aiseo-audit)
 [![Coverage](https://img.shields.io/codecov/c/github/agencyenterprise/aiseo-audit?color=8FBC8F&label=coverage)](https://codecov.io/gh/agencyenterprise/aiseo-audit)
 
 <div align="center">
@@ -22,6 +22,7 @@ Deterministic CLI that audits web pages for **AI search readiness**. Think Light
 
 - [Quick Start](#quick-start)
 - [CLI Options](#cli-options)
+- [Site-Wide Auditing](#site-wide-auditing)
 - [Local Development](#local-development)
 - [Audit Categories](#audit-categories)
 - [Programmatic API](#programmatic-api)
@@ -96,19 +97,61 @@ aiseo-audit https://example.com --config aiseo.config.json
 
 ## CLI Options
 
-| Option              | Description                           | Default                |
-| ------------------- | ------------------------------------- | ---------------------- |
-| `<url>`             | URL to audit (required)               | -                      |
-| `--json`            | Output as JSON                        | -                      |
-| `--md`              | Output as Markdown                    | -                      |
-| `--html`            | Output as HTML                        | -                      |
-| `--out <path>`      | Write rendered output to a file       | -                      |
-| `--fail-under <n>`  | Exit with code 1 if score < threshold | -                      |
-| `--timeout <ms>`    | Request timeout in ms                 | `45000`                |
-| `--user-agent <ua>` | Custom User-Agent string              | `AISEOAudit/<version>` |
-| `--config <path>`   | Path to config file                   | -                      |
+| Option                 | Description                                                                 | Default                |
+| ---------------------- | --------------------------------------------------------------------------- | ---------------------- |
+| `[url]`                | URL to audit                                                                | -                      |
+| `--sitemap <url>`      | Audit all URLs in a sitemap.xml                                             | -                      |
+| `--signals-base <url>` | Base URL to fetch domain signals from (robots.txt, llms.txt, llms-full.txt) | URL being audited      |
+| `--json`               | Output as JSON                                                              | -                      |
+| `--md`                 | Output as Markdown                                                          | -                      |
+| `--html`               | Output as HTML                                                              | -                      |
+| `--out <path>`         | Write rendered output to a file                                             | -                      |
+| `--fail-under <n>`     | Exit with code 1 if score < threshold                                       | -                      |
+| `--timeout <ms>`       | Request timeout in ms                                                       | `45000`                |
+| `--user-agent <ua>`    | Custom User-Agent string                                                    | `AISEOAudit/<version>` |
+| `--config <path>`      | Path to config file                                                         | -                      |
 
-If no output flag is given, the default is `pretty` (color-coded terminal output). The default format can also be set in the config file.
+Either `[url]` or `--sitemap` must be provided, but not both. If no output flag is given, the default is `pretty` (color-coded terminal output). The default format can also be set in the config file.
+
+## Site-Wide Auditing
+
+Use `--sitemap` to audit every URL in a `sitemap.xml`. Domain signals (`robots.txt`, `llms.txt`, `llms-full.txt`) are fetched once from the sitemap URL and shared across all URL audits — not re-fetched per page.
+
+```bash
+# Audit all URLs in a sitemap
+aiseo-audit --sitemap https://example.com/sitemap.xml
+
+# With HTML output
+aiseo-audit --sitemap https://example.com/sitemap.xml --html --out report.html
+
+# Override where domain signals are fetched from
+aiseo-audit --sitemap https://example.com/projects/sitemap.xml --signals-base https://example.com
+
+# Fail if average score across all URLs is below threshold
+aiseo-audit --sitemap https://example.com/sitemap.xml --fail-under 70
+```
+
+The sitemap report includes:
+
+- **Summary**: average score, grade, total/succeeded/failed URL counts
+- **Site-wide category averages**: identify which audit categories are weakest across your whole site
+- **Per-URL results**: individual score, grade, and top recommendation for each URL
+
+Sitemap index files (sitemaps that reference other sitemaps) are supported — all child sitemaps are fetched and flattened automatically.
+
+### `--signals-base`
+
+By default, domain signals are fetched relative to the URL being audited. Use `--signals-base` when your domain signals live at a different location than the URL you're auditing:
+
+```bash
+# Single URL: fetch signals from a specific base
+aiseo-audit https://example.com/projects/page --signals-base https://example.com
+
+# Sitemap: same override applies to all URLs in the sitemap
+aiseo-audit --sitemap https://example.com/projects/sitemap.xml --signals-base https://example.com
+```
+
+Every report format explicitly shows which URL domain signals were fetched from, so there is no guesswork about where `robots.txt`, `llms.txt`, and `llms-full.txt` were checked.
 
 ## CI/CD
 
