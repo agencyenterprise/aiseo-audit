@@ -39,7 +39,7 @@ export function computeScore(
   return { overallScore, grade, totalPoints, maxPoints };
 }
 
-function computeGrade(score: number): GradeType {
+export function computeGrade(score: number): GradeType {
   for (const [threshold, grade] of GRADE_THRESHOLDS) {
     if (score >= threshold) return grade;
   }

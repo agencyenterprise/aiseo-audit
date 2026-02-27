@@ -2,20 +2,20 @@ import type { AuditRawDataType } from "../audits/schema.js";
 
 type RecommendationBuilder = (rawData: AuditRawDataType) => string;
 
-function static_(text: string): RecommendationBuilder {
+function constantRecommendation(text: string): RecommendationBuilder {
   return () => text;
 }
 
 export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
-  "Fetch Success": static_(
+  "Fetch Success": constantRecommendation(
     "Ensure the page returns HTTP 200 without excessive redirect chains. AI engines cannot extract content from pages that fail to load.",
   ),
 
-  "Text Extraction Quality": static_(
+  "Text Extraction Quality": constantRecommendation(
     "Improve the ratio of meaningful text content to markup. Pages with very low text density are harder for AI engines to extract useful content from.",
   ),
 
-  "Boilerplate Ratio": static_(
+  "Boilerplate Ratio": constantRecommendation(
     "Reduce boilerplate content (navigation, footers, sidebars) relative to main content. Use semantic HTML elements like <main> and <article> to help engines isolate your content.",
   ),
 
@@ -75,23 +75,23 @@ export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
     return text;
   },
 
-  "Heading Hierarchy": static_(
+  "Heading Hierarchy": constantRecommendation(
     "Use a clear H1 > H2 > H3 heading hierarchy. Headings serve as structural anchors that AI engines use to segment and reuse content.",
   ),
 
-  "Lists Presence": static_(
+  "Lists Presence": constantRecommendation(
     "Add bulleted or numbered lists to organize information. Lists are easily extracted and reused by AI engines.",
   ),
 
-  "Tables Presence": static_(
+  "Tables Presence": constantRecommendation(
     "Consider adding data tables for comparative or structured data. Tables are highly parseable by AI engines.",
   ),
 
-  "Paragraph Structure": static_(
+  "Paragraph Structure": constantRecommendation(
     "Keep paragraphs between 30-150 words for optimal readability and extractability.",
   ),
 
-  Scannability: static_(
+  Scannability: constantRecommendation(
     "Use bold text, short paragraphs, and frequent headings to improve scannability for both humans and AI.",
   ),
 
@@ -107,11 +107,11 @@ export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
     return `Your sections average ${avg} words. The citation sweet spot is 120-180 words. Consider adding more subheadings to break up long sections into self-contained units.`;
   },
 
-  "Definition Patterns": static_(
+  "Definition Patterns": constantRecommendation(
     'Define key terms and concepts clearly (e.g., "X is defined as..." or "X refers to..."). Clear definitions are directly reusable by AI engines.',
   ),
 
-  "Direct Answer Statements": static_(
+  "Direct Answer Statements": constantRecommendation(
     "Start key sentences with direct statements that could serve as standalone answers.",
   ),
 
@@ -124,7 +124,7 @@ export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
     return `${capsules.withCapsule} of your ${capsules.total} question-framed H2s have a concise answer capsule. Add a short, direct answer (under 200 characters) as the first sentence after the remaining ${missing}. 72% of AI-cited content uses this pattern.`;
   },
 
-  "Step-by-Step Content": static_(
+  "Step-by-Step Content": constantRecommendation(
     "Break down processes into clear, numbered steps. Step-by-step content is highly reusable by AI engines.",
   ),
 
@@ -136,7 +136,7 @@ export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
     return `Found ${questions.length} question${questions.length === 1 ? "" : "s"} in your content. Add more question-and-answer patterns to cover the queries your audience asks AI engines.`;
   },
 
-  "Summary/Conclusion": static_(
+  "Summary/Conclusion": constantRecommendation(
     "Add a conclusion section with key takeaways or a summary. This helps AI engines quickly extract the main points.",
   ),
 
@@ -165,11 +165,11 @@ export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
     return `Found ${total} unique entities (${parts.join(", ")}). AI engines perform best with 9+ distinct entities. Add more specific names, organizations, and places relevant to your topic.`;
   },
 
-  "Topic Consistency": static_(
+  "Topic Consistency": constantRecommendation(
     "Align your main topics with your title and headings. Topic consistency helps AI engines understand what your page is about.",
   ),
 
-  "Entity Density": static_(
+  "Entity Density": constantRecommendation(
     "Ensure a balanced density of named entities (2-8 per 100 words). Too few makes content vague; too many makes it hard to parse.",
   ),
 
@@ -181,35 +181,35 @@ export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
     return `Found ${links.length} external link${links.length === 1 ? "" : "s"}. AI engines prefer content with 6+ external references. Add more links to authoritative sources that support your claims.`;
   },
 
-  "Citation Patterns": static_(
+  "Citation Patterns": constantRecommendation(
     'Use formal citation patterns (e.g., [1], "according to") when referencing sources.',
   ),
 
-  "Numeric Claims": static_(
+  "Numeric Claims": constantRecommendation(
     "Include relevant statistics and data points to support your content with verifiable claims.",
   ),
 
-  "Attribution Indicators": static_(
+  "Attribution Indicators": constantRecommendation(
     'Attribute claims to specific sources or experts. Phrases like "according to" help AI engines trace information.',
   ),
 
-  "Quoted Attribution": static_(
+  "Quoted Attribution": constantRecommendation(
     'Add expert quotes with clear attribution. Use patterns like "Quote text" - Expert Name or "Quote text," said Expert Name. Research shows quotation addition increased AI visibility by 30-40%.',
   ),
 
-  "Author Attribution": static_(
+  "Author Attribution": constantRecommendation(
     "Add visible author information with a byline to establish who created the content.",
   ),
 
-  "Organization Identity": static_(
+  "Organization Identity": constantRecommendation(
     "Add Organization structured data or og:site_name to help engines identify the source.",
   ),
 
-  "Contact/About Links": static_(
+  "Contact/About Links": constantRecommendation(
     "Link to About and Contact pages to establish credibility and enable source verification.",
   ),
 
-  "Publication Date": static_(
+  "Publication Date": constantRecommendation(
     "Include publication and last-updated dates using proper HTML5 time elements or schema markup.",
   ),
 
@@ -295,11 +295,11 @@ export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
     return `Your Flesch Reading Ease score is ${rounded}. A score of 60-70 is ideal for broad AI reusability.`;
   },
 
-  "Jargon Density": static_(
+  "Jargon Density": constantRecommendation(
     "Define technical terms or replace with simpler alternatives. High jargon density reduces AI reusability.",
   ),
 
-  "Transition Usage": static_(
+  "Transition Usage": constantRecommendation(
     "Use transition words (however, therefore, additionally) to improve content flow and logical structure.",
   ),
 };

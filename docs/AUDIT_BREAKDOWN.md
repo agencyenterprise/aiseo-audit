@@ -103,7 +103,7 @@ Scoring:
 - Over 3000 = 10 (lengthy but still usable)
 - Under 100 = 2 (too thin to be useful)
 
-**AI Crawler Access** fetches the domain's `/robots.txt` and checks whether 5 major AI crawlers are blocked:
+**AI Crawler Access** fetches `robots.txt` relative to the URL being audited and checks whether 5 major AI crawlers are blocked. By default this is the URL of the page itself (e.g. auditing `https://example.com/projects/page` checks `https://example.com/projects/page/robots.txt`). Use `--signals-base` to override the base URL when your domain signals live elsewhere. Every report explicitly shows which URL domain signals were fetched from. For sitemap audits, domain signals are fetched once from the sitemap URL and shared across all URLs in the audit.
 
 - GPTBot, ChatGPT-User (OpenAI)
 - ClaudeBot (Anthropic)
@@ -116,10 +116,10 @@ Scoring: 0 blocked = 10, 1-2 blocked = 6, 3-4 blocked = 3, all blocked = 0
 
 **LLMs.txt Presence** checks for an emerging standard [[8]](#sources) that is gaining traction alongside robots.txt. Unlike robots.txt (which controls access), llms.txt is a curated roadmap that helps AI systems understand your site's content, purpose, and key resources at inference time. OpenAI, Microsoft, and other major providers are actively crawling for these files. No major LLM has confirmed it as a ranking signal yet, but adoption is low-cost and forward-looking.
 
-Two files are checked at the domain root:
+Two files are checked relative to the signals base URL (same behavior as `robots.txt` above):
 
-- `/llms.txt` - a markdown document providing AI systems with a structured overview of the site's content and key pages
-- `/llms-full.txt` - a comprehensive version with full content for deeper ingestion
+- `llms.txt` - a markdown document providing AI systems with a structured overview of the site's content and key pages
+- `llms-full.txt` - a comprehensive version with full content for deeper ingestion
 
 Scoring: both found = 6, one found = 4, neither = 0 (scored as `neutral`)
 
@@ -597,7 +597,7 @@ config/service.ts               loads aiseo.config.json (if present), merges def
   v
 analyzer/service.ts             orchestrates the full pipeline:
   |
-  +---> fetcher/service.ts      axios GET -> raw HTML, status code, timing
+  +---> fetcher/service.ts      fetch GET -> raw HTML, status code, timing
   |
   +---> fetchDomainSignals()    parallel fetch: robots.txt, llms.txt, llms-full.txt
   |
@@ -611,10 +611,24 @@ analyzer/service.ts             orchestrates the full pipeline:
   |     service.ts
   |
   v
-report/service.ts               renders output (pretty, json, or markdown)
+report/service.ts               renders output (pretty, json, md, or html)
   |
   v
-stdout                          (or --out file.json)
+stdout                          (or --out file)
+
+For sitemap audits, the pipeline diverges at the top:
+
+cli.ts (--sitemap flag)
+  |
+  v
+sitemap/service.ts              fetches + parses sitemap XML, runs analyzer pipeline
+  |                             once per URL with shared domain signals, aggregates results
+  +---> fetchDomainSignals()    called once for the sitemap URL (or --signals-base override)
+  |
+  +---> analyzeUrlWithSignals() called per URL with the shared domain signals
+  |
+  v
+report/service.ts               renders sitemap summary + per-URL results
 ```
 
 ### Module Pattern
@@ -670,7 +684,7 @@ auditReadabilityForCompression(page)
 
 `runAudits` is the single merge point - it sets the base `rawData` fields (`title`, `metaDescription`, `wordCount`) from the page, then spreads each audit function's partial raw data together into a typed `AuditRawDataType`. No audit function mutates external state.
 
-The `domainSignals` parameter contains robots.txt content and llms.txt/llms-full.txt existence flags, fetched by the analyzer orchestrator before audits run.
+The `domainSignals` parameter is a `DomainSignalsType` object containing: `signalsBase` (the URL domain signals were fetched from), `robotsTxt` (raw content or null), `llmsTxtExists`, and `llmsFullTxtExists`. It is fetched by the analyzer orchestrator before audits run. For sitemap audits it is fetched once and passed to every per-URL audit.
 
 Each audit function follows the same pattern:
 

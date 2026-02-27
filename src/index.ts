@@ -1,6 +1,7 @@
 export { analyzeUrl } from "./modules/analyzer/service.js";
 export { loadConfig } from "./modules/config/service.js";
-export { renderReport } from "./modules/report/service.js";
+export { renderReport, renderSitemapReport } from "./modules/report/service.js";
+export { analyzeSitemap } from "./modules/sitemap/service.js";
 
 export type {
   AnalyzerOptionsType,
@@ -29,3 +30,8 @@ export type {
   ReportFormatType,
 } from "./modules/report/schema.js";
 export type { GradeType, ScoreSummaryType } from "./modules/scoring/schema.js";
+export type {
+  SitemapOptionsType,
+  SitemapResultType,
+  SitemapUrlResultType,
+} from "./modules/sitemap/schema.js";
