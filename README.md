@@ -97,25 +97,27 @@ aiseo-audit https://example.com --config aiseo.config.json
 
 ## CLI Options
 
-| Option                 | Description                                                                 | Default                |
-| ---------------------- | --------------------------------------------------------------------------- | ---------------------- |
-| `[url]`                | URL to audit                                                                | -                      |
-| `--sitemap <url>`      | Audit all URLs in a sitemap.xml                                             | -                      |
-| `--signals-base <url>` | Base URL to fetch domain signals from (robots.txt, llms.txt, llms-full.txt) | URL being audited      |
-| `--json`               | Output as JSON                                                              | -                      |
-| `--md`                 | Output as Markdown                                                          | -                      |
-| `--html`               | Output as HTML                                                              | -                      |
-| `--out <path>`         | Write rendered output to a file                                             | -                      |
-| `--fail-under <n>`     | Exit with code 1 if score < threshold                                       | -                      |
-| `--timeout <ms>`       | Request timeout in ms                                                       | `45000`                |
-| `--user-agent <ua>`    | Custom User-Agent string                                                    | `AISEOAudit/<version>` |
-| `--config <path>`      | Path to config file                                                         | -                      |
+| Option                 | Description                                                                 | Default                                       |
+| ---------------------- | --------------------------------------------------------------------------- | --------------------------------------------- |
+| `[url]`                | URL to audit                                                                | -                                             |
+| `--sitemap <url>`      | Audit all URLs in a sitemap.xml                                             | -                                             |
+| `--signals-base <url>` | Base URL to fetch domain signals from (robots.txt, llms.txt, llms-full.txt) | Directory of the URL or sitemap being audited |
+| `--json`               | Output as JSON                                                              | -                                             |
+| `--md`                 | Output as Markdown                                                          | -                                             |
+| `--html`               | Output as HTML                                                              | -                                             |
+| `--out <path>`         | Write rendered output to a file                                             | -                                             |
+| `--fail-under <n>`     | Exit with code 1 if score < threshold                                       | -                                             |
+| `--timeout <ms>`       | Request timeout in ms                                                       | `45000`                                       |
+| `--user-agent <ua>`    | Custom User-Agent string                                                    | `AISEOAudit/<version>`                        |
+| `--config <path>`      | Path to config file                                                         | -                                             |
 
 Either `[url]` or `--sitemap` must be provided, but not both. If no output flag is given, the default is `pretty` (color-coded terminal output). The default format can also be set in the config file.
 
 ## Site-Wide Auditing
 
-Use `--sitemap` to audit every URL in a `sitemap.xml`. Domain signals (`robots.txt`, `llms.txt`, `llms-full.txt`) are fetched once from the sitemap URL and shared across all URL audits — not re-fetched per page.
+Use `--sitemap` to audit every URL in a `sitemap.xml`. Domain signals (`robots.txt`, `llms.txt`, `llms-full.txt`) are fetched once and shared across all URL audits — not re-fetched per page.
+
+By default, domain signals are fetched from the directory that contains the sitemap file. For example, if your sitemap is at `https://example.com/projects/sitemap.xml`, signals are fetched from `https://example.com/projects/` — so the tool checks `https://example.com/projects/robots.txt`, `https://example.com/projects/llms.txt`, and `https://example.com/projects/llms-full.txt`. If your signals live at the domain root instead, use `--signals-base` to specify the correct location explicitly.
 
 ```bash
 # Audit all URLs in a sitemap
@@ -141,7 +143,7 @@ Sitemap index files (sitemaps that reference other sitemaps) are supported — a
 
 ### `--signals-base`
 
-By default, domain signals are fetched relative to the URL being audited. Use `--signals-base` when your domain signals live at a different location than the URL you're auditing:
+By default, domain signals are fetched from the directory containing the page or sitemap being audited — not necessarily the domain root. Use `--signals-base` to explicitly set where `robots.txt`, `llms.txt`, and `llms-full.txt` are fetched from:
 
 ```bash
 # Single URL: fetch signals from a specific base
