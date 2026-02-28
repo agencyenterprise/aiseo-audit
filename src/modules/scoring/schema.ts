@@ -1,7 +1,6 @@
 import { z } from "zod";
 
 export const GradeSchema = z.enum([
-  "A+",
   "A",
   "A-",
   "B+",
@@ -10,7 +9,9 @@ export const GradeSchema = z.enum([
   "C+",
   "C",
   "C-",
+  "D+",
   "D",
+  "D-",
   "F",
 ]);
 

@@ -16,7 +16,7 @@
 Deterministic CLI that audits web pages for **AI search readiness**. Think Lighthouse, but for how well AI engines can fetch, extract, understand, and cite your content.
 
 > [!TIP]
-> Run `aiseo-audit https://www.aiseo-audit.com` to see a 100/100 [A+ Score](https://www.aiseo-audit.com/).
+> Run `aiseo-audit https://www.aiseo-audit.com` to see a 100/100 [A Score](https://www.aiseo-audit.com/).
 
 **AI SEO measures how reusable your content is for generative engines, not traditional search rankings.**
 

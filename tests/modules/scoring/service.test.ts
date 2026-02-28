@@ -192,16 +192,18 @@ describe("computeScore", () => {
       return computeScore(categories, weights);
     };
 
-    expect(makeResult(95).grade).toBe("A+");
-    expect(makeResult(90).grade).toBe("A");
-    expect(makeResult(85).grade).toBe("A-");
-    expect(makeResult(80).grade).toBe("B+");
-    expect(makeResult(75).grade).toBe("B");
-    expect(makeResult(70).grade).toBe("B-");
-    expect(makeResult(65).grade).toBe("C+");
-    expect(makeResult(60).grade).toBe("C");
-    expect(makeResult(55).grade).toBe("C-");
-    expect(makeResult(45).grade).toBe("D");
+    expect(makeResult(95).grade).toBe("A");
+    expect(makeResult(93).grade).toBe("A");
+    expect(makeResult(90).grade).toBe("A-");
+    expect(makeResult(87).grade).toBe("B+");
+    expect(makeResult(83).grade).toBe("B");
+    expect(makeResult(80).grade).toBe("B-");
+    expect(makeResult(77).grade).toBe("C+");
+    expect(makeResult(73).grade).toBe("C");
+    expect(makeResult(70).grade).toBe("C-");
+    expect(makeResult(67).grade).toBe("D+");
+    expect(makeResult(63).grade).toBe("D");
+    expect(makeResult(60).grade).toBe("D-");
     expect(makeResult(30).grade).toBe("F");
   });
 
