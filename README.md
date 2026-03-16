@@ -21,6 +21,7 @@ Deterministic CLI that audits web pages for **AI search readiness**. Think Light
 **AI SEO measures how reusable your content is for generative engines, not traditional search rankings.**
 
 - [Quick Start](#quick-start)
+- [CI/CD](#cicd)
 - [CLI Options](#cli-options)
 - [Site-Wide Auditing](#site-wide-auditing)
 - [Local Development](#local-development)
@@ -50,6 +51,11 @@ aiseo-audit goes deeper:
 - **Zero external dependencies at runtime.** No API keys, no network calls beyond fetching the target URL. Fully deterministic.
 
 ## Quick Start
+
+```bash
+# Try it instantly — no install required
+npx aiseo-audit https://yoursite.com
+```
 
 ```bash
 # As a project dependency
@@ -93,6 +99,25 @@ aiseo-audit https://example.com --user-agent "MyBot/1.0"
 
 # Use config file
 aiseo-audit https://example.com --config aiseo.config.json
+```
+
+## CI/CD
+
+Drop this into any GitHub Actions workflow to gate PRs on AI search readiness:
+
+```yaml
+# .github/workflows/aiseo-audit.yml
+name: AI SEO Audit
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npx aiseo-audit https://yoursite.com --fail-under 70
 ```
 
 ## CLI Options
@@ -154,23 +179,6 @@ aiseo-audit --sitemap https://example.com/projects/sitemap.xml --signals-base ht
 ```
 
 Every report format explicitly shows which URL domain signals were fetched from, so there is no guesswork about where `robots.txt`, `llms.txt`, and `llms-full.txt` were checked.
-
-## CI/CD
-
-```yaml
-# .github/workflows/aiseo-audit.yml
-name: AI SEO Audit
-on:
-  pull_request:
-  push:
-    branches: [main]
-
-jobs:
-  audit:
-    runs-on: ubuntu-latest
-    steps:
-      - run: npx aiseo-audit https://yoursite.com --fail-under 70
-```
 
 ## User Agent
 
