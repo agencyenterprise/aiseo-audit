@@ -288,7 +288,7 @@ When someone asks ChatGPT "what is X?" or "how do I do Y?", the engine looks for
 
 **Question:** Does this content contain clear, recognizable entities that engines can use to understand what it's about?
 
-This category uses [compromise](https://github.com/spencermountain/compromise) for natural language entity extraction. No external APIs.
+This category uses a hybrid NLP approach for entity extraction: [compromise](https://github.com/spencermountain/compromise) for base NER (people, organizations, places), supplemented by pattern-based extractors for acronym entities, title-case compound names, and organization/person classification via suffix and honorific matching. Topics are extracted using TF-IDF frequency analysis rather than compromise's built-in topic detection. All entity lists are deduplicated case-insensitively with substring containment (longer forms subsume shorter ones). No external APIs.
 
 ### Factors
 
@@ -307,7 +307,7 @@ This category uses [compromise](https://github.com/spencermountain/compromise) f
 - 1-3 = 7
 - None = 0 (scored as `neutral`)
 
-**Topic Consistency** extracts keywords from the page `<title>` and `<h1>` (words > 3 characters), then checks how many of those keywords appear among the extracted topic entities or are repeated frequently (3+ occurrences) in the body text:
+**Topic Consistency** extracts keywords from the page `<title>` and `<h1>` (words > 3 characters), then checks how many of those keywords appear among the TF-IDF-extracted topics or are repeated frequently (3+ occurrences) in the body text:
 
 - 50%+ of title/H1 keywords found in topics = 25
 - Some overlap = 15
@@ -671,19 +671,19 @@ audits/
     language.ts          NLP helpers (compromise entities, Flesch, syllables, schema, entity)
 ```
 
-**`service.ts`** exports a single function `runAudits(page, fetchResult, domainSignals?)` that imports and calls the 7 category audit functions. Each returns a `CategoryAuditOutput` containing both its category result and its typed raw diagnostic data:
+**`service.ts`** exports a single function `runAudits(page, fetchResult, domainSignals?)` that imports and calls the 7 category audit functions. It extracts entities once via `extractEntities(page.cleanText)` and passes the result to the three audits that need it, avoiding redundant NLP processing. Each audit returns a `CategoryAuditOutput` containing both its category result and its typed raw diagnostic data:
 
 ```
 auditContentExtractability(page, fetchResult, domainSignals)
 auditContentStructure(page)
-auditAnswerability(page)
-auditEntityClarity(page)
-auditGroundingSignals(page)
+auditAnswerability(page, entities?)
+auditEntityClarity(page, entities?)
+auditGroundingSignals(page, entities?)
 auditAuthorityContext(page)
 auditReadabilityForCompression(page)
 ```
 
-`runAudits` is the single merge point - it sets the base `rawData` fields (`title`, `metaDescription`, `wordCount`) from the page, then spreads each audit function's partial raw data together into a typed `AuditRawDataType`. No audit function mutates external state.
+The `entities?` parameter is optional for backward compatibility. When omitted, each audit extracts entities itself. `runAudits` is the single merge point - it sets the base `rawData` fields (`title`, `metaDescription`, `wordCount`) from the page, then spreads each audit function's partial raw data together into a typed `AuditRawDataType`. No audit function mutates external state.
 
 The `domainSignals` parameter is a `DomainSignalsType` object containing: `signalsBase` (the URL domain signals were fetched from), `robotsTxt` (raw content or null), `llmsTxtExists`, and `llmsFullTxtExists`. It is fetched by the analyzer orchestrator before audits run. For sitemap audits it is fetched once and passed to every per-URL audit.
 
@@ -703,7 +703,7 @@ Each audit function follows the same pattern:
 
 **`support/language.ts`** wraps the NLP dependencies and analysis helpers:
 
-- `extractEntities(text)` - uses `compromise` to pull out people, organizations, places, topics
+- `extractEntities(text)` - hybrid entity extraction: compromise for base NER (people, orgs, places), supplemental pattern-based extractors for acronyms and title-case compounds, TF-IDF for topics, with smart deduplication
 - `computeFleschReadingEase(text)` - standard Flesch formula using heuristic syllable counting
 - `countComplexWords(text)` - words with 4+ syllables
 - `countPatternMatches(text, patterns)` - runs an array of regex patterns against text, sums all match counts

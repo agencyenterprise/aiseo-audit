@@ -8,21 +8,24 @@ import { auditEntityClarity } from "./categories/entity-clarity.js";
 import { auditGroundingSignals } from "./categories/grounding-signals.js";
 import { auditReadabilityForCompression } from "./categories/readability.js";
 import type { AuditResultType, DomainSignalsType } from "./schema.js";
+import { extractEntities } from "./support/nlp.js";
 
 export function runAudits(
   page: ExtractedPageType,
   fetchResult: FetchResultType,
   domainSignals?: DomainSignalsType,
 ): AuditResultType {
+  const entities = extractEntities(page.cleanText);
+
   const extractability = auditContentExtractability(
     page,
     fetchResult,
     domainSignals,
   );
   const structure = auditContentStructure(page);
-  const answerability = auditAnswerability(page);
-  const entityClarity = auditEntityClarity(page);
-  const groundingSignals = auditGroundingSignals(page);
+  const answerability = auditAnswerability(page, entities);
+  const entityClarity = auditEntityClarity(page, entities);
+  const groundingSignals = auditGroundingSignals(page, entities);
   const authorityContext = auditAuthorityContext(page);
   const readability = auditReadabilityForCompression(page);
 

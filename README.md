@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-7EB6D7.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-7EB6D7.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-7EB6D7?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-259%20passed-8FBC8F)](https://github.com/agencyenterprise/aiseo-audit)
+[![Tests](https://img.shields.io/badge/tests-278%20passed-8FBC8F)](https://github.com/agencyenterprise/aiseo-audit)
 [![Coverage](https://img.shields.io/codecov/c/github/agencyenterprise/aiseo-audit?color=8FBC8F&label=coverage)](https://codecov.io/gh/agencyenterprise/aiseo-audit)
 
 <div align="center">
@@ -14,9 +14,6 @@
 </div>
 
 Deterministic CLI that audits web pages for **AI search readiness**. Think Lighthouse, but for how well AI engines can fetch, extract, understand, and cite your content.
-
-> [!TIP]
-> Run `aiseo-audit https://www.aiseo-audit.com` to see a 100/100 [A Score](https://www.aiseo-audit.com/).
 
 **AI SEO measures how reusable your content is for generative engines, not traditional search rankings.**
 

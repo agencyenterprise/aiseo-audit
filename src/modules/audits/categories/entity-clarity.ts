@@ -1,7 +1,11 @@
 import { countWords } from "../../../utils/strings.js";
 import type { ExtractedPageType } from "../../extractor/schema.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
-import type { CategoryAuditOutputType, FactorResultType } from "../schema.js";
+import type {
+  CategoryAuditOutputType,
+  ExtractedEntitiesType,
+  FactorResultType,
+} from "../schema.js";
 import { extractEntities } from "../support/nlp.js";
 import {
   makeFactor,
@@ -12,11 +16,12 @@ import {
 
 export function auditEntityClarity(
   page: ExtractedPageType,
+  preExtracted?: ExtractedEntitiesType,
 ): CategoryAuditOutputType {
   const text = page.cleanText;
   const factors: FactorResultType[] = [];
 
-  const entities = extractEntities(text);
+  const entities = preExtracted ?? extractEntities(text);
   const totalEntities =
     entities.people.length +
     entities.organizations.length +
