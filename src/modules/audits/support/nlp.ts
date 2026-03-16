@@ -313,7 +313,7 @@ function extractAcronymEntities(text: string): string[] {
  */
 function extractTitleCaseEntities(text: string): string[] {
   const pattern =
-    /\b([A-Z][a-z]+(?:\s+(?:of|the|and|for|de|van|von|al|el|la|le|del|der|den|das|di|du)\s+)?(?:[A-Z][a-z]+)(?:\s+[A-Z][a-z]+){0,3})\b/g;
+    /\b([A-Z][a-z]+(?:\s+(?:of|the|and|for|de|van|von|al|el|la|le|del|der|den|das|di|du))?\s+(?:[A-Z][a-z]+)(?:\s+[A-Z][a-z]+){0,3})\b/g;
 
   const sentences = text.split(/[.!?]\s+/);
   const sentenceStarts = new Set<string>();
@@ -475,13 +475,7 @@ export function extractEntities(text: string): ExtractedEntitiesType {
     }
   }
 
-  for (const acr of acronyms) {
-    if (isOrganizationByPattern(acr)) {
-      supplementalOrgs.push(acr);
-    } else {
-      unclassified.push(acr);
-    }
-  }
+  unclassified.push(...acronyms);
 
   const people = mergeEntityLists(compromisePeople, supplementalPeople, 10);
   const organizations = mergeEntityLists(

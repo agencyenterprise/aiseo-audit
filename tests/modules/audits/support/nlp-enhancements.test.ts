@@ -116,6 +116,13 @@ describe("extractEntities — enhanced extraction", () => {
       expect(entities.topics.length).toBeLessThanOrEqual(2);
     });
 
+    it("returns empty topics when all words are stopwords or too short", () => {
+      const text =
+        "I am a be is it an on to at by do he if in me my no of or so up we.";
+      const entities = extractEntities(text);
+      expect(entities.topics).toEqual([]);
+    });
+
     it("limits topics to 15", () => {
       // Long text with many repeated terms
       const terms = [
@@ -240,6 +247,27 @@ describe("extractEntities — enhanced extraction", () => {
       expect(entities.organizations.length).toBeLessThanOrEqual(10);
       expect(entities.places.length).toBeLessThanOrEqual(10);
       expect(entities.topics.length).toBeLessThanOrEqual(15);
+    });
+  });
+
+  describe("supplemental classification branches", () => {
+    it("classifies a title-case entity as a person when preceded by an honorific", () => {
+      // Use obscure names that compromise won't detect, with honorific prefix
+      const text =
+        "Dr. Xenthor Valkyr presented results. Dr. Xenthor Valkyr also published a paper. The findings of Dr. Xenthor Valkyr were notable.";
+      const entities = extractEntities(text);
+      const peopleLower = entities.people.map((p) => p.toLowerCase());
+      expect(peopleLower.some((p) => p.includes("xenthor"))).toBe(true);
+    });
+
+    it("classifies a title-case entity as an organization when it has a corporate suffix", () => {
+      // Use a made-up name with org suffix, placed mid-sentence so the
+      // title-case extractor doesn't filter it as a sentence-start artifact.
+      const text =
+        "The team at Zyblor Technologies announced a new product. Reports from Zyblor Technologies show growth. Analysts praised Zyblor Technologies for innovation.";
+      const entities = extractEntities(text);
+      const orgsLower = entities.organizations.map((o) => o.toLowerCase());
+      expect(orgsLower.some((o) => o.includes("zyblor"))).toBe(true);
     });
   });
 
