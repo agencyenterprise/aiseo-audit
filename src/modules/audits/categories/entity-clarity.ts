@@ -61,13 +61,20 @@ export function auditEntityClarity(
   const consistencyRatio =
     keyWords.length > 0 ? topicOverlap / keyWords.length : 0;
   const consistencyScore =
-    consistencyRatio >= 0.5 ? 25 : consistencyRatio > 0 ? 15 : 5;
+    keyWords.length === 0
+      ? 0
+      : consistencyRatio >= 0.5
+        ? 25
+        : consistencyRatio > 0
+          ? 15
+          : 0;
   factors.push(
     makeFactor(
       "Topic Consistency",
       consistencyScore,
       25,
       `${topicOverlap}/${keyWords.length} title keywords align with content topics`,
+      keyWords.length === 0 ? "neutral" : undefined,
     ),
   );
 
