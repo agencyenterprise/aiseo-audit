@@ -74,6 +74,8 @@ This is the baseline. If the content can't be fetched or extracted, nothing else
 - HTTP 2xx/3xx (redirects that resolve) = 8 points
 - HTTP 4xx+ = 0 points
 
+If the fetch fails entirely (before an HTTP status is returned), the HTTP layer throws a typed `FetchError` with a `code` field indicating the cause: `TIMEOUT`, `DNS_FAILURE`, `CONNECTION_REFUSED`, `TLS_ERROR`, `TOO_LARGE`, or `NETWORK_ERROR`. Each includes a human-readable message with the hostname and actionable guidance. The CLI surfaces these directly instead of the generic "fetch failed".
+
 **Text Extraction Quality** measures the ratio `cleanTextLength / rawByteLength`:
 
 - 5-15% = 12 (ideal for a normal web page)
@@ -646,7 +648,7 @@ module/
 
 **Schemas** define the contract. Types are always derived from Zod via `z.infer<>`, never hand-written interfaces (except when wrapping non-serializable objects like Cheerio's `$`).
 
-**Services** contain the actual logic. They take validated inputs, do work, and return typed results. They throw on failure - error handling lives in the CLI entry point.
+**Services** contain the actual logic. They take validated inputs, do work, and return typed results. They throw on failure (the HTTP layer throws typed `FetchError` instances with a `code` field for classified network errors). Error handling lives in the CLI entry point.
 
 ### Audits Module in Detail
 
