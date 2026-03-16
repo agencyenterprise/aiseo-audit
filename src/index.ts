@@ -35,3 +35,5 @@ export type {
   SitemapResultType,
   SitemapUrlResultType,
 } from "./modules/sitemap/schema.js";
+export { FetchError } from "./utils/http.js";
+export type { FetchErrorCode } from "./utils/http.js";

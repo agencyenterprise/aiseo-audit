@@ -1,6 +1,10 @@
 import type { ExtractedPageType } from "../../extractor/schema.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
-import type { CategoryAuditOutputType, FactorResultType } from "../schema.js";
+import type {
+  CategoryAuditOutputType,
+  ExtractedEntitiesType,
+  FactorResultType,
+} from "../schema.js";
 import { countPatternMatches, extractEntities } from "../support/nlp.js";
 import {
   ATTRIBUTION_PATTERNS,
@@ -17,11 +21,12 @@ import {
 
 export function auditGroundingSignals(
   page: ExtractedPageType,
+  preExtracted?: ExtractedEntitiesType,
 ): CategoryAuditOutputType {
   const $ = page.$;
   const text = page.cleanText;
   const factors: FactorResultType[] = [];
-  const { numberCount = 0 } = extractEntities(text);
+  const { numberCount = 0 } = preExtracted ?? extractEntities(text);
 
   const externalLinks = page.externalLinks;
 

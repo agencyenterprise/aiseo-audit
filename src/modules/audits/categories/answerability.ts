@@ -1,6 +1,10 @@
 import type { ExtractedPageType } from "../../extractor/schema.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
-import type { CategoryAuditOutputType, FactorResultType } from "../schema.js";
+import type {
+  CategoryAuditOutputType,
+  ExtractedEntitiesType,
+  FactorResultType,
+} from "../schema.js";
 import { detectAnswerCapsules } from "../support/dom.js";
 import { countPatternMatches, extractEntities } from "../support/nlp.js";
 import {
@@ -19,11 +23,12 @@ import {
 
 export function auditAnswerability(
   page: ExtractedPageType,
+  preExtracted?: ExtractedEntitiesType,
 ): CategoryAuditOutputType {
   const text = page.cleanText;
   const $ = page.$;
   const factors: FactorResultType[] = [];
-  const { imperativeVerbCount = 0 } = extractEntities(text);
+  const { imperativeVerbCount = 0 } = preExtracted ?? extractEntities(text);
 
   const defCount = countPatternMatches(text, DEFINITION_PATTERNS);
   const defScore = thresholdScore(defCount, [
