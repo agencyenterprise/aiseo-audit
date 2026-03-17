@@ -12,6 +12,7 @@ export default defineConfig({
   dts: true,
   splitting: true,
   sourcemap: true,
+  minify: true,
   clean: true,
   target: "node20",
   shims: true,

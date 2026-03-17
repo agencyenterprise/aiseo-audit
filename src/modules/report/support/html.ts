@@ -44,6 +44,33 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function baseStyles(): string {
+  return `:root {
+  --pass: #00cc66;
+  --pass-text: #008800;
+  --average: #ffaa33;
+  --average-text: #ffaa33;
+  --fail: #ff3333;
+  --fail-text: #cc0000;
+  --bg: #fff;
+  --surface: #fff;
+  --text: #212121;
+  --text-secondary: #757575;
+  --border: #e0e0e0;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+.topbar { display: flex; align-items: center; height: 40px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 13px; }
+.topbar-title { font-weight: 600; margin-right: 12px; white-space: nowrap; }
+.topbar-url { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.report { max-width: 960px; margin: 0 auto; padding: 0 32px; }
+.footer { padding: 16px 0; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-secondary); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.pass { color: var(--pass-text); }
+.average { color: var(--average-text); }
+.fail { color: var(--fail-text); }`;
+}
+
 function buildGaugeSvg(score: number): string {
   const pct = Math.max(0, Math.min(100, score));
   const arcColor = scoreColorHex(pct);
@@ -323,61 +350,7 @@ export function renderHtml(result: AnalyzerResultType): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI SEO Audit - ${escapeHtml(result.url)}</title>
 <style>
-:root {
-  --pass: #00cc66;
-  --pass-text: #008800;
-  --average: #ffaa33;
-  --average-text: #ffaa33;
-  --fail: #ff3333;
-  --fail-text: #cc0000;
-  --bg: #fff;
-  --surface: #fff;
-  --text: #212121;
-  --text-secondary: #757575;
-  --border: #e0e0e0;
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
-}
-
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-body {
-  font-family: var(--font);
-  background: var(--bg);
-  color: var(--text);
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-}
-
-/* Topbar */
-.topbar {
-  display: flex;
-  align-items: center;
-  height: 40px;
-  padding: 0 16px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
-}
-.topbar-title {
-  font-weight: 600;
-  margin-right: 12px;
-  white-space: nowrap;
-}
-.topbar-url {
-  color: var(--text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Container */
-.report {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 0 32px;
-}
-
-/* Category gauges row */
+${baseStyles()}
 .gauges-row {
   display: flex;
   flex-wrap: wrap;
@@ -628,19 +601,6 @@ body {
   text-decoration: none;
 }
 .rec-learn-more:hover { text-decoration: underline; }
-
-/* Footer */
-.footer {
-  padding: 16px 0;
-  border-top: 1px solid var(--border);
-  font-size: 11px;
-  color: var(--text-secondary);
-  display: flex;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 @media (max-width: 600px) {
   .report { padding: 0 16px; }
   .gauges-row { gap: 4px; }
@@ -769,26 +729,7 @@ export function renderSitemapHtml(result: SitemapResultType): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>AI SEO Sitemap Audit - ${escapeHtml(result.sitemapUrl)}</title>
 <style>
-:root {
-  --pass: #00cc66;
-  --pass-text: #008800;
-  --average: #ffaa33;
-  --average-text: #ffaa33;
-  --fail: #ff3333;
-  --fail-text: #cc0000;
-  --bg: #fff;
-  --surface: #fff;
-  --text: #212121;
-  --text-secondary: #757575;
-  --border: #e0e0e0;
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
-}
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
-.topbar { display: flex; align-items: center; height: 40px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 13px; }
-.topbar-title { font-weight: 600; margin-right: 12px; white-space: nowrap; }
-.topbar-url { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.report { max-width: 960px; margin: 0 auto; padding: 0 32px; }
+${baseStyles()}
 .summary { display: flex; gap: 32px; padding: 32px 0 24px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .summary-score { display: flex; flex-direction: column; align-items: center; }
 .summary-score-value { font-size: 64px; font-weight: 700; line-height: 1; }
@@ -816,10 +757,6 @@ body { font-family: var(--font); background: var(--bg); color: var(--text); line
 .sitemap-url-body { padding: 12px 16px; border-top: 1px solid var(--border); }
 .sitemap-url-error { padding: 12px 16px; color: var(--fail-text); font-size: 13px; }
 .sitemap-top-rec { font-size: 12px; color: var(--text-secondary); margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0; }
-.footer { padding: 16px 0; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-secondary); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
-.pass { color: var(--pass-text); }
-.average { color: var(--average-text); }
-.fail { color: var(--fail-text); }
 @media (max-width: 600px) {
   .report { padding: 0 16px; }
   .summary { flex-direction: column; gap: 16px; }
