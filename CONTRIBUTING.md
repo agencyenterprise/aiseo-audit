@@ -27,14 +27,14 @@ src/
 ├── index.ts                # Library entry point
 ├── modules/
 │   ├── analyzer/           # Orchestrates the audit pipeline
-│   ├── audits/             # Audit orchestrator, categories/, scoring helpers
+│   ├── audits/             # Audit orchestrator, categories/, support helpers
 │   ├── config/             # Config loading and schema
 │   ├── extractor/          # HTML parsing and content extraction
 │   ├── fetcher/            # HTTP fetching
 │   ├── nlp/                # NLP utilities (entity extraction, readability, topics)
 │   ├── recommendations/    # Recommendation generation
 │   ├── report/             # Report rendering (pretty, json, md, html)
-│   ├── scoring/            # Score computation and grading
+│   ├── scoring/            # All scoring logic (thresholds, factors, grades)
 │   └── sitemap/            # Sitemap fetching, parsing, and batch auditing
 └── utils/                  # Shared utilities (fs, http, strings, url)
 ```
