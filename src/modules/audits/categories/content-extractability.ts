@@ -40,7 +40,7 @@ export function auditContentExtractability(
   const extractScore = thresholdScore(
     extractRatio,
     [
-      [0.05, 0.15, 12],
+      [0.05, 0.159, 12],
       [0.16, Infinity, 10],
       [0.01, 0.049, 8],
       [0.0001, 0.009, 2],
