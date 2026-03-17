@@ -35,7 +35,7 @@ export function extractTopicsByTfIdf(
 
   const candidates: Array<[string, number]> = [];
   for (const [term, count] of freq) {
-    if (count >= 2) {
+    if (count >= 3) {
       const isBigram = term.includes(" ");
       const score = isBigram ? count * 1.5 : count;
       candidates.push([term, score]);
