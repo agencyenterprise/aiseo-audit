@@ -1,21 +1,25 @@
 # aiseo-audit
 
 [![npm version](https://img.shields.io/npm/v/aiseo-audit.svg?color=F5B0A4)](https://www.npmjs.com/package/aiseo-audit)
+[![npm downloads](https://img.shields.io/npm/dw/aiseo-audit?color=F5B0A4)](https://www.npmjs.com/package/aiseo-audit)
 [![npm package size](https://img.shields.io/npm/unpacked-size/aiseo-audit?color=F5B0A4)](https://www.npmjs.com/package/aiseo-audit)
 [![License: MIT](https://img.shields.io/badge/License-MIT-7EB6D7.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-7EB6D7.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-7EB6D7?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tests](https://img.shields.io/badge/tests-454%20passed-8FBC8F)](https://github.com/agencyenterprise/aiseo-audit)
 [![Coverage](https://img.shields.io/codecov/c/github/agencyenterprise/aiseo-audit?color=8FBC8F&label=coverage)](https://codecov.io/gh/agencyenterprise/aiseo-audit)
+[![GitHub Stars](https://img.shields.io/github/stars/agencyenterprise/aiseo-audit?style=flat&color=8FBC8F)](https://github.com/agencyenterprise/aiseo-audit/stargazers)
 
 <div align="center">
-  <strong>Testing local development</strong><br /><br />
-  <img src="docs/assets/ai-seo-bad-site-example.gif" alt="Testing local development example" width="600" />
+  <strong>Testing example</strong><br /><br />
+  <img src="docs/assets/ai-seo-bad-site-example.gif" alt="Testing example" width="600" />
 </div>
 
 Deterministic CLI that audits web pages for **AI search readiness**. Think Lighthouse, but for how well AI engines can fetch, extract, understand, and cite your content.
 
 **AI SEO measures how reusable your content is for generative engines, not traditional search rankings.**
+
+**Who is this for?** Content teams running pre-publish checks, developers gating deployments in CI/CD, and marketers auditing their own or competitor pages. If your content needs to be cited (not just ranked), this tool tells you where you stand.
 
 - [Quick Start](#quick-start)
 - [CI/CD](#cicd)
@@ -50,7 +54,7 @@ aiseo-audit goes deeper:
 ## Quick Start
 
 ```bash
-# Try it instantly — no install required
+# Try it instantly, no install required
 npx aiseo-audit https://yoursite.com
 ```
 
@@ -80,7 +84,7 @@ aiseo-audit https://example.com --md
 # HTML report (Lighthouse-style)
 aiseo-audit https://example.com --html
 
-# Write to a file — format is inferred from the extension automatically
+# Write to a file, format is inferred from the extension automatically
 aiseo-audit https://example.com --out report.html
 aiseo-audit https://example.com --out report.md
 aiseo-audit https://example.com --out report.json
@@ -120,6 +124,24 @@ jobs:
       - run: npx aiseo-audit https://yoursite.com --fail-under 70
 ```
 
+**Using a preview deployment URL?** If your CI pipeline produces a dynamic URL (e.g. a Vercel or Netlify preview), capture it from a prior step and pass it in:
+
+```yaml
+jobs:
+  deploy-and-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to preview
+        id: deploy
+        run: echo "url=https://your-preview-url.vercel.app" >> $GITHUB_OUTPUT
+        # Replace the above with your actual deploy step that outputs a URL
+
+      - name: Run AI SEO Audit
+        run: npx aiseo-audit ${{ steps.deploy.outputs.url }} --fail-under 70
+```
+
+The `--fail-under` threshold sets the minimum acceptable score. Exit code `1` is returned when the score falls below it, which GitHub Actions treats as a failed step.
+
 ## CLI Options
 
 | Option                 | Description                                                                       | Default                                       |
@@ -138,23 +160,26 @@ jobs:
 
 Either `[url]` or `--sitemap` must be provided, but not both. If no output flag is given, the default is `pretty` (color-coded terminal output). The default format can also be set in the config file.
 
-When `--out` is provided, the format is automatically inferred from the file extension (`.html` → HTML, `.md` → Markdown, `.json` → JSON) so you don't need to pass a separate format flag. An explicit `--html`, `--md`, or `--json` flag takes precedence if provided.
+When `--out` is provided, the format is automatically inferred from the file extension (`.html` becomes HTML, `.md` becomes Markdown, `.json` becomes JSON) so you don't need to pass a separate format flag. An explicit `--html`, `--md`, or `--json` flag takes precedence if provided.
 
 ## Site-Wide Auditing
 
-Use `--sitemap` to audit every URL in a `sitemap.xml`. Domain signals (`robots.txt`, `llms.txt`, `llms-full.txt`) are fetched once and shared across all URL audits — not re-fetched per page.
+Use `--sitemap` to audit every URL in a `sitemap.xml`. Domain signals (`robots.txt`, `llms.txt`, `llms-full.txt`) are fetched once and shared across all URL audits, not re-fetched per page.
 
-By default, domain signals are fetched from the directory that contains the sitemap file. For example, if your sitemap is at `https://example.com/projects/sitemap.xml`, signals are fetched from `https://example.com/projects/` — so the tool checks `https://example.com/projects/robots.txt`, `https://example.com/projects/llms.txt`, and `https://example.com/projects/llms-full.txt`. If your signals live at the domain root instead, use `--signals-base` to specify the correct location explicitly.
+By default, domain signals are fetched from the directory that contains the sitemap file. For example, if your sitemap is at `https://example.com/projects/sitemap.xml`, signals are fetched from `https://example.com/projects/` so the tool checks `https://example.com/projects/robots.txt`, `https://example.com/projects/llms.txt`, and `https://example.com/projects/llms-full.txt`. If your signals live at the domain root instead, use `--signals-base` to specify the correct location explicitly.
 
 ```bash
 # Audit all URLs in a sitemap
 aiseo-audit --sitemap https://example.com/sitemap.xml
 
-# With HTML output — format inferred from extension
+# With HTML output, format inferred from extension
 aiseo-audit --sitemap https://example.com/sitemap.xml --out report.html
 
-# Override where domain signals are fetched from
+# Override where domain signals are fetched from (sitemap)
 aiseo-audit --sitemap https://example.com/projects/sitemap.xml --signals-base https://example.com
+
+# Override where domain signals are fetched from (single URL)
+aiseo-audit https://example.com/projects/page --signals-base https://example.com
 
 # Fail if average score across all URLs is below threshold
 aiseo-audit --sitemap https://example.com/sitemap.xml --fail-under 70
@@ -166,21 +191,7 @@ The sitemap report includes:
 - **Site-wide category averages**: identify which audit categories are weakest across your whole site
 - **Per-URL results**: individual score, grade, and top recommendation for each URL
 
-Sitemap index files (sitemaps that reference other sitemaps) are supported — all child sitemaps are fetched and flattened automatically.
-
-### `--signals-base`
-
-By default, domain signals are fetched from the directory containing the page or sitemap being audited — not necessarily the domain root. Use `--signals-base` to explicitly set where `robots.txt`, `llms.txt`, and `llms-full.txt` are fetched from:
-
-```bash
-# Single URL: fetch signals from a specific base
-aiseo-audit https://example.com/projects/page --signals-base https://example.com
-
-# Sitemap: same override applies to all URLs in the sitemap
-aiseo-audit --sitemap https://example.com/projects/sitemap.xml --signals-base https://example.com
-```
-
-Every report format explicitly shows which URL domain signals were fetched from, so there is no guesswork about where `robots.txt`, `llms.txt`, and `llms-full.txt` were checked.
+Sitemap index files (sitemaps that reference other sitemaps) are supported, and all child sitemaps are fetched and flattened automatically. Every report format explicitly shows which URL domain signals were fetched from, so there is no guesswork about where `robots.txt`, `llms.txt`, and `llms-full.txt` were checked.
 
 ## User Agent
 
@@ -225,6 +236,18 @@ The audit evaluates 7 categories of AI search readiness (_[Detailed Breakdown he
 | **Authority Context**           | Is there author attribution, organization identity, publish dates, and structured data?  |
 | **Readability for Compression** | Is the content written at a readability level that compresses well for AI summarization? |
 
+### Interpreting Your Score
+
+| Score  | Grade | What It Means                                                                                            |
+| ------ | ----- | -------------------------------------------------------------------------------------------------------- |
+| 90–100 | A     | Highly optimized. AI engines can fetch, understand, and cite your content with minimal friction.         |
+| 75–89  | B     | Good foundation. A few targeted improvements will push you into the top tier.                            |
+| 60–74  | C     | Moderate readiness. Structural or content gaps are likely limiting your citation potential.              |
+| 40–59  | D     | Significant gaps. Core signals (structure, answerability, authority) need attention.                     |
+| 0–39   | F     | Not AI-ready. Start with Content Extractability. If the content cannot be fetched, nothing else matters. |
+
+The per-category breakdown in each report shows exactly where to focus. Start with high-priority recommendations in your lowest-scoring categories.
+
 ## Output Formats
 
 ### Pretty (default)
@@ -242,6 +265,12 @@ Structured report with category tables, factor details, and recommendations grou
 ### HTML
 
 Self-contained single-file report with SVG score gauges, color-coded sections, and recommendations grouped by category. Recommendations with steps and code examples render as inline detail sections below each recommendation row. Best for stakeholder reports and visual review.
+
+```bash
+aiseo-audit https://example.com --out report.html
+```
+
+> **Tip:** Run this against your own site and open the file in a browser to get the most actionable view of where to focus. The HTML report is the closest equivalent to Lighthouse's output.
 
 ## Config File
 
@@ -270,7 +299,43 @@ You can also pass an explicit path with `--config path/to/config.json`.
 }
 ```
 
-Weights are relative. Set a category to `2` to double its importance, or `0` to exclude it.
+Weights are relative. Set a category to `2` to double its importance, or `0` to exclude it entirely from scoring.
+
+**Example: tuning for a blog or editorial site.** Content that needs to be cited by AI engines should be highly answerable and readable. Double those weights and reduce the emphasis on domain-signal files (`authorityContext` covers schema markup, while `groundingSignals` covers citations and statistics):
+
+```json
+{
+  "format": "html",
+  "failUnder": 65,
+  "weights": {
+    "contentExtractability": 2,
+    "contentStructure": 1,
+    "answerability": 2,
+    "entityClarity": 1,
+    "groundingSignals": 2,
+    "authorityContext": 1,
+    "readabilityForCompression": 2
+  }
+}
+```
+
+**Example: tuning for a product or docs site.** Authority and structure matter more when content needs to be trusted and navigable:
+
+```json
+{
+  "format": "html",
+  "failUnder": 70,
+  "weights": {
+    "contentExtractability": 2,
+    "contentStructure": 2,
+    "answerability": 1,
+    "entityClarity": 1,
+    "groundingSignals": 1,
+    "authorityContext": 2,
+    "readabilityForCompression": 1
+  }
+}
+```
 
 ## Programmatic API
 
@@ -341,13 +406,13 @@ It is:
 
 ## Compatibility Notes
 
-**Node.js** -- Requires Node 20 or later. The `engines` field in `package.json` enforces this. Earlier versions will produce runtime errors.
+**Node.js** - Requires Node 20 or later. The `engines` field in `package.json` enforces this. Earlier versions will produce runtime errors.
 
-**Zod** -- Uses [Zod 4](https://zod.dev). If you consume the library API and also use Zod in your project, ensure you are on Zod 4+ to avoid type incompatibilities.
+**Zod** - Uses [Zod 4](https://zod.dev). If you consume the library API and also use Zod in your project, ensure you are on Zod 4+ to avoid type incompatibilities.
 
-**CJS bin entry** -- The `bin/aiseo-audit.js` executable uses `require()` (CommonJS). This is compatible with all Node 20+ environments regardless of your project's module system. The library exports support both ESM (`import`) and CJS (`require`).
+**CJS bin entry** - The `bin/aiseo-audit.js` executable uses `require()` (CommonJS). This is compatible with all Node 20+ environments regardless of your project's module system. The library exports support both ESM (`import`) and CJS (`require`).
 
-**Config discovery** -- When using the programmatic API, `loadConfig()` searches for config files starting from `process.cwd()`. If your application's working directory differs from where your config file lives, pass an explicit path:
+**Config discovery** - When using the programmatic API, `loadConfig()` searches for config files starting from `process.cwd()`. If your application's working directory differs from where your config file lives, pass an explicit path:
 
 ```typescript
 const config = await loadConfig("/path/to/aiseo.config.json");
