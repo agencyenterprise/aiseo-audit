@@ -624,4 +624,42 @@ describe("renderSitemapReport", () => {
       expect(output).toContain("80%");
     });
   });
+
+  describe("html score color branches", () => {
+    it("uses red color for category average below 50 in html format", () => {
+      const sitemap = makeMinimalSitemapResult();
+      const output = renderSitemapReport(
+        {
+          ...sitemap,
+          categoryAverages: {
+            contentExtractability: { name: "Content Extractability", averagePct: 30 },
+          },
+        },
+        { format: "html" },
+      );
+      expect(output).toContain("#ff3333");
+    });
+  });
+});
+
+describe("html score color branches for single URL report", () => {
+  it("uses red colors for overall score below 50", () => {
+    const result: AnalyzerResultType = {
+      ...makeMinimalResult(),
+      overallScore: 30,
+      grade: "F",
+      categories: {
+        contentExtractability: {
+          name: "Content Extractability",
+          key: "contentExtractability",
+          score: 10,
+          maxScore: 60,
+          factors: [],
+        },
+      },
+    };
+    const output = renderReport(result, { format: "html" });
+    expect(output).toContain("#ff3333");
+    expect(output).toContain("#cc0000");
+  });
 });
