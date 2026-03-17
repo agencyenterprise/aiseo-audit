@@ -95,6 +95,17 @@ describe("extractPage", () => {
       expect(result.stats.externalLinkCount).toBeGreaterThanOrEqual(0);
     });
 
+    it("does not count same-domain http links as external", () => {
+      const html = `<html><body>
+        <a href="https://example.com/page2">Internal link</a>
+        <a href="https://other.com/page">External link</a>
+      </body></html>`;
+      const result = extractPage(html, "https://example.com");
+      expect(result.stats.externalLinkCount).toBe(1);
+      expect(result.externalLinks).toHaveLength(1);
+      expect(result.externalLinks[0].url).toContain("other.com");
+    });
+
     it("has moderate content", () => {
       expect(result.stats.wordCount).toBeGreaterThan(50);
       expect(result.stats.h2Count).toBeGreaterThan(0);

@@ -514,3 +514,654 @@ describe("context-aware recommendations", () => {
     expect(recs[0].recommendation).toBeTruthy();
   });
 });
+
+describe("actionable recommendation fields", () => {
+  it("includes steps for Structured Data when no schema found", () => {
+    const auditResult = makeAuditResult(
+      {
+        content: makeCategory("Content", "contentExtractability", [
+          makeFactor("Structured Data", 0, 10),
+        ]),
+      },
+      { title: "My Blog Post", metaDescription: "A great post" },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].steps!.length).toBeGreaterThan(0);
+  });
+
+  it("includes codeExample for Structured Data when no schema found", () => {
+    const auditResult = makeAuditResult(
+      {
+        content: makeCategory("Content", "contentExtractability", [
+          makeFactor("Structured Data", 0, 10),
+        ]),
+      },
+      { title: "My Blog Post", metaDescription: "A great post" },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].codeExample).toBeDefined();
+    expect(recs[0].codeExample).toContain("application/ld+json");
+    expect(recs[0].codeExample).toContain("My Blog Post");
+  });
+
+  it("includes learnMoreUrl for Structured Data", () => {
+    const auditResult = makeAuditResult({
+      content: makeCategory("Content", "contentExtractability", [
+        makeFactor("Structured Data", 0, 10),
+      ]),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].learnMoreUrl).toBe("https://schema.org/docs/gs.html");
+  });
+
+  it("generates FAQPage JSON-LD when questions are found", () => {
+    const auditResult = makeAuditResult(
+      {
+        content: makeCategory("Content", "contentExtractability", [
+          makeFactor("Structured Data", 0, 10),
+        ]),
+      },
+      { questionsFound: ["What is AI SEO?", "How does it work?"] },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].codeExample).toContain("FAQPage");
+    expect(recs[0].codeExample).toContain("What is AI SEO?");
+  });
+
+  it("generates robots.txt Allow rules in AI Crawler Access codeExample", () => {
+    const auditResult = makeAuditResult(
+      {
+        content: makeCategory("Content", "contentExtractability", [
+          makeFactor("AI Crawler Access", 0, 10),
+        ]),
+      },
+      {
+        crawlerAccess: {
+          blocked: ["GPTBot", "ClaudeBot"],
+          allowed: [],
+          unknown: [],
+        },
+      },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].codeExample).toContain("GPTBot");
+    expect(recs[0].codeExample).toContain("Allow: /");
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].learnMoreUrl).toBeDefined();
+  });
+
+  it("includes steps and codeExample for Answer Capsules", () => {
+    const auditResult = makeAuditResult({
+      content: makeCategory("Content", "answerability", [
+        makeFactor("Answer Capsules", 0, 13),
+      ]),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].codeExample).toContain("<h2>");
+  });
+
+  it("includes codeExample and learnMoreUrl for LLMs.txt Presence", () => {
+    const auditResult = makeAuditResult(
+      {
+        content: makeCategory("Content", "contentExtractability", [
+          makeFactor("LLMs.txt Presence", 0, 6),
+        ]),
+      },
+      {
+        llmsTxt: { llmsTxtExists: false, llmsFullTxtExists: false },
+        title: "My Site",
+        metaDescription: "Great site",
+      },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].codeExample).toBeDefined();
+    expect(recs[0].learnMoreUrl).toBe("https://llmstxt.org");
+  });
+
+  it("includes steps and codeExample for Author Attribution", () => {
+    const auditResult = makeAuditResult({
+      authority: makeCategory("Authority", "authorityContext", [
+        makeFactor("Author Attribution", 0, 10),
+      ]),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].codeExample).toContain("byline");
+    expect(recs[0].learnMoreUrl).toBeDefined();
+  });
+
+  it("includes steps and codeExample for Heading Hierarchy", () => {
+    const auditResult = makeAuditResult(
+      {
+        content: makeCategory("Content", "contentStructure", [
+          makeFactor("Heading Hierarchy", 0, 10),
+        ]),
+      },
+      { title: "AI SEO Guide" },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].codeExample).toContain("<h1>");
+  });
+
+  it("includes codeExample and steps for Content Freshness", () => {
+    const auditResult = makeAuditResult(
+      {
+        authority: makeCategory("Authority", "authorityContext", [
+          makeFactor("Content Freshness", 0, 12),
+        ]),
+      },
+      {
+        freshness: {
+          publishDate: "2023-01-01",
+          modifiedDate: null,
+          ageInMonths: 38,
+          hasModifiedDate: false,
+        },
+      },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].codeExample).toContain("dateModified");
+    expect(recs[0].steps).toBeDefined();
+  });
+
+  it("includes steps and codeExample for Schema Completeness when properties missing", () => {
+    const auditResult = makeAuditResult(
+      {
+        authority: makeCategory("Authority", "authorityContext", [
+          makeFactor("Schema Completeness", 2, 10),
+        ]),
+      },
+      {
+        schemaCompleteness: {
+          totalTypes: 1,
+          avgCompleteness: 0.33,
+          details: [
+            {
+              type: "Article",
+              present: ["headline"],
+              missing: ["author", "datePublished"],
+            },
+          ],
+        },
+      },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].codeExample).toContain("author");
+    expect(recs[0].learnMoreUrl).toContain("schema.org/Article");
+  });
+
+  it("does not include steps or codeExample for plain constant builders", () => {
+    const auditResult = makeAuditResult({
+      content: makeCategory("Content", "contentStructure", [
+        makeFactor("Paragraph Structure", 0, 10),
+      ]),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeUndefined();
+    expect(recs[0].codeExample).toBeUndefined();
+    expect(recs[0].learnMoreUrl).toBeUndefined();
+  });
+
+  it("includes steps and codeExample for Lists Presence", () => {
+    const auditResult = makeAuditResult({
+      content: makeCategory("Content Structure for Reuse", "contentStructure", [
+        makeFactor("Lists Presence", 0, 11),
+      ]),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].steps!.length).toBeGreaterThan(0);
+    expect(recs[0].codeExample).toContain("<ul>");
+  });
+
+  it("includes steps and codeExample for Tables Presence", () => {
+    const auditResult = makeAuditResult({
+      content: makeCategory("Content Structure for Reuse", "contentStructure", [
+        makeFactor("Tables Presence", 0, 8),
+      ]),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].codeExample).toContain("<table>");
+  });
+
+  it("includes steps and codeExample for Definition Patterns", () => {
+    const auditResult = makeAuditResult({
+      answerability: makeCategory("Answerability", "answerability", [
+        makeFactor("Definition Patterns", 0, 10),
+      ]),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].codeExample).toContain("is defined as");
+  });
+
+  it("includes steps and codeExample for Direct Answer Statements", () => {
+    const auditResult = makeAuditResult({
+      answerability: makeCategory("Answerability", "answerability", [
+        makeFactor("Direct Answer Statements", 0, 11),
+      ]),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].codeExample).toBeDefined();
+  });
+
+  it("includes steps and codeExample for Summary/Conclusion", () => {
+    const auditResult = makeAuditResult({
+      answerability: makeCategory("Answerability", "answerability", [
+        makeFactor("Summary/Conclusion", 0, 9),
+      ]),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].codeExample).toContain("<h2>");
+  });
+
+  it("includes steps and codeExample for Attribution Indicators", () => {
+    const auditResult = makeAuditResult({
+      grounding: makeCategory("Grounding Signals", "groundingSignals", [
+        makeFactor("Attribution Indicators", 0, 11),
+      ]),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].codeExample).toContain("According to");
+  });
+
+  it("includes steps and codeExample for Citation Patterns", () => {
+    const auditResult = makeAuditResult({
+      grounding: makeCategory("Grounding Signals", "groundingSignals", [
+        makeFactor("Citation Patterns", 0, 13),
+      ]),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].codeExample).toContain("<cite>");
+  });
+
+  it("includes steps and codeExample for Quoted Attribution", () => {
+    const auditResult = makeAuditResult({
+      grounding: makeCategory("Grounding Signals", "groundingSignals", [
+        makeFactor("Quoted Attribution", 0, 10),
+      ]),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].codeExample).toContain("<blockquote>");
+  });
+
+  it("includes steps and codeExample for Transition Usage", () => {
+    const auditResult = makeAuditResult({
+      readability: makeCategory(
+        "Readability for Compression",
+        "readabilityForCompression",
+        [makeFactor("Transition Usage", 0, 15)],
+      ),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].codeExample).toBeDefined();
+  });
+
+  it("includes steps and codeExample for Jargon Density", () => {
+    const auditResult = makeAuditResult({
+      readability: makeCategory(
+        "Readability for Compression",
+        "readabilityForCompression",
+        [makeFactor("Jargon Density", 0, 15)],
+      ),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].codeExample).toBeDefined();
+  });
+
+  it("includes steps and codeExample for Organization Identity", () => {
+    const auditResult = makeAuditResult({
+      authority: makeCategory("Authority Context", "authorityContext", [
+        makeFactor("Organization Identity", 0, 10),
+      ]),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].codeExample).toContain("Organization");
+    expect(recs[0].learnMoreUrl).toContain("schema.org");
+  });
+
+  it("uses detected organization name in Organization Identity codeExample", () => {
+    const auditResult = makeAuditResult(
+      {
+        authority: makeCategory("Authority Context", "authorityContext", [
+          makeFactor("Organization Identity", 0, 10),
+        ]),
+      },
+      {
+        entities: {
+          people: [],
+          organizations: ["Acme Corp"],
+          places: [],
+          topics: [],
+        },
+      },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].codeExample).toContain("Acme Corp");
+  });
+
+  it("includes steps and codeExample for Publication Date", () => {
+    const auditResult = makeAuditResult({
+      authority: makeCategory("Authority Context", "authorityContext", [
+        makeFactor("Publication Date", 0, 8),
+      ]),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].codeExample).toContain("datePublished");
+    expect(recs[0].learnMoreUrl).toBeDefined();
+  });
+
+  it("includes steps and codeExample for Contact/About Links", () => {
+    const auditResult = makeAuditResult({
+      authority: makeCategory("Authority Context", "authorityContext", [
+        makeFactor("Contact/About Links", 0, 10),
+      ]),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].codeExample).toContain("About");
+  });
+
+  it("includes steps and codeExample for External References when no links exist", () => {
+    const auditResult = makeAuditResult(
+      {
+        grounding: makeCategory("Grounding Signals", "groundingSignals", [
+          makeFactor("External References", 0, 13),
+        ]),
+      },
+      { externalLinks: [] },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].codeExample).toBeDefined();
+  });
+
+  it("includes steps and codeExample for External References when too few links exist", () => {
+    const auditResult = makeAuditResult(
+      {
+        grounding: makeCategory("Grounding Signals", "groundingSignals", [
+          makeFactor("External References", 6, 13),
+        ]),
+      },
+      {
+        externalLinks: [
+          { url: "https://example.com", text: "Example" },
+          { url: "https://other.com", text: "Other" },
+        ],
+      },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].codeExample).toBeDefined();
+  });
+
+  it("includes steps for Entity Richness when no entities are detected", () => {
+    const auditResult = makeAuditResult(
+      {
+        entity: makeCategory("Entity Clarity", "entityClarity", [
+          makeFactor("Entity Richness", 0, 20),
+        ]),
+      },
+      { entities: { people: [], organizations: [], places: [], topics: [] } },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+  });
+
+  it("includes steps for Entity Richness when entity count is below threshold", () => {
+    const auditResult = makeAuditResult(
+      {
+        entity: makeCategory("Entity Clarity", "entityClarity", [
+          makeFactor("Entity Richness", 7, 20),
+        ]),
+      },
+      {
+        entities: {
+          people: ["Alice"],
+          organizations: ["Acme"],
+          places: [],
+          topics: ["SEO"],
+        },
+      },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+  });
+
+  it("gives in-range message for Sentence Length when average is 12–22 words", () => {
+    const auditResult = makeAuditResult(
+      {
+        readability: makeCategory("Readability", "readabilityForCompression", [
+          makeFactor("Sentence Length", 10, 15),
+        ]),
+      },
+      { avgSentenceLength: 17 },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].recommendation).toContain("17 words");
+    expect(recs[0].recommendation).toContain("12-22");
+  });
+
+  it("gives short-sentence message for Sentence Length when average is under 12 words", () => {
+    const auditResult = makeAuditResult(
+      {
+        readability: makeCategory("Readability", "readabilityForCompression", [
+          makeFactor("Sentence Length", 10, 15),
+        ]),
+      },
+      { avgSentenceLength: 8 },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].recommendation).toContain("8 words");
+    expect(recs[0].recommendation).toContain("short");
+  });
+
+  it("gives fallback message for Readability when score is undefined", () => {
+    const auditResult = makeAuditResult(
+      {
+        readability: makeCategory("Readability", "readabilityForCompression", [
+          makeFactor("Readability", 6, 15),
+        ]),
+      },
+      {},
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].recommendation).toContain("60-70");
+  });
+
+  it("gives fairly difficult message for Readability when score is 50–59", () => {
+    const auditResult = makeAuditResult(
+      {
+        readability: makeCategory("Readability", "readabilityForCompression", [
+          makeFactor("Readability", 10, 15),
+        ]),
+      },
+      { readabilityScore: 55 },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].recommendation).toContain("55");
+    expect(recs[0].recommendation).toContain("fairly difficult");
+  });
+
+  it("gives general message for Readability when score is 60 or above", () => {
+    const auditResult = makeAuditResult(
+      {
+        readability: makeCategory("Readability", "readabilityForCompression", [
+          makeFactor("Readability", 10, 15),
+        ]),
+      },
+      { readabilityScore: 65 },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].recommendation).toContain("65");
+    expect(recs[0].recommendation).toContain("60-70");
+  });
+
+  it("uses detected topic in Definition Patterns codeExample when topic is available", () => {
+    const auditResult = makeAuditResult(
+      {
+        answerability: makeCategory("Answerability", "answerability", [
+          makeFactor("Definition Patterns", 0, 10),
+        ]),
+      },
+      {
+        entities: {
+          people: [],
+          organizations: [],
+          places: [],
+          topics: ["Content Marketing"],
+        },
+      },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].codeExample).toContain("Content Marketing");
+    expect(recs[0].codeExample).toContain("is defined as");
+  });
+
+  it("uses detected question in Answer Capsules codeExample when question is available", () => {
+    const auditResult = makeAuditResult(
+      {
+        answerability: makeCategory("Answerability", "answerability", [
+          makeFactor("Answer Capsules", 0, 13),
+        ]),
+      },
+      {
+        questionsFound: ["What is content marketing?"],
+      },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].codeExample).toContain("What is content marketing?");
+  });
+
+  it("uses first existing link in External References codeExample when links are present", () => {
+    const auditResult = makeAuditResult(
+      {
+        grounding: makeCategory("Grounding Signals", "groundingSignals", [
+          makeFactor("External References", 6, 13),
+        ]),
+      },
+      {
+        externalLinks: [
+          { url: "https://research.example.com/study", text: "Research Study" },
+        ],
+      },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].codeExample).toContain("https://research.example.com/study");
+    expect(recs[0].codeExample).toContain("Research Study");
+  });
+
+  it("includes steps and codeExample for Image Accessibility when images lack alt text", () => {
+    const auditResult = makeAuditResult(
+      {
+        content: makeCategory(
+          "Content Extractability",
+          "contentExtractability",
+          [makeFactor("Image Accessibility", 3, 8)],
+        ),
+      },
+      {
+        imageAccessibility: {
+          imageCount: 6,
+          imagesWithAlt: 2,
+          figcaptionCount: 0,
+        },
+      },
+    );
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].steps).toBeDefined();
+    expect(recs[0].codeExample).toContain("alt=");
+  });
+});

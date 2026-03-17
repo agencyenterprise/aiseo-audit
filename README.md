@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-7EB6D7.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-7EB6D7.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-7EB6D7?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-293%20passed-8FBC8F)](https://github.com/agencyenterprise/aiseo-audit)
+[![Tests](https://img.shields.io/badge/tests-454%20passed-8FBC8F)](https://github.com/agencyenterprise/aiseo-audit)
 [![Coverage](https://img.shields.io/codecov/c/github/agencyenterprise/aiseo-audit?color=8FBC8F&label=coverage)](https://codecov.io/gh/agencyenterprise/aiseo-audit)
 
 <div align="center">
@@ -80,10 +80,13 @@ aiseo-audit https://example.com --md
 # HTML report (Lighthouse-style)
 aiseo-audit https://example.com --html
 
-# Write output to a file (uses the selected format)
+# Write to a file — format is inferred from the extension automatically
+aiseo-audit https://example.com --out report.html
+aiseo-audit https://example.com --out report.md
+aiseo-audit https://example.com --out report.json
+
+# Explicit format flag still works and takes precedence
 aiseo-audit https://example.com --html --out report.html
-aiseo-audit https://example.com --md --out report.md
-aiseo-audit https://example.com --json --out report.json
 
 # CI/CD: fail if score below threshold
 aiseo-audit https://example.com --fail-under 70
@@ -119,21 +122,23 @@ jobs:
 
 ## CLI Options
 
-| Option                 | Description                                                                 | Default                                       |
-| ---------------------- | --------------------------------------------------------------------------- | --------------------------------------------- |
-| `[url]`                | URL to audit                                                                | -                                             |
-| `--sitemap <url>`      | Audit all URLs in a sitemap.xml                                             | -                                             |
-| `--signals-base <url>` | Base URL to fetch domain signals from (robots.txt, llms.txt, llms-full.txt) | Directory of the URL or sitemap being audited |
-| `--json`               | Output as JSON                                                              | -                                             |
-| `--md`                 | Output as Markdown                                                          | -                                             |
-| `--html`               | Output as HTML                                                              | -                                             |
-| `--out <path>`         | Write rendered output to a file                                             | -                                             |
-| `--fail-under <n>`     | Exit with code 1 if score < threshold                                       | -                                             |
-| `--timeout <ms>`       | Request timeout in ms                                                       | `45000`                                       |
-| `--user-agent <ua>`    | Custom User-Agent string                                                    | `AISEOAudit/<version>`                        |
-| `--config <path>`      | Path to config file                                                         | -                                             |
+| Option                 | Description                                                                       | Default                                       |
+| ---------------------- | --------------------------------------------------------------------------------- | --------------------------------------------- |
+| `[url]`                | URL to audit                                                                      | -                                             |
+| `--sitemap <url>`      | Audit all URLs in a sitemap.xml                                                   | -                                             |
+| `--signals-base <url>` | Base URL to fetch domain signals from (robots.txt, llms.txt, llms-full.txt)       | Directory of the URL or sitemap being audited |
+| `--json`               | Output as JSON                                                                    | -                                             |
+| `--md`                 | Output as Markdown                                                                | -                                             |
+| `--html`               | Output as HTML                                                                    | -                                             |
+| `--out <path>`         | Write output to a file; format is inferred from `.html`, `.md`, `.json` extension | -                                             |
+| `--fail-under <n>`     | Exit with code 1 if score < threshold                                             | -                                             |
+| `--timeout <ms>`       | Request timeout in ms                                                             | `45000`                                       |
+| `--user-agent <ua>`    | Custom User-Agent string                                                          | `AISEOAudit/<version>`                        |
+| `--config <path>`      | Path to config file                                                               | -                                             |
 
 Either `[url]` or `--sitemap` must be provided, but not both. If no output flag is given, the default is `pretty` (color-coded terminal output). The default format can also be set in the config file.
+
+When `--out` is provided, the format is automatically inferred from the file extension (`.html` → HTML, `.md` → Markdown, `.json` → JSON) so you don't need to pass a separate format flag. An explicit `--html`, `--md`, or `--json` flag takes precedence if provided.
 
 ## Site-Wide Auditing
 
@@ -145,8 +150,8 @@ By default, domain signals are fetched from the directory that contains the site
 # Audit all URLs in a sitemap
 aiseo-audit --sitemap https://example.com/sitemap.xml
 
-# With HTML output
-aiseo-audit --sitemap https://example.com/sitemap.xml --html --out report.html
+# With HTML output — format inferred from extension
+aiseo-audit --sitemap https://example.com/sitemap.xml --out report.html
 
 # Override where domain signals are fetched from
 aiseo-audit --sitemap https://example.com/projects/sitemap.xml --signals-base https://example.com
@@ -224,19 +229,19 @@ The audit evaluates 7 categories of AI search readiness (_[Detailed Breakdown he
 
 ### Pretty (default)
 
-Color-coded terminal output with scores, factor breakdowns, and top recommendations. Best for quick checks during development.
+Color-coded terminal output with scores, factor breakdowns, and recommendations. Where available, recommendations include numbered implementation steps, a ready-to-use code example, and a learn more link. Best for quick checks during development.
 
 ### JSON
 
-Full structured output with all scores, factor details, raw data, and recommendations. Best for integrations, CI/CD pipelines, and programmatic consumption.
+Full structured output with all scores, factor details, raw data, and recommendations. Recommendations include optional `steps`, `codeExample`, and `learnMoreUrl` fields where applicable. Best for integrations, CI/CD pipelines, and programmatic consumption.
 
 ### Markdown
 
-Structured report with category tables, factor details, and recommendations grouped by category. Best for documentation, PRs, and sharing.
+Structured report with category tables, factor details, and recommendations grouped by category. Recommendations with steps render as numbered lists; code examples render as fenced code blocks. Best for documentation, PRs, and sharing.
 
 ### HTML
 
-Self-contained single-file report with SVG score gauges, color-coded sections, and recommendations grouped by category. Best for stakeholder reports and visual review.
+Self-contained single-file report with SVG score gauges, color-coded sections, and recommendations grouped by category. Recommendations with steps and code examples render as inline detail sections below each recommendation row. Best for stakeholder reports and visual review.
 
 ## Config File
 
@@ -298,6 +303,21 @@ import type {
   ReportFormatType,
   AiseoConfigType,
 } from "aiseo-audit";
+```
+
+`RecommendationType` includes the base fields (`category`, `factor`, `currentValue`, `priority`, `recommendation`) plus three optional fields populated for high-impact factors:
+
+```typescript
+type RecommendationType = {
+  category: string;
+  factor: string;
+  currentValue: string;
+  priority: "high" | "medium" | "low";
+  recommendation: string;
+  steps?: string[]; // ordered implementation steps
+  codeExample?: string; // ready-to-use code snippet
+  learnMoreUrl?: string; // link to canonical spec or docs
+};
 ```
 
 ## Philosophy

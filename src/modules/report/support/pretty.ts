@@ -121,6 +121,30 @@ export function renderPretty(result: AnalyzerResultType): string {
 
       lines.push(`  ${i + 1}. ${tag} ${chalk.bold(rec.factor)}`);
       lines.push(`     ${chalk.dim(rec.recommendation)}`);
+
+      if (rec.steps && rec.steps.length > 0) {
+        lines.push("");
+        lines.push(`     ${chalk.dim("Steps:")}`);
+        rec.steps.forEach((step, idx) => {
+          lines.push(`       ${chalk.dim(`${idx + 1}. ${step}`)}`);
+        });
+      }
+
+      if (rec.codeExample) {
+        lines.push("");
+        lines.push(`     ${chalk.dim("Example:")}`);
+        lines.push(`     ${chalk.dim("┌" + "─".repeat(50))}`);
+        rec.codeExample.split("\n").forEach((line) => {
+          lines.push(`     ${chalk.dim("│")} ${chalk.dim(line)}`);
+        });
+        lines.push(`     ${chalk.dim("└" + "─".repeat(50))}`);
+      }
+
+      if (rec.learnMoreUrl) {
+        lines.push("");
+        lines.push(`     ${chalk.dim(`Learn more: ${rec.learnMoreUrl}`)}`);
+      }
+
       lines.push("");
     }
   }

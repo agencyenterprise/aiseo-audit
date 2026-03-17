@@ -3,7 +3,10 @@ import type {
   CategoryNameType,
   CategoryResultType,
 } from "../../../src/modules/audits/schema.js";
-import { computeScore } from "../../../src/modules/scoring/service.js";
+import {
+  computeGrade,
+  computeScore,
+} from "../../../src/modules/scoring/service.js";
 
 function makeCategory(
   name: string,
@@ -225,5 +228,80 @@ describe("computeScore", () => {
     expect(result.totalPoints).toBe(0);
     expect(result.maxPoints).toBe(0);
     expect(result.grade).toBe("F");
+  });
+
+  it("falls back to 1/7 normalized weight when all weights are zero", () => {
+    const categories: Record<string, CategoryResultType> = {
+      contentExtractability: makeCategory(
+        "Content Extractability",
+        "contentExtractability",
+        100,
+        100,
+      ),
+    };
+    const weights = {
+      contentExtractability: 0,
+      contentStructure: 0,
+      answerability: 0,
+      entityClarity: 0,
+      groundingSignals: 0,
+      authorityContext: 0,
+      readabilityForCompression: 0,
+    };
+    // totalWeight is 0 → normalizedWeight falls back to 1/7
+    const result = computeScore(categories, weights);
+    expect(result.overallScore).toBeGreaterThan(0);
+  });
+
+  it("scores 0 for a category with maxScore of zero", () => {
+    const categories: Record<string, CategoryResultType> = {
+      contentExtractability: makeCategory(
+        "Content Extractability",
+        "contentExtractability",
+        0,
+        0,
+      ),
+    };
+    const weights = {
+      contentExtractability: 1,
+      contentStructure: 0,
+      answerability: 0,
+      entityClarity: 0,
+      groundingSignals: 0,
+      authorityContext: 0,
+      readabilityForCompression: 0,
+    };
+    const result = computeScore(categories, weights);
+    expect(result.overallScore).toBe(0);
+  });
+});
+
+describe("computeGrade", () => {
+  it("returns F for a score below all thresholds (e.g. negative)", () => {
+    expect(computeGrade(-1)).toBe("F");
+  });
+});
+
+describe("computeScore weight fallback branch", () => {
+  it("uses weight 1 for unknown category key not in weightMap", () => {
+    const categories: Record<string, CategoryResultType> = {
+      customUnknownKey: makeCategory(
+        "Custom Category",
+        "contentExtractability",
+        50,
+        100,
+      ),
+    };
+    const weights = {
+      contentExtractability: 1,
+      contentStructure: 1,
+      answerability: 1,
+      entityClarity: 1,
+      groundingSignals: 1,
+      authorityContext: 1,
+      readabilityForCompression: 1,
+    };
+    const result = computeScore(categories, weights);
+    expect(result.overallScore).toBeGreaterThan(0);
   });
 });
