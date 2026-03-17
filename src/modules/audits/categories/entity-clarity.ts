@@ -1,18 +1,18 @@
 import { countWords } from "../../../utils/strings.js";
 import type { ExtractedPageType } from "../../extractor/schema.js";
 import { extractEntities } from "../../nlp/service.js";
+import {
+  makeFactor,
+  maxFactors,
+  sumFactors,
+  thresholdScore,
+} from "../../scoring/service.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
 import type {
   CategoryAuditOutputType,
   ExtractedEntitiesType,
   FactorResultType,
 } from "../schema.js";
-import {
-  makeFactor,
-  maxFactors,
-  sumFactors,
-  thresholdScore,
-} from "../support/scoring.js";
 
 export function auditEntityClarity(
   page: ExtractedPageType,
@@ -68,11 +68,10 @@ export function auditEntityClarity(
   const consistencyScore =
     keyWords.length === 0
       ? 0
-      : consistencyRatio >= 0.5
-        ? 25
-        : consistencyRatio > 0
-          ? 15
-          : 0;
+      : thresholdScore(consistencyRatio, [
+          [0.5, 25],
+          [0.01, 15],
+        ]);
   factors.push(
     makeFactor(
       "Topic Consistency",
@@ -85,14 +84,15 @@ export function auditEntityClarity(
 
   const wordCount = countWords(text);
   const densityPer100 = wordCount > 0 ? (totalEntities / wordCount) * 100 : 0;
-  const densityScore =
-    densityPer100 >= 2 && densityPer100 <= 8
-      ? 15
-      : densityPer100 >= 1
-        ? 10
-        : densityPer100 > 8
-          ? 10
-          : 3;
+  const densityScore = thresholdScore(
+    densityPer100,
+    [
+      [2, 8, 15],
+      [1, Infinity, 10],
+      [0.01, 0.99, 3],
+    ],
+    "range",
+  );
   factors.push(
     makeFactor(
       "Entity Density",

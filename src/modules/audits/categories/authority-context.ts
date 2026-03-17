@@ -1,4 +1,10 @@
 import type { ExtractedPageType } from "../../extractor/schema.js";
+import {
+  makeFactor,
+  maxFactors,
+  sumFactors,
+  thresholdScore,
+} from "../../scoring/service.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
 import type { CategoryAuditOutputType, FactorResultType } from "../schema.js";
 import { parseJsonLdObjects } from "../support/dom.js";
@@ -9,7 +15,6 @@ import {
 import { evaluateFreshness } from "../support/freshness.js";
 import { AUTHOR_SELECTORS, DATE_SELECTORS } from "../support/patterns.js";
 import { evaluateSchemaCompleteness } from "../support/schema-analysis.js";
-import { makeFactor, maxFactors, sumFactors } from "../support/scoring.js";
 
 export function auditAuthorityContext(
   page: ExtractedPageType,
@@ -88,10 +93,15 @@ export function auditAuthorityContext(
   const freshness = evaluateFreshness(page.$);
   let freshScore = 0;
   if (freshness.ageInMonths !== null) {
-    if (freshness.ageInMonths <= 6) freshScore = 12;
-    else if (freshness.ageInMonths <= 12) freshScore = 9;
-    else if (freshness.ageInMonths <= 24) freshScore = 5;
-    else freshScore = 2;
+    freshScore = thresholdScore(
+      freshness.ageInMonths,
+      [
+        [6, 12],
+        [12, 9],
+        [24, 5],
+      ],
+      "lower",
+    );
     if (freshness.hasModifiedDate && freshScore < 12)
       freshScore = Math.min(freshScore + 2, 12);
   }
@@ -108,14 +118,10 @@ export function auditAuthorityContext(
 
   rawData.freshness = freshness;
 
-  const jsonLdScripts = $('script[type="application/ld+json"]');
-  const structuredDataTypes: string[] = [];
-  jsonLdScripts.each((_, el) => {
-    try {
-      const data = JSON.parse($(el).html() || "{}");
-      if (data["@type"]) structuredDataTypes.push(data["@type"]);
-    } catch {}
-  });
+  const schemaObjects = parseJsonLdObjects(page.$);
+  const structuredDataTypes = schemaObjects
+    .map((d) => d["@type"] as string)
+    .filter(Boolean);
 
   const ogTags = ["og:title", "og:description", "og:image", "og:type"];
   const foundOgTags = ogTags.filter(
@@ -140,18 +146,15 @@ export function auditAuthorityContext(
     ),
   );
 
-  const schemaObjects = parseJsonLdObjects(page.$);
   const completeness = evaluateSchemaCompleteness(schemaObjects);
   const schemaCompleteScore =
     completeness.totalTypes === 0
       ? 0
-      : completeness.avgCompleteness >= 0.8
-        ? 10
-        : completeness.avgCompleteness >= 0.5
-          ? 7
-          : completeness.avgCompleteness > 0
-            ? 4
-            : 0;
+      : thresholdScore(completeness.avgCompleteness, [
+          [0.8, 10],
+          [0.5, 7],
+          [0.01, 4],
+        ]);
   factors.push(
     makeFactor(
       "Schema Completeness",

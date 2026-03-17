@@ -1,5 +1,11 @@
 import type { ExtractedPageType } from "../../extractor/schema.js";
 import type { FetchResultType } from "../../fetcher/schema.js";
+import {
+  makeFactor,
+  maxFactors,
+  sumFactors,
+  thresholdScore,
+} from "../../scoring/service.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
 import type {
   CategoryAuditOutputType,
@@ -7,12 +13,6 @@ import type {
   FactorResultType,
 } from "../schema.js";
 import { checkCrawlerAccess } from "../support/robots.js";
-import {
-  makeFactor,
-  maxFactors,
-  sumFactors,
-  thresholdScore,
-} from "../support/scoring.js";
 
 export function auditContentExtractability(
   page: ExtractedPageType,
@@ -37,14 +37,16 @@ export function auditContentExtractability(
     page.stats.rawByteLength > 0
       ? page.stats.cleanTextLength / page.stats.rawByteLength
       : 0;
-  const extractScore =
-    extractRatio >= 0.05 && extractRatio <= 0.15
-      ? 12
-      : extractRatio > 0.15
-        ? 10
-        : extractRatio >= 0.01
-          ? 8
-          : 2;
+  const extractScore = thresholdScore(
+    extractRatio,
+    [
+      [0.05, 0.15, 12],
+      [0.16, Infinity, 10],
+      [0.01, 0.049, 8],
+      [0.0001, 0.009, 2],
+    ],
+    "range",
+  );
   factors.push(
     makeFactor(
       "Text Extraction Quality",
@@ -59,7 +61,7 @@ export function auditContentExtractability(
     [0.7, 12],
     [0.5, 9],
     [0.3, 6],
-    [0, 2],
+    [0.01, 2],
   ]);
   factors.push(
     makeFactor(
@@ -71,14 +73,16 @@ export function auditContentExtractability(
   );
 
   const wordCount = page.stats.wordCount;
-  const wcScore =
-    wordCount >= 300 && wordCount <= 3000
-      ? 12
-      : wordCount > 3000
-        ? 10
-        : wordCount >= 100
-          ? 8
-          : 2;
+  const wcScore = thresholdScore(
+    wordCount,
+    [
+      [300, 3000, 12],
+      [3001, Infinity, 10],
+      [100, 299, 8],
+      [1, 99, 2],
+    ],
+    "range",
+  );
   factors.push(
     makeFactor("Word Count Adequacy", wcScore, 12, `${wordCount} words`),
   );
@@ -86,14 +90,15 @@ export function auditContentExtractability(
   if (domainSignals) {
     const access = checkCrawlerAccess(domainSignals.robotsTxt);
     const blockedCount = access.blocked.length;
-    const crawlerScore =
-      blockedCount === 0
-        ? 10
-        : blockedCount <= 2
-          ? 6
-          : blockedCount <= 4
-            ? 3
-            : 0;
+    const crawlerScore = thresholdScore(
+      blockedCount,
+      [
+        [0, 10],
+        [2, 6],
+        [4, 3],
+      ],
+      "lower",
+    );
     factors.push(
       makeFactor(
         "AI Crawler Access",

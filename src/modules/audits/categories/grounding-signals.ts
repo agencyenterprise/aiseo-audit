@@ -1,5 +1,11 @@
 import type { ExtractedPageType } from "../../extractor/schema.js";
 import { countPatternMatches, extractEntities } from "../../nlp/service.js";
+import {
+  makeFactor,
+  maxFactors,
+  sumFactors,
+  thresholdScore,
+} from "../../scoring/service.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
 import type {
   CategoryAuditOutputType,
@@ -12,12 +18,6 @@ import {
   NUMERIC_CLAIM_PATTERNS,
   QUOTED_ATTRIBUTION_PATTERNS,
 } from "../support/patterns.js";
-import {
-  makeFactor,
-  maxFactors,
-  sumFactors,
-  thresholdScore,
-} from "../support/scoring.js";
 
 export function auditGroundingSignals(
   page: ExtractedPageType,

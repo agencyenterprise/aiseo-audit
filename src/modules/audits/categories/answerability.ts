@@ -1,5 +1,11 @@
 import type { ExtractedPageType } from "../../extractor/schema.js";
 import { countPatternMatches, extractEntities } from "../../nlp/service.js";
+import {
+  makeFactor,
+  maxFactors,
+  sumFactors,
+  thresholdScore,
+} from "../../scoring/service.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
 import type {
   CategoryAuditOutputType,
@@ -14,12 +20,6 @@ import {
   STEP_PATTERNS,
   SUMMARY_MARKERS,
 } from "../support/patterns.js";
-import {
-  makeFactor,
-  maxFactors,
-  sumFactors,
-  thresholdScore,
-} from "../support/scoring.js";
 
 export function auditAnswerability(
   page: ExtractedPageType,
@@ -68,13 +68,11 @@ export function auditAnswerability(
   const capsuleScore =
     capsules.total === 0
       ? 0
-      : capsuleRatio >= 0.7
-        ? 13
-        : capsuleRatio >= 0.4
-          ? 9
-          : capsuleRatio > 0
-            ? 5
-            : 2;
+      : thresholdScore(capsuleRatio, [
+          [0.7, 13],
+          [0.4, 9],
+          [0.01, 5],
+        ]);
   factors.push(
     makeFactor(
       "Answer Capsules",
@@ -124,7 +122,10 @@ export function auditAnswerability(
   );
 
   const summaryCount = countPatternMatches(text, SUMMARY_MARKERS);
-  const summaryScore = summaryCount >= 2 ? 9 : summaryCount > 0 ? 5 : 0;
+  const summaryScore = thresholdScore(summaryCount, [
+    [2, 9],
+    [1, 5],
+  ]);
   factors.push(
     makeFactor(
       "Summary/Conclusion",
