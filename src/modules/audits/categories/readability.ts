@@ -6,15 +6,15 @@ import {
   countComplexWords,
   countTransitionWords,
 } from "../../nlp/service.js";
-import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
-import type { CategoryAuditOutputType, FactorResultType } from "../schema.js";
-import { TRANSITION_WORDS } from "../support/patterns.js";
 import {
   makeFactor,
   maxFactors,
   sumFactors,
   thresholdScore,
-} from "../support/scoring.js";
+} from "../../scoring/service.js";
+import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
+import type { CategoryAuditOutputType, FactorResultType } from "../schema.js";
+import { TRANSITION_WORDS } from "../support/patterns.js";
 
 export function auditReadabilityForCompression(
   page: ExtractedPageType,
@@ -23,14 +23,15 @@ export function auditReadabilityForCompression(
   const factors: FactorResultType[] = [];
 
   const avgSentLen = avgSentenceLength(text);
-  const sentScore =
-    avgSentLen >= 12 && avgSentLen <= 22
-      ? 15
-      : avgSentLen >= 8 && avgSentLen < 30
-        ? 10
-        : avgSentLen > 0
-          ? 5
-          : 0;
+  const sentScore = thresholdScore(
+    avgSentLen,
+    [
+      [12, 22, 15],
+      [8, 29, 10],
+      [1, Infinity, 5],
+    ],
+    "range",
+  );
   factors.push(
     makeFactor(
       "Sentence Length",
@@ -41,16 +42,16 @@ export function auditReadabilityForCompression(
   );
 
   const fre = computeFleschReadingEase(text);
-  const freScore =
-    fre >= 60 && fre <= 70
-      ? 15
-      : fre > 70
-        ? 13
-        : fre >= 50
-          ? 10
-          : fre >= 30
-            ? 6
-            : 3;
+  const freScore = thresholdScore(
+    fre,
+    [
+      [60, 70, 15],
+      [71, Infinity, 13],
+      [50, 59, 10],
+      [30, 49, 6],
+    ],
+    "range",
+  );
   factors.push(
     makeFactor(
       "Readability",
@@ -63,14 +64,15 @@ export function auditReadabilityForCompression(
   const totalWords = countWords(text);
   const complex = countComplexWords(text);
   const jargonRatio = totalWords > 0 ? complex / totalWords : 0;
-  const jargonScore =
-    jargonRatio <= 0.02
-      ? 15
-      : jargonRatio <= 0.05
-        ? 12
-        : jargonRatio <= 0.1
-          ? 8
-          : 3;
+  const jargonScore = thresholdScore(
+    jargonRatio,
+    [
+      [0.02, 15],
+      [0.05, 12],
+      [0.1, 8],
+    ],
+    "lower",
+  );
   factors.push(
     makeFactor(
       "Jargon Density",

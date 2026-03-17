@@ -1,13 +1,13 @@
 import type { ExtractedPageType } from "../../extractor/schema.js";
-import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
-import type { CategoryAuditOutputType, FactorResultType } from "../schema.js";
-import { measureSectionLengths } from "../support/dom.js";
 import {
   makeFactor,
   maxFactors,
   sumFactors,
   thresholdScore,
-} from "../support/scoring.js";
+} from "../../scoring/service.js";
+import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
+import type { CategoryAuditOutputType, FactorResultType } from "../schema.js";
+import { measureSectionLengths } from "../support/dom.js";
 
 export function auditContentStructure(
   page: ExtractedPageType,
@@ -45,7 +45,10 @@ export function auditContentStructure(
   );
 
   const tables = page.stats.tableCount;
-  const tableScore = tables >= 2 ? 8 : tables >= 1 ? 5 : 0;
+  const tableScore = thresholdScore(tables, [
+    [2, 8],
+    [1, 5],
+  ]);
   factors.push(
     makeFactor(
       "Tables Presence",
@@ -59,12 +62,15 @@ export function auditContentStructure(
   const pCount = page.stats.paragraphCount;
   const avgParagraphWords =
     pCount > 0 ? Math.round(page.stats.wordCount / pCount) : 0;
-  const paragraphScore =
-    avgParagraphWords >= 30 && avgParagraphWords <= 150
-      ? 11
-      : avgParagraphWords > 0 && avgParagraphWords < 200
-        ? 7
-        : 2;
+  const paragraphScore = thresholdScore(
+    avgParagraphWords,
+    [
+      [30, 150, 11],
+      [1, 199, 7],
+      [200, Infinity, 2],
+    ],
+    "range",
+  );
   factors.push(
     makeFactor(
       "Paragraph Structure",
@@ -90,22 +96,18 @@ export function auditContentStructure(
   );
 
   const sectionData = measureSectionLengths(page.$);
-  let sectionScore = 0;
-  if (sectionData.sectionCount === 0) {
-    sectionScore = 0;
-  } else if (
-    sectionData.avgWordsPerSection >= 120 &&
-    sectionData.avgWordsPerSection <= 180
-  ) {
-    sectionScore = 12;
-  } else if (
-    sectionData.avgWordsPerSection >= 80 &&
-    sectionData.avgWordsPerSection <= 250
-  ) {
-    sectionScore = 8;
-  } else if (sectionData.avgWordsPerSection > 0) {
-    sectionScore = 4;
-  }
+  const sectionScore =
+    sectionData.sectionCount === 0
+      ? 0
+      : thresholdScore(
+          sectionData.avgWordsPerSection,
+          [
+            [120, 180, 12],
+            [80, 250, 8],
+            [1, Infinity, 4],
+          ],
+          "range",
+        );
   factors.push(
     makeFactor(
       "Section Length",
