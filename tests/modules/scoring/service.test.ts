@@ -3,7 +3,10 @@ import type {
   CategoryNameType,
   CategoryResultType,
 } from "../../../src/modules/audits/schema.js";
-import { computeGrade, computeScore } from "../../../src/modules/scoring/service.js";
+import {
+  computeGrade,
+  computeScore,
+} from "../../../src/modules/scoring/service.js";
 
 function makeCategory(
   name: string,

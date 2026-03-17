@@ -170,7 +170,7 @@ export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
     const altTextSteps = [
       "Add a descriptive alt attribute to every <img> tag",
       "Write alt text that describes what the image shows, not just its file name",
-      "Leave alt empty (alt=\"\") for purely decorative images",
+      'Leave alt empty (alt="") for purely decorative images',
       "Wrap images that need caption context in <figure> with a <figcaption>",
     ];
 
@@ -403,7 +403,9 @@ export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
     if (entities.people.length > 0)
       entityBreakdownParts.push(`${entities.people.length} people`);
     if (entities.organizations.length > 0)
-      entityBreakdownParts.push(`${entities.organizations.length} organizations`);
+      entityBreakdownParts.push(
+        `${entities.organizations.length} organizations`,
+      );
     if (entities.places.length > 0)
       entityBreakdownParts.push(`${entities.places.length} places`);
     if (entities.topics.length > 0)

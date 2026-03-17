@@ -45,14 +45,20 @@ describe("auditContentStructure", () => {
 
   describe("Lists Presence", () => {
     it("scores 11 for 10+ list items", () => {
-      const items = Array.from({ length: 12 }, (_, i) => `<li>Item ${i}</li>`).join("");
+      const items = Array.from(
+        { length: 12 },
+        (_, i) => `<li>Item ${i}</li>`,
+      ).join("");
       const html = `<body><ul>${items}</ul></body>`;
       const result = auditContentStructure(buildPage(html));
       expect(findFactor("Lists Presence", result)?.score).toBe(11);
     });
 
     it("scores 8 for 5–9 list items", () => {
-      const items = Array.from({ length: 6 }, (_, i) => `<li>Item ${i}</li>`).join("");
+      const items = Array.from(
+        { length: 6 },
+        (_, i) => `<li>Item ${i}</li>`,
+      ).join("");
       const html = `<body><ul>${items}</ul></body>`;
       const result = auditContentStructure(buildPage(html));
       expect(findFactor("Lists Presence", result)?.score).toBe(8);

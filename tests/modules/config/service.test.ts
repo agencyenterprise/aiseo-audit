@@ -23,14 +23,18 @@ describe("loadConfig", () => {
       const configPath = join(testDir, "invalid.json");
       await writeFile(configPath, "{ not valid json }");
 
-      await expect(loadConfig(configPath)).rejects.toThrow(/Invalid config file/);
+      await expect(loadConfig(configPath)).rejects.toThrow(
+        /Invalid config file/,
+      );
     });
 
     it("throws a descriptive error for a config that fails schema validation", async () => {
       const configPath = join(testDir, "bad-schema.json");
       await writeFile(configPath, JSON.stringify({ timeout: "not-a-number" }));
 
-      await expect(loadConfig(configPath)).rejects.toThrow(/Invalid config file/);
+      await expect(loadConfig(configPath)).rejects.toThrow(
+        /Invalid config file/,
+      );
     });
   });
 

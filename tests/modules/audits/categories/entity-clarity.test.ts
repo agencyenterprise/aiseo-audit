@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { auditEntityClarity } from "../../../../src/modules/audits/categories/entity-clarity.js";
-import { extractPage } from "../../../../src/modules/extractor/service.js";
 import type { ExtractedEntitiesType } from "../../../../src/modules/audits/schema.js";
+import { extractPage } from "../../../../src/modules/extractor/service.js";
 
 function buildPage(html: string) {
   return extractPage(html, "https://example.com/test");
@@ -14,7 +14,9 @@ function findFactor(
   return result.category.factors.find((f) => f.name === name);
 }
 
-function preExtracted(overrides: Partial<ExtractedEntitiesType> = {}): ExtractedEntitiesType {
+function preExtracted(
+  overrides: Partial<ExtractedEntitiesType> = {},
+): ExtractedEntitiesType {
   return {
     people: [],
     organizations: [],
@@ -50,7 +52,10 @@ describe("auditEntityClarity", () => {
     });
 
     it("scores 7 for 1–3 entities", () => {
-      const entities = preExtracted({ people: ["Alice"], organizations: ["Acme"] });
+      const entities = preExtracted({
+        people: ["Alice"],
+        organizations: ["Acme"],
+      });
       const page = buildPage(`<body><p>Content</p></body>`);
       const result = auditEntityClarity(page, entities);
       expect(findFactor("Entity Richness", result)?.score).toBe(7);
@@ -69,19 +74,27 @@ describe("auditEntityClarity", () => {
   describe("Topic Consistency", () => {
     it("scores 25 when 50%+ of title keywords match extracted topics", () => {
       // Title keywords (> 3 chars): "Content", "Marketing" — both appear in topics list
-      const entities = preExtracted({ topics: ["content", "marketing", "strategy"] });
+      const entities = preExtracted({
+        topics: ["content", "marketing", "strategy"],
+      });
       const html = `<html><head><title>Content Marketing Guide</title></head><body><h1>Content Marketing</h1><p>About content marketing and strategy.</p></body></html>`;
       const page = buildPage(html);
       const result = auditEntityClarity(page, entities);
-      expect(findFactor("Topic Consistency", result)?.score).toBeGreaterThanOrEqual(15);
+      expect(
+        findFactor("Topic Consistency", result)?.score,
+      ).toBeGreaterThanOrEqual(15);
     });
 
     it("scores 0 when no title keywords match topics", () => {
-      const entities = preExtracted({ topics: ["quantum physics", "astronomy"] });
+      const entities = preExtracted({
+        topics: ["quantum physics", "astronomy"],
+      });
       const html = `<html><head><title>Cooking Recipes Food Guide</title></head><body><h1>Cooking Recipes</h1><p>Some content about food.</p></body></html>`;
       const page = buildPage(html);
       const result = auditEntityClarity(page, entities);
-      expect(findFactor("Topic Consistency", result)?.score).toBeLessThanOrEqual(15);
+      expect(
+        findFactor("Topic Consistency", result)?.score,
+      ).toBeLessThanOrEqual(15);
     });
 
     it("scores 0 and is neutral when page title has no keywords longer than 3 chars", () => {
@@ -132,7 +145,10 @@ describe("auditEntityClarity", () => {
 
   describe("rawData", () => {
     it("includes extracted entities in rawData", () => {
-      const entities = preExtracted({ people: ["Alice"], organizations: ["Acme"] });
+      const entities = preExtracted({
+        people: ["Alice"],
+        organizations: ["Acme"],
+      });
       const page = buildPage(`<body><p>Content</p></body>`);
       const result = auditEntityClarity(page, entities);
       expect(result.rawData.entities?.people).toContain("Alice");

@@ -550,13 +550,11 @@ describe("actionable recommendation fields", () => {
   });
 
   it("includes learnMoreUrl for Structured Data", () => {
-    const auditResult = makeAuditResult(
-      {
-        content: makeCategory("Content", "contentExtractability", [
-          makeFactor("Structured Data", 0, 10),
-        ]),
-      },
-    );
+    const auditResult = makeAuditResult({
+      content: makeCategory("Content", "contentExtractability", [
+        makeFactor("Structured Data", 0, 10),
+      ]),
+    });
 
     const recs = generateRecommendations(auditResult);
 
@@ -888,7 +886,14 @@ describe("actionable recommendation fields", () => {
           makeFactor("Organization Identity", 0, 10),
         ]),
       },
-      { entities: { people: [], organizations: ["Acme Corp"], places: [], topics: [] } },
+      {
+        entities: {
+          people: [],
+          organizations: ["Acme Corp"],
+          places: [],
+          topics: [],
+        },
+      },
     );
 
     const recs = generateRecommendations(auditResult);
@@ -1139,9 +1144,11 @@ describe("actionable recommendation fields", () => {
   it("includes steps and codeExample for Image Accessibility when images lack alt text", () => {
     const auditResult = makeAuditResult(
       {
-        content: makeCategory("Content Extractability", "contentExtractability", [
-          makeFactor("Image Accessibility", 3, 8),
-        ]),
+        content: makeCategory(
+          "Content Extractability",
+          "contentExtractability",
+          [makeFactor("Image Accessibility", 3, 8)],
+        ),
       },
       {
         imageAccessibility: {

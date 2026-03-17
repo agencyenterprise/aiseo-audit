@@ -14,10 +14,16 @@ function findFactor(
 }
 
 // 4-word sentences with monosyllabic words — very high FRE, very low jargon
-const easySentences = "The cat sat. The dog ran. The bird flew. The sun set. The moon rose. ".repeat(30);
+const easySentences =
+  "The cat sat. The dog ran. The bird flew. The sun set. The moon rose. ".repeat(
+    30,
+  );
 
 // 15-word sentences with mixed syllables — mid-range FRE, mid sentence length
-const midSentence = "Clear content helps businesses grow by reaching the right people online today. ".repeat(30);
+const midSentence =
+  "Clear content helps businesses grow by reaching the right people online today. ".repeat(
+    30,
+  );
 
 // 35-word sentences — forces very long sentence length (> 30 words = score 5)
 const veryLongSentence = (
@@ -27,11 +33,14 @@ const veryLongSentence = (
 ).repeat(20);
 
 // 9-word sentences — in the 8-11 word range (score 10)
-const nineWordSentence = "Clear writing helps your readers understand information better. ".repeat(30);
+const nineWordSentence =
+  "Clear writing helps your readers understand information better. ".repeat(30);
 
 // High-jargon polysyllabic words — complex for readability scoring
 const technicalJargon =
-  "Implementation optimization characterization systematically differentiates multidimensional. ".repeat(50);
+  "Implementation optimization characterization systematically differentiates multidimensional. ".repeat(
+    50,
+  );
 
 describe("auditReadabilityForCompression", () => {
   describe("Sentence Length", () => {
@@ -62,7 +71,9 @@ describe("auditReadabilityForCompression", () => {
       const html = `<body><p>${easySentences}</p></body>`;
       const page = buildPage(html);
       const result = auditReadabilityForCompression(page);
-      expect(findFactor("Readability", result)?.score).toBeGreaterThanOrEqual(13);
+      expect(findFactor("Readability", result)?.score).toBeGreaterThanOrEqual(
+        13,
+      );
     });
 
     it("scores 3 or 6 for very complex polysyllabic text (FRE below 30)", () => {
@@ -92,12 +103,12 @@ describe("auditReadabilityForCompression", () => {
   describe("Transition Usage", () => {
     it("scores 15 for 10+ distinct transition types", () => {
       const textWithTransitions =
-        "However, this is important. Therefore, we should act. "
-        + "Furthermore, there are reasons. Additionally, consider this. "
-        + "Nevertheless, we continue. Meanwhile, others wait. "
-        + "Similarly, the approach works. Consequently, results improve. "
-        + "Moreover, evidence supports this. Specifically, studies confirm. "
-        + "On the other hand, some disagree. As a result, changes happened.";
+        "However, this is important. Therefore, we should act. " +
+        "Furthermore, there are reasons. Additionally, consider this. " +
+        "Nevertheless, we continue. Meanwhile, others wait. " +
+        "Similarly, the approach works. Consequently, results improve. " +
+        "Moreover, evidence supports this. Specifically, studies confirm. " +
+        "On the other hand, some disagree. As a result, changes happened.";
       const html = `<body><p>${textWithTransitions.repeat(5)}</p></body>`;
       const page = buildPage(html);
       const result = auditReadabilityForCompression(page);
@@ -110,7 +121,9 @@ describe("auditReadabilityForCompression", () => {
       const html = `<body><p>${textWithFewTransitions.repeat(20)}</p></body>`;
       const page = buildPage(html);
       const result = auditReadabilityForCompression(page);
-      expect(findFactor("Transition Usage", result)?.score).toBeGreaterThanOrEqual(3);
+      expect(
+        findFactor("Transition Usage", result)?.score,
+      ).toBeGreaterThanOrEqual(3);
     });
 
     it("scores 0 for no transition words", () => {

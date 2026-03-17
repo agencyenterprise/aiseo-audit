@@ -334,20 +334,26 @@ describe("rendering actionable recommendation fields", () => {
 
   describe("pretty format", () => {
     it("renders steps as numbered list", () => {
-      const output = renderReport(makeResultWithRichRec(), { format: "pretty" });
+      const output = renderReport(makeResultWithRichRec(), {
+        format: "pretty",
+      });
       expect(output).toContain("Steps:");
       expect(output).toContain("1. Step one");
       expect(output).toContain("2. Step two");
     });
 
     it("renders code example", () => {
-      const output = renderReport(makeResultWithRichRec(), { format: "pretty" });
+      const output = renderReport(makeResultWithRichRec(), {
+        format: "pretty",
+      });
       expect(output).toContain("Example:");
       expect(output).toContain("application/ld+json");
     });
 
     it("renders learnMoreUrl", () => {
-      const output = renderReport(makeResultWithRichRec(), { format: "pretty" });
+      const output = renderReport(makeResultWithRichRec(), {
+        format: "pretty",
+      });
       expect(output).toContain("Learn more:");
       expect(output).toContain("https://schema.org/docs/gs.html");
     });
@@ -431,7 +437,10 @@ describe("http URL notes", () => {
     return {
       ...base,
       urlResults: [
-        { status: "success", result: { ...makeMinimalResult(), url: "http://example.com/page" } },
+        {
+          status: "success",
+          result: { ...makeMinimalResult(), url: "http://example.com/page" },
+        },
       ],
     };
   }
@@ -450,7 +459,9 @@ describe("http URL notes", () => {
   });
 
   it("sitemap json format includes http note when a URL is http", () => {
-    const output = renderSitemapReport(makeHttpSitemapResult(), { format: "json" });
+    const output = renderSitemapReport(makeHttpSitemapResult(), {
+      format: "json",
+    });
     const parsed = JSON.parse(output);
     expect(parsed.notes).toBeDefined();
   });
@@ -461,7 +472,9 @@ describe("http URL notes", () => {
   });
 
   it("sitemap markdown format includes http note when a URL is http", () => {
-    const output = renderSitemapReport(makeHttpSitemapResult(), { format: "md" });
+    const output = renderSitemapReport(makeHttpSitemapResult(), {
+      format: "md",
+    });
     expect(output).toContain("HTTP");
   });
 
@@ -471,7 +484,9 @@ describe("http URL notes", () => {
   });
 
   it("sitemap pretty format includes http note when a URL is http", () => {
-    const output = renderSitemapReport(makeHttpSitemapResult(), { format: "pretty" });
+    const output = renderSitemapReport(makeHttpSitemapResult(), {
+      format: "pretty",
+    });
     expect(output).toContain("HTTP");
   });
 });
