@@ -81,7 +81,8 @@ If the fetch fails entirely (before an HTTP status is returned), the HTTP layer 
 - 5-15% = 12 (ideal for a normal web page)
 - 1-5% = 8
 - Above 15% = 10 (text-heavy, fine but less structured)
-- Below 1% = 2 (mostly binary or non-text content)
+- Below 1% but some content = 2 (mostly binary or non-text content)
+- No extractable content = 0
 
 **Boilerplate Ratio** is computed by removing entire DOM elements (including all nested children) that match the boilerplate selectors, then comparing the cleaned text length to the raw text length. The full removal list:
 
@@ -103,7 +104,8 @@ Scoring:
 - 300-3000 words = 12 (ideal range for generative reuse)
 - 100-299 = 8
 - Over 3000 = 10 (lengthy but still usable)
-- Under 100 = 2 (too thin to be useful)
+- 1-99 = 2 (too thin to be useful)
+- 0 words = 0
 
 **AI Crawler Access** fetches `robots.txt` relative to the URL being audited and checks whether 5 major AI crawlers are blocked. By default this is the URL of the page itself (e.g. auditing `https://example.com/projects/page` checks `https://example.com/projects/page/robots.txt`). Use `--signals-base` to override the base URL when your domain signals live elsewhere. Every report explicitly shows which URL domain signals were fetched from. For sitemap audits, domain signals are fetched once from the sitemap URL and shared across all URLs in the audit.
 
@@ -186,7 +188,8 @@ This category is purely structural. It checks whether the right HTML elements ex
 
 - 30-150 words/paragraph = 11 (ideal)
 - 1-199 words = 7
-- Over 200 or 0 = 2
+- Over 200 = 2
+- No paragraphs = 0
 
 **Scannability** is a composite of three sub-checks:
 
@@ -319,7 +322,8 @@ This category uses a hybrid NLP approach for entity extraction: [compromise](htt
 
 - 2-8 per 100 words = 15 (ideal)
 - 1-2 or 8+ = 10
-- Below 1 = 3
+- Below 1 but some entities = 3
+- No entities = 0
 
 ### Why This Matters
 
@@ -543,7 +547,7 @@ Scoring:
 - FRE > 70 = 13 (very easy, good)
 - FRE 50-59 = 10
 - FRE 30-49 = 6
-- FRE < 30 = 3 (very difficult to read)
+- FRE < 30 = 0 (very difficult to read)
 
 Syllable counting uses a heuristic: count vowel groups, adjust for silent-e and common suffixes.
 
@@ -552,7 +556,7 @@ Syllable counting uses a heuristic: count vowel groups, adjust for silent-e and 
 - Under 2% = 15 (very accessible)
 - 2-5% = 12
 - 5-10% = 8
-- Over 10% = 3
+- Over 10% = 0
 
 **Transition Usage** counts how many distinct transition words from a list of 20 appear in the text:
 
@@ -669,7 +673,6 @@ audits/
     readability.ts              auditReadabilityForCompression()
   support/
     patterns.ts          All regex patterns (definitions, citations, steps, etc.)
-    scoring.ts           Scoring utilities (thresholdScore, makeFactor, etc.)
 
 nlp/
   schema.ts              ExtractedEntitiesSchema and ExtractedEntitiesType
@@ -711,11 +714,13 @@ Each audit function follows the same pattern:
 
 **`support/patterns.ts`** centralizes every regex pattern used across all audits. This means all detection logic lives in one place. If you want to add a new citation pattern or definition phrase, you edit one file.
 
-**`support/scoring.ts`** provides small scoring utilities:
+**`scoring/service.ts`** provides all scoring utilities in one place:
 
-- `thresholdScore(value, brackets)` - maps a numeric value to a score using descending threshold brackets
+- `thresholdScore(value, brackets, type?)` - maps a numeric value to a score using threshold brackets. Supports three modes via the `type` parameter: `"higher"` (default, value >= threshold), `"lower"` (value <= threshold, for metrics where lower is better like jargon ratio), and `"range"` (value falls within [min, max], for sweet-spot metrics like sentence length 12-22)
 - `makeFactor(name, score, max, value)` - builds a `FactorResult` and auto-assigns status (`good` >= 70%, `needs_improvement` >= 30%, `critical` < 30%)
 - `sumFactors(factors)` / `maxFactors(factors)` - add up scores/maxScores
+- `computeScore(categories, weights)` - weighted average of category percentages
+- `computeGrade(score)` - maps 0-100 score to letter grade
 
 **`nlp/service.ts`** is the dedicated NLP module:
 
@@ -725,7 +730,7 @@ Each audit function follows the same pattern:
 - `countPatternMatches(text, patterns)` - runs an array of regex patterns against text, sums all match counts
 - `countTransitionWords(text, words)` - counts how many distinct transition words appear
 
-**`audits/support/`** contains audit-specific helpers that remain in the audits module:
+**`audits/support/`** contains audit-specific helpers used by the category functions:
 
 - `detectAnswerCapsules($)` - finds question-framed H2s and checks for concise answer paragraphs
 - `evaluateFreshness($)` - parses dateModified/datePublished and calculates content age in months
