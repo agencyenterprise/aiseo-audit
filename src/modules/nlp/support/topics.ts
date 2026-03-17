@@ -4,15 +4,22 @@ import { STOPWORDS } from "../constants.js";
 export function extractTopicsByTfIdf(
   doc: ReturnType<typeof compromise>,
 ): string[] {
-  const nouns = doc.nouns().out("array") as string[];
-  const words = nouns
-    .map((w) =>
+  const nounSet = new Set(
+    (doc.nouns().out("array") as string[]).flatMap((w) =>
       w
         .toLowerCase()
-        .replace(/[^a-z0-9\s'-]/g, "")
-        .trim(),
-    )
-    .filter((w) => w.length > 2 && !STOPWORDS.has(w));
+        .replace(/[^a-z0-9\s'-]/g, " ")
+        .split(/\s+/)
+        .filter((t) => t.length > 2 && !STOPWORDS.has(t)),
+    ),
+  );
+
+  const words = doc
+    .text()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s'-]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !STOPWORDS.has(w) && nounSet.has(w));
 
   if (words.length === 0) return [];
 
