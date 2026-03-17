@@ -1,6 +1,6 @@
 import { STOPWORDS } from "../constants.js";
 
-export function extractTopicsByTfIdf(text: string, limit: number): string[] {
+export function extractTopicsByTfIdf(text: string): string[] {
   const lower = text.toLowerCase();
   const words = lower
     .replace(/[^a-z0-9\s'-]/g, " ")
@@ -29,5 +29,5 @@ export function extractTopicsByTfIdf(text: string, limit: number): string[] {
   }
 
   candidates.sort((a, b) => b[1] - a[1]);
-  return candidates.slice(0, limit).map(([term]) => term);
+  return candidates.map(([term]) => term);
 }

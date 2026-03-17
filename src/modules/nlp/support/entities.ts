@@ -99,8 +99,7 @@ export function smartDedup(entities: string[]): string[] {
 export function mergeEntityLists(
   compromiseList: string[],
   supplementalList: string[],
-  limit: number,
 ): string[] {
   const combined = [...compromiseList, ...supplementalList];
-  return smartDedup(combined).slice(0, limit);
+  return smartDedup(combined);
 }

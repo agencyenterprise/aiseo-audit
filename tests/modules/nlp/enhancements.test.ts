@@ -123,7 +123,7 @@ describe("extractEntities — enhanced extraction", () => {
       expect(entities.topics).toEqual([]);
     });
 
-    it("limits topics to 15", () => {
+    it("returns all topics without an arbitrary cap", () => {
       // Long text with many repeated terms
       const terms = [
         "algorithm",
@@ -153,7 +153,7 @@ describe("extractEntities — enhanced extraction", () => {
         .join(" ");
       const entities = extractEntities(text);
 
-      expect(entities.topics.length).toBeLessThanOrEqual(15);
+      expect(entities.topics.length).toBeGreaterThan(15);
     });
 
     it("prefers bigrams over unigrams when both are frequent", () => {

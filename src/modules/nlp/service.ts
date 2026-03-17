@@ -49,15 +49,14 @@ export function extractEntities(text: string): ExtractedEntitiesType {
 
   unclassified.push(...acronyms);
 
-  const people = mergeEntityLists(compromisePeople, supplementalPeople, 10);
-  const organizations = mergeEntityLists(
-    compromiseOrgs,
-    [...supplementalOrgs, ...unclassified],
-    10,
-  );
-  const places = smartDedup([...new Set(compromisePlaces)]).slice(0, 10);
+  const people = mergeEntityLists(compromisePeople, supplementalPeople);
+  const organizations = mergeEntityLists(compromiseOrgs, [
+    ...supplementalOrgs,
+    ...unclassified,
+  ]);
+  const places = smartDedup([...new Set(compromisePlaces)]);
 
-  const topics = extractTopicsByTfIdf(text, 15);
+  const topics = extractTopicsByTfIdf(text);
 
   const imperativeVerbCount = doc.verbs().isImperative().length;
   const numberCount = doc.numbers().length;
