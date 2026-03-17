@@ -670,7 +670,21 @@ audits/
   support/
     patterns.ts          All regex patterns (definitions, citations, steps, etc.)
     scoring.ts           Scoring utilities (thresholdScore, makeFactor, etc.)
-    language.ts          NLP helpers (compromise entities, Flesch, syllables, schema, entity)
+
+nlp/
+  schema.ts              ExtractedEntitiesSchema and ExtractedEntitiesType
+  constants.ts           STOPWORDS, ACRONYM_STOPLIST, ORG_SUFFIXES, PERSON_HONORIFICS
+  service.ts             extractEntities() + re-exports from support/
+  support/
+    entities.ts          Acronym/title-case extractors, dedup, merge, classification
+    readability.ts       computeFleschReadingEase, countComplexWords, avgSentenceLength
+    topics.ts            extractTopicsByTfIdf (TF-IDF topic modeling)
+    patterns.ts          countPatternMatches, countTransitionWords
+
+sitemap/
+  schema.ts              SitemapOptions, SitemapResult, SitemapUrlResult types
+  service.ts             analyzeSitemap() - fetches sitemap XML via xml-to-html-converter,
+                         runs analyzer pipeline per URL with shared domain signals
 ```
 
 **`service.ts`** exports a single function `runAudits(page, fetchResult, domainSignals?)` that imports and calls the 7 category audit functions. It extracts entities once via `extractEntities(page.cleanText)` and passes the result to the three audits that need it, avoiding redundant NLP processing. Each audit returns a `CategoryAuditOutput` containing both its category result and its typed raw diagnostic data:
@@ -703,13 +717,16 @@ Each audit function follows the same pattern:
 - `makeFactor(name, score, max, value)` - builds a `FactorResult` and auto-assigns status (`good` >= 70%, `needs_improvement` >= 30%, `critical` < 30%)
 - `sumFactors(factors)` / `maxFactors(factors)` - add up scores/maxScores
 
-**`support/language.ts`** wraps the NLP dependencies and analysis helpers:
+**`nlp/service.ts`** is the dedicated NLP module:
 
 - `extractEntities(text)` - hybrid entity extraction: compromise for base NER (people, orgs, places), supplemental pattern-based extractors for acronyms and title-case compounds, TF-IDF for topics, with smart deduplication
 - `computeFleschReadingEase(text)` - standard Flesch formula using heuristic syllable counting
 - `countComplexWords(text)` - words with 4+ syllables
 - `countPatternMatches(text, patterns)` - runs an array of regex patterns against text, sums all match counts
 - `countTransitionWords(text, words)` - counts how many distinct transition words appear
+
+**`audits/support/`** contains audit-specific helpers that remain in the audits module:
+
 - `detectAnswerCapsules($)` - finds question-framed H2s and checks for concise answer paragraphs
 - `evaluateFreshness($)` - parses dateModified/datePublished and calculates content age in months
 - `measureSectionLengths($)` - walks DOM to count words between consecutive headings

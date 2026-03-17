@@ -1,13 +1,13 @@
 import { countWords } from "../../../utils/strings.js";
 import type { ExtractedPageType } from "../../extractor/schema.js";
-import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
-import type { CategoryAuditOutputType, FactorResultType } from "../schema.js";
 import {
   avgSentenceLength,
   computeFleschReadingEase,
   countComplexWords,
   countTransitionWords,
-} from "../support/nlp.js";
+} from "../../nlp/service.js";
+import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
+import type { CategoryAuditOutputType, FactorResultType } from "../schema.js";
 import { TRANSITION_WORDS } from "../support/patterns.js";
 import {
   makeFactor,

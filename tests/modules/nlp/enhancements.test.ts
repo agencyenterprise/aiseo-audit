@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractEntities } from "../../../../src/modules/audits/support/nlp.js";
+import { extractEntities } from "../../../src/modules/nlp/service.js";
 
 describe("extractEntities — enhanced extraction", () => {
   describe("Phase 1a: Acronym entity extraction", () => {
