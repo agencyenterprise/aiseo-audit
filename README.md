@@ -80,10 +80,13 @@ aiseo-audit https://example.com --md
 # HTML report (Lighthouse-style)
 aiseo-audit https://example.com --html
 
-# Write output to a file (uses the selected format)
+# Write to a file — format is inferred from the extension automatically
+aiseo-audit https://example.com --out report.html
+aiseo-audit https://example.com --out report.md
+aiseo-audit https://example.com --out report.json
+
+# Explicit format flag still works and takes precedence
 aiseo-audit https://example.com --html --out report.html
-aiseo-audit https://example.com --md --out report.md
-aiseo-audit https://example.com --json --out report.json
 
 # CI/CD: fail if score below threshold
 aiseo-audit https://example.com --fail-under 70
@@ -119,21 +122,23 @@ jobs:
 
 ## CLI Options
 
-| Option                 | Description                                                                 | Default                                       |
-| ---------------------- | --------------------------------------------------------------------------- | --------------------------------------------- |
-| `[url]`                | URL to audit                                                                | -                                             |
-| `--sitemap <url>`      | Audit all URLs in a sitemap.xml                                             | -                                             |
-| `--signals-base <url>` | Base URL to fetch domain signals from (robots.txt, llms.txt, llms-full.txt) | Directory of the URL or sitemap being audited |
-| `--json`               | Output as JSON                                                              | -                                             |
-| `--md`                 | Output as Markdown                                                          | -                                             |
-| `--html`               | Output as HTML                                                              | -                                             |
-| `--out <path>`         | Write rendered output to a file                                             | -                                             |
-| `--fail-under <n>`     | Exit with code 1 if score < threshold                                       | -                                             |
-| `--timeout <ms>`       | Request timeout in ms                                                       | `45000`                                       |
-| `--user-agent <ua>`    | Custom User-Agent string                                                    | `AISEOAudit/<version>`                        |
-| `--config <path>`      | Path to config file                                                         | -                                             |
+| Option                 | Description                                                                       | Default                                       |
+| ---------------------- | --------------------------------------------------------------------------------- | --------------------------------------------- |
+| `[url]`                | URL to audit                                                                      | -                                             |
+| `--sitemap <url>`      | Audit all URLs in a sitemap.xml                                                   | -                                             |
+| `--signals-base <url>` | Base URL to fetch domain signals from (robots.txt, llms.txt, llms-full.txt)       | Directory of the URL or sitemap being audited |
+| `--json`               | Output as JSON                                                                    | -                                             |
+| `--md`                 | Output as Markdown                                                                | -                                             |
+| `--html`               | Output as HTML                                                                    | -                                             |
+| `--out <path>`         | Write output to a file; format is inferred from `.html`, `.md`, `.json` extension | -                                             |
+| `--fail-under <n>`     | Exit with code 1 if score < threshold                                             | -                                             |
+| `--timeout <ms>`       | Request timeout in ms                                                             | `45000`                                       |
+| `--user-agent <ua>`    | Custom User-Agent string                                                          | `AISEOAudit/<version>`                        |
+| `--config <path>`      | Path to config file                                                               | -                                             |
 
 Either `[url]` or `--sitemap` must be provided, but not both. If no output flag is given, the default is `pretty` (color-coded terminal output). The default format can also be set in the config file.
+
+When `--out` is provided, the format is automatically inferred from the file extension (`.html` → HTML, `.md` → Markdown, `.json` → JSON) so you don't need to pass a separate format flag. An explicit `--html`, `--md`, or `--json` flag takes precedence if provided.
 
 ## Site-Wide Auditing
 
@@ -145,8 +150,8 @@ By default, domain signals are fetched from the directory that contains the site
 # Audit all URLs in a sitemap
 aiseo-audit --sitemap https://example.com/sitemap.xml
 
-# With HTML output
-aiseo-audit --sitemap https://example.com/sitemap.xml --html --out report.html
+# With HTML output — format inferred from extension
+aiseo-audit --sitemap https://example.com/sitemap.xml --out report.html
 
 # Override where domain signals are fetched from
 aiseo-audit --sitemap https://example.com/projects/sitemap.xml --signals-base https://example.com

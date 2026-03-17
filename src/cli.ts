@@ -71,13 +71,23 @@ program
 
       const config = await loadConfig(opts.config);
 
+      const inferredFormat: ReportFormatType | undefined = opts.out?.endsWith(
+        ".html",
+      )
+        ? "html"
+        : opts.out?.endsWith(".md")
+          ? "md"
+          : opts.out?.endsWith(".json")
+            ? "json"
+            : undefined;
+
       const format: ReportFormatType = opts.json
         ? "json"
         : opts.md
           ? "md"
           : opts.html
             ? "html"
-            : config.format;
+            : (inferredFormat ?? config.format);
 
       const timeout = opts.timeout ?? config.timeout;
       const userAgent = opts.userAgent ?? config.userAgent;
