@@ -727,7 +727,7 @@ FetchResult     -> fetcher produces this (html, status, timing)
 ExtractedPage   -> extractor produces this (cleanText, $, stats)
 AuditResult     -> audits produce this (7 categories, rawData)
 ScoreSummary    -> scoring produces this (overallScore, grade)
-Recommendation  -> recommendations produce this (priority, action text)
+Recommendation  -> recommendations produce this (priority, text, optional steps/codeExample/learnMoreUrl)
 AnalyzerResult  -> analyzer assembles all of the above into one object
 ```
 
@@ -749,7 +749,52 @@ Before audits run, the extractor does two important things:
 | 30-49%       | `medium` |
 | 50-69%       | `low`    |
 
-Recommendation text comes from `recommendations/constants.ts` which maps every factor name to a specific, actionable recommendation string.
+Recommendation content comes from two files in `recommendations/`:
+
+- `constants.ts` maps every factor name to a builder function. Most builders are dynamic: they receive `rawData` and personalize the output (e.g. using the detected organization name, first detected topic, or existing external links).
+- `examples.ts` holds static HTML code examples referenced by those builders. Separating them keeps builder logic readable and makes the examples easy to find and edit independently.
+
+Builder functions return a `RecommendationOutput`:
+
+```typescript
+interface RecommendationOutput {
+  text: string;          // summary recommendation (always present)
+  steps?: string[];      // ordered implementation steps
+  codeExample?: string;  // ready-to-use code snippet
+  learnMoreUrl?: string; // link to canonical spec or guide
+}
+```
+
+Every factor that falls below the 70% threshold now generates fully actionable output with implementation steps and a ready-to-use code example:
+
+| Factor | What It Generates |
+| ------ | ----------------- |
+| Structured Data | Article or FAQPage JSON-LD from page title/description/questions |
+| Schema Completeness | Exact missing properties with placeholder values |
+| Answer Capsules | Before/after heading-to-answer-capsule HTML transformation |
+| AI Crawler Access | robots.txt `Allow` rules for each blocked crawler |
+| LLMs.txt Presence | Starter `llms.txt` or `llms-full.txt` content |
+| Author Attribution | Byline HTML + JSON-LD author block using detected entities |
+| Heading Hierarchy | Recommended H1/H2/H3 structure from the page title |
+| Content Freshness | `dateModified` markup for both HTML and JSON-LD |
+| Image Accessibility | `alt` text patterns and `<figure>`/`<figcaption>` example |
+| Lists Presence | Before/after converting prose enumerations to `<ul>` and `<ol>` |
+| Tables Presence | Full `<table>` with `<caption>`, `<thead>`, and `<tbody>` |
+| Definition Patterns | Inline definition and `<dl>` example |
+| Direct Answer Statements | Before/after moving the answer to the first sentence |
+| Summary/Conclusion | `<h2>Key Takeaways</h2>` with bullet structure |
+| Attribution Indicators | Before/after adding "According to [Source]" with a link |
+| Citation Patterns | In-text `[1]` markers, `<cite>` tags, and a References section |
+| Quoted Attribution | `<blockquote>` with `<footer>` and `<cite>` attribution |
+| Transition Usage | Before/after paragraph with contrast and conclusion transitions |
+| Jargon Density | Before/after defining a technical term on first use |
+| Organization Identity | `og:site_name` meta tag + Organization JSON-LD using detected org name |
+| Publication Date | `<time datetime>` element + JSON-LD `datePublished` |
+| Contact/About Links | `<nav>` with About and Contact anchors |
+| External References | Linked citation example with anchor text guidance |
+| Entity Richness | Steps for naming and linking key entities |
+
+The optional fields are absent (not `null`) when not populated, so existing JSON consumers are unaffected.
 
 ### Scoring Aggregation
 

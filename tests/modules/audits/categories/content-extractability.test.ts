@@ -134,4 +134,53 @@ describe("auditContentExtractability", () => {
       expect(findFactor("Word Count Adequacy", result)?.score).toBe(2);
     });
   });
+
+  describe("Image Accessibility", () => {
+    it("scores 5 for 50–89% alt text coverage", () => {
+      const images = [
+        `<img src="a.png" alt="Description of image A">`,
+        `<img src="b.png" alt="Description of image B">`,
+        `<img src="c.png">`,
+        `<img src="d.png">`,
+      ].join("");
+      const html = `<body>${images}</body>`;
+      const page = buildPage(html);
+      const result = auditContentExtractability(page, baseFetchResult);
+      const factor = findFactor("Image Accessibility", result);
+      expect(factor?.score).toBe(3);
+    });
+
+    it("scores 5 for 90%+ alt text coverage", () => {
+      const images = [
+        `<img src="a.png" alt="Description of image A">`,
+        `<img src="b.png" alt="Description of image B">`,
+        `<img src="c.png" alt="Description of image C">`,
+        `<img src="d.png" alt="Description of image D">`,
+      ].join("");
+      const html = `<body>${images}</body>`;
+      const page = buildPage(html);
+      const result = auditContentExtractability(page, baseFetchResult);
+      const factor = findFactor("Image Accessibility", result);
+      expect(factor?.score).toBe(5);
+    });
+
+    it("adds 3 bonus points when figcaptions are present", () => {
+      const html = `<body>
+        <figure><img src="a.png" alt="Chart showing results"><figcaption>Results</figcaption></figure>
+      </body>`;
+      const page = buildPage(html);
+      const result = auditContentExtractability(page, baseFetchResult);
+      const factor = findFactor("Image Accessibility", result);
+      expect(factor?.score).toBeGreaterThanOrEqual(8);
+    });
+
+    it("scores 0 and is neutral for pages with no images", () => {
+      const html = `<body><p>No images here.</p></body>`;
+      const page = buildPage(html);
+      const result = auditContentExtractability(page, baseFetchResult);
+      const factor = findFactor("Image Accessibility", result);
+      expect(factor?.score).toBe(0);
+      expect(factor?.status).toBe("neutral");
+    });
+  });
 });

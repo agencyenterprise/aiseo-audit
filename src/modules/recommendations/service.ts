@@ -17,16 +17,21 @@ export function generateRecommendations(
         pct < 0.3 ? "high" : pct < 0.5 ? "medium" : "low";
 
       const builder = RECOMMENDATION_BUILDERS[factor.name];
-      const recText = builder
+      const output = builder
         ? builder(auditResult.rawData)
-        : `Review and improve "${factor.name}" based on best practices for AI search readiness.`;
+        : {
+            text: `Review and improve "${factor.name}" based on best practices for AI search readiness.`,
+          };
 
       recommendations.push({
         category: category.name,
         factor: factor.name,
         currentValue: factor.value,
         priority,
-        recommendation: recText,
+        recommendation: output.text,
+        ...(output.steps && { steps: output.steps }),
+        ...(output.codeExample && { codeExample: output.codeExample }),
+        ...(output.learnMoreUrl && { learnMoreUrl: output.learnMoreUrl }),
       });
     }
   }

@@ -227,6 +227,9 @@ function buildRecommendationRow(rec: {
   priority: string;
   factor: string;
   recommendation: string;
+  steps?: string[];
+  codeExample?: string;
+  learnMoreUrl?: string;
 }): string {
   const cls =
     rec.priority === "high"
@@ -241,12 +244,28 @@ function buildRecommendationRow(rec: {
         ? "MED"
         : "LOW";
 
+  let detailHtml = "";
+  if (rec.steps || rec.codeExample || rec.learnMoreUrl) {
+    let inner = "";
+    if (rec.steps && rec.steps.length > 0) {
+      const items = rec.steps.map((s) => `<li>${escapeHtml(s)}</li>`).join("");
+      inner += `<ol class="rec-steps">${items}</ol>`;
+    }
+    if (rec.codeExample) {
+      inner += `<pre class="rec-code"><code>${escapeHtml(rec.codeExample)}</code></pre>`;
+    }
+    if (rec.learnMoreUrl) {
+      inner += `<a class="rec-learn-more" href="${escapeHtml(rec.learnMoreUrl)}" target="_blank" rel="noopener">Learn more &rarr;</a>`;
+    }
+    detailHtml = `<div class="rec-detail">${inner}</div>`;
+  }
+
   return `
       <div class="rec-row ${cls}">
         <span class="rec-tag">${label}</span>
         <span class="rec-factor">${escapeHtml(rec.factor)}</span>
         <span class="rec-text">${escapeHtml(rec.recommendation)}</span>
-      </div>`;
+      </div>${detailHtml}`;
 }
 
 function buildRecommendationsByCategory(
@@ -585,6 +604,33 @@ body {
   flex-shrink: 0;
 }
 .rec-text { color: var(--text-secondary); }
+.rec-detail {
+  padding: 8px 0 8px 16px;
+  border-bottom: 1px solid #f5f5f5;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.rec-steps {
+  margin: 0 0 8px 0;
+  padding-left: 20px;
+}
+.rec-steps li { margin-bottom: 3px; }
+.rec-code {
+  background: #f8f9fa;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 12px;
+  font-size: 11px;
+  overflow-x: auto;
+  margin: 0 0 8px 0;
+  white-space: pre;
+}
+.rec-learn-more {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.rec-learn-more:hover { text-decoration: underline; }
 
 /* Footer */
 .footer {

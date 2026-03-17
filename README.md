@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-7EB6D7.svg)](https://opensource.org/licenses/MIT)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D20-7EB6D7.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-7EB6D7?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-293%20passed-8FBC8F)](https://github.com/agencyenterprise/aiseo-audit)
+[![Tests](https://img.shields.io/badge/tests-406%20passed-8FBC8F)](https://github.com/agencyenterprise/aiseo-audit)
 [![Coverage](https://img.shields.io/codecov/c/github/agencyenterprise/aiseo-audit?color=8FBC8F&label=coverage)](https://codecov.io/gh/agencyenterprise/aiseo-audit)
 
 <div align="center">
@@ -224,19 +224,19 @@ The audit evaluates 7 categories of AI search readiness (_[Detailed Breakdown he
 
 ### Pretty (default)
 
-Color-coded terminal output with scores, factor breakdowns, and top recommendations. Best for quick checks during development.
+Color-coded terminal output with scores, factor breakdowns, and recommendations. Where available, recommendations include numbered implementation steps, a ready-to-use code example, and a learn more link. Best for quick checks during development.
 
 ### JSON
 
-Full structured output with all scores, factor details, raw data, and recommendations. Best for integrations, CI/CD pipelines, and programmatic consumption.
+Full structured output with all scores, factor details, raw data, and recommendations. Recommendations include optional `steps`, `codeExample`, and `learnMoreUrl` fields where applicable. Best for integrations, CI/CD pipelines, and programmatic consumption.
 
 ### Markdown
 
-Structured report with category tables, factor details, and recommendations grouped by category. Best for documentation, PRs, and sharing.
+Structured report with category tables, factor details, and recommendations grouped by category. Recommendations with steps render as numbered lists; code examples render as fenced code blocks. Best for documentation, PRs, and sharing.
 
 ### HTML
 
-Self-contained single-file report with SVG score gauges, color-coded sections, and recommendations grouped by category. Best for stakeholder reports and visual review.
+Self-contained single-file report with SVG score gauges, color-coded sections, and recommendations grouped by category. Recommendations with steps and code examples render as inline detail sections below each recommendation row. Best for stakeholder reports and visual review.
 
 ## Config File
 
@@ -298,6 +298,21 @@ import type {
   ReportFormatType,
   AiseoConfigType,
 } from "aiseo-audit";
+```
+
+`RecommendationType` includes the base fields (`category`, `factor`, `currentValue`, `priority`, `recommendation`) plus three optional fields populated for high-impact factors:
+
+```typescript
+type RecommendationType = {
+  category: string;
+  factor: string;
+  currentValue: string;
+  priority: "high" | "medium" | "low";
+  recommendation: string;
+  steps?: string[]; // ordered implementation steps
+  codeExample?: string; // ready-to-use code snippet
+  learnMoreUrl?: string; // link to canonical spec or docs
+};
 ```
 
 ## Philosophy

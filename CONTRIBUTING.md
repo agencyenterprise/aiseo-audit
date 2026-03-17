@@ -41,7 +41,8 @@ Each module follows a consistent pattern:
 
 - `schema.ts` - Zod schemas and TypeScript types
 - `service.ts` - Core logic
-- `constants.ts` - Static values (where needed)
+- `constants.ts` - Builder functions and dynamic logic (where needed)
+- `examples.ts` - Static code examples for recommendation output (where needed)
 - `support/` - Helper functions (where needed)
 
 ## How to Contribute

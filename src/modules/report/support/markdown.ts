@@ -84,6 +84,30 @@ export function renderMarkdown(result: AnalyzerResultType): string {
               ? "*MED*"
               : "LOW";
         lines.push(`- [${tag}] **${rec.factor}**: ${rec.recommendation}`);
+
+        if (rec.steps && rec.steps.length > 0) {
+          rec.steps.forEach((step, idx) => {
+            lines.push(`  ${idx + 1}. ${step}`);
+          });
+        }
+
+        if (rec.codeExample) {
+          lines.push("");
+          lines.push("  ```");
+          rec.codeExample.split("\n").forEach((line) => {
+            lines.push(`  ${line}`);
+          });
+          lines.push("  ```");
+        }
+
+        if (rec.learnMoreUrl) {
+          lines.push("");
+          lines.push(`  [Learn more](${rec.learnMoreUrl})`);
+        }
+
+        if (rec.steps || rec.codeExample || rec.learnMoreUrl) {
+          lines.push("");
+        }
       }
 
       lines.push("");

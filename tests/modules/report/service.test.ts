@@ -316,6 +316,166 @@ function makeMinimalSitemapResult(): SitemapResultType {
   };
 }
 
+describe("rendering actionable recommendation fields", () => {
+  function makeResultWithRichRec(): AnalyzerResultType {
+    const base = makeMinimalResult();
+    return {
+      ...base,
+      recommendations: [
+        {
+          ...base.recommendations[0],
+          steps: ["Step one", "Step two", "Step three"],
+          codeExample: '<script type="application/ld+json">\n{}\n</script>',
+          learnMoreUrl: "https://schema.org/docs/gs.html",
+        },
+      ],
+    };
+  }
+
+  describe("pretty format", () => {
+    it("renders steps as numbered list", () => {
+      const output = renderReport(makeResultWithRichRec(), { format: "pretty" });
+      expect(output).toContain("Steps:");
+      expect(output).toContain("1. Step one");
+      expect(output).toContain("2. Step two");
+    });
+
+    it("renders code example", () => {
+      const output = renderReport(makeResultWithRichRec(), { format: "pretty" });
+      expect(output).toContain("Example:");
+      expect(output).toContain("application/ld+json");
+    });
+
+    it("renders learnMoreUrl", () => {
+      const output = renderReport(makeResultWithRichRec(), { format: "pretty" });
+      expect(output).toContain("Learn more:");
+      expect(output).toContain("https://schema.org/docs/gs.html");
+    });
+  });
+
+  describe("markdown format", () => {
+    it("renders steps as numbered list", () => {
+      const output = renderReport(makeResultWithRichRec(), { format: "md" });
+      expect(output).toContain("1. Step one");
+      expect(output).toContain("2. Step two");
+    });
+
+    it("renders code example as fenced code block", () => {
+      const output = renderReport(makeResultWithRichRec(), { format: "md" });
+      expect(output).toContain("```");
+      expect(output).toContain("application/ld+json");
+    });
+
+    it("renders learnMoreUrl as link", () => {
+      const output = renderReport(makeResultWithRichRec(), { format: "md" });
+      expect(output).toContain("[Learn more](https://schema.org/docs/gs.html)");
+    });
+  });
+
+  describe("html format", () => {
+    it("renders steps as ordered list", () => {
+      const output = renderReport(makeResultWithRichRec(), { format: "html" });
+      expect(output).toContain("<ol");
+      expect(output).toContain("<li>Step one</li>");
+    });
+
+    it("renders code example in pre block", () => {
+      const output = renderReport(makeResultWithRichRec(), { format: "html" });
+      expect(output).toContain("<pre");
+      expect(output).toContain("application/ld+json");
+    });
+
+    it("renders learnMoreUrl as anchor", () => {
+      const output = renderReport(makeResultWithRichRec(), { format: "html" });
+      expect(output).toContain('href="https://schema.org/docs/gs.html"');
+      expect(output).toContain("Learn more");
+    });
+  });
+
+  describe("json format", () => {
+    it("includes steps in JSON output", () => {
+      const output = renderReport(makeResultWithRichRec(), { format: "json" });
+      const parsed = JSON.parse(output);
+      expect(parsed.recommendations[0].steps).toEqual([
+        "Step one",
+        "Step two",
+        "Step three",
+      ]);
+    });
+
+    it("includes codeExample in JSON output", () => {
+      const output = renderReport(makeResultWithRichRec(), { format: "json" });
+      const parsed = JSON.parse(output);
+      expect(parsed.recommendations[0].codeExample).toContain(
+        "application/ld+json",
+      );
+    });
+
+    it("includes learnMoreUrl in JSON output", () => {
+      const output = renderReport(makeResultWithRichRec(), { format: "json" });
+      const parsed = JSON.parse(output);
+      expect(parsed.recommendations[0].learnMoreUrl).toBe(
+        "https://schema.org/docs/gs.html",
+      );
+    });
+  });
+});
+
+describe("http URL notes", () => {
+  function makeHttpResult(): AnalyzerResultType {
+    return { ...makeMinimalResult(), url: "http://example.com" };
+  }
+
+  function makeHttpSitemapResult(): SitemapResultType {
+    const base = makeMinimalSitemapResult();
+    return {
+      ...base,
+      urlResults: [
+        { status: "success", result: { ...makeMinimalResult(), url: "http://example.com/page" } },
+      ],
+    };
+  }
+
+  it("json format includes http note for http URL", () => {
+    const output = renderReport(makeHttpResult(), { format: "json" });
+    const parsed = JSON.parse(output);
+    expect(parsed.notes).toBeDefined();
+    expect(parsed.notes[0]).toContain("HTTP");
+  });
+
+  it("json format does not include notes for https URL", () => {
+    const output = renderReport(makeMinimalResult(), { format: "json" });
+    const parsed = JSON.parse(output);
+    expect(parsed.notes).toBeUndefined();
+  });
+
+  it("sitemap json format includes http note when a URL is http", () => {
+    const output = renderSitemapReport(makeHttpSitemapResult(), { format: "json" });
+    const parsed = JSON.parse(output);
+    expect(parsed.notes).toBeDefined();
+  });
+
+  it("markdown format includes http note for http URL", () => {
+    const output = renderReport(makeHttpResult(), { format: "md" });
+    expect(output).toContain("HTTP");
+  });
+
+  it("sitemap markdown format includes http note when a URL is http", () => {
+    const output = renderSitemapReport(makeHttpSitemapResult(), { format: "md" });
+    expect(output).toContain("HTTP");
+  });
+
+  it("pretty format includes http note for http URL", () => {
+    const output = renderReport(makeHttpResult(), { format: "pretty" });
+    expect(output).toContain("HTTP");
+  });
+
+  it("sitemap pretty format includes http note when a URL is http", () => {
+    const output = renderSitemapReport(makeHttpSitemapResult(), { format: "pretty" });
+    expect(output).toContain("HTTP");
+  });
+});
+
 describe("renderSitemapReport", () => {
   describe("pretty format", () => {
     it("renders without errors", () => {

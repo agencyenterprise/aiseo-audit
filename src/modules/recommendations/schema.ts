@@ -6,6 +6,9 @@ export const RecommendationSchema = z.object({
   currentValue: z.string(),
   priority: z.enum(["high", "medium", "low"]),
   recommendation: z.string(),
+  steps: z.array(z.string()).optional(),
+  codeExample: z.string().optional(),
+  learnMoreUrl: z.string().url().optional(),
 });
 
 export type RecommendationType = z.infer<typeof RecommendationSchema>;

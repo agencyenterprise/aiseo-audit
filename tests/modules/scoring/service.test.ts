@@ -3,7 +3,7 @@ import type {
   CategoryNameType,
   CategoryResultType,
 } from "../../../src/modules/audits/schema.js";
-import { computeScore } from "../../../src/modules/scoring/service.js";
+import { computeGrade, computeScore } from "../../../src/modules/scoring/service.js";
 
 function makeCategory(
   name: string,
@@ -225,5 +225,11 @@ describe("computeScore", () => {
     expect(result.totalPoints).toBe(0);
     expect(result.maxPoints).toBe(0);
     expect(result.grade).toBe("F");
+  });
+});
+
+describe("computeGrade", () => {
+  it("returns F for a score below all thresholds (e.g. negative)", () => {
+    expect(computeGrade(-1)).toBe("F");
   });
 });
