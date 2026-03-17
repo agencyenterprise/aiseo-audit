@@ -1,12 +1,12 @@
 import { countWords } from "../../../utils/strings.js";
 import type { ExtractedPageType } from "../../extractor/schema.js";
+import { extractEntities } from "../../nlp/service.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
 import type {
   CategoryAuditOutputType,
   ExtractedEntitiesType,
   FactorResultType,
 } from "../schema.js";
-import { extractEntities } from "../support/nlp.js";
 import {
   makeFactor,
   maxFactors,

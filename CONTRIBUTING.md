@@ -31,9 +31,11 @@ src/
 │   ├── config/             # Config loading and schema
 │   ├── extractor/          # HTML parsing and content extraction
 │   ├── fetcher/            # HTTP fetching
+│   ├── nlp/                # NLP utilities (entity extraction, readability, topics)
 │   ├── recommendations/    # Recommendation generation
 │   ├── report/             # Report rendering (pretty, json, md, html)
-│   └── scoring/            # Score computation and grading
+│   ├── scoring/            # Score computation and grading
+│   └── sitemap/            # Sitemap fetching, parsing, and batch auditing
 └── utils/                  # Shared utilities (fs, http, strings, url)
 ```
 

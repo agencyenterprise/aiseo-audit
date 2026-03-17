@@ -7,14 +7,14 @@ import type {
 
 function scoreColor(score: number, max: number): (text: string) => string {
   const pct = max > 0 ? (score / max) * 100 : 0;
-  if (pct >= 70) return chalk.green;
-  if (pct >= 40) return chalk.yellow;
+  if (pct >= 90) return chalk.green;
+  if (pct >= 50) return chalk.yellow;
   return chalk.red;
 }
 
 function gradeColor(grade: string): (text: string) => string {
   if (grade.startsWith("A")) return chalk.green;
-  if (grade.startsWith("B")) return chalk.yellow;
+  if (grade.startsWith("B") || grade.startsWith("C")) return chalk.yellow;
   return chalk.red;
 }
 
@@ -198,12 +198,7 @@ export function renderSitemapPretty(result: SitemapResultType): string {
     lines.push(chalk.bold("  Site-Wide Category Averages:"));
     lines.push("");
     for (const avg of Object.values(result.categoryAverages)) {
-      const color =
-        avg.averagePct >= 70
-          ? chalk.green
-          : avg.averagePct >= 40
-            ? chalk.yellow
-            : chalk.red;
+      const color = scoreColor(avg.averagePct, 100);
       const name = pad(avg.name, 38);
       const dts = dots(Math.max(2, 40 - avg.name.length));
       lines.push(`  ${chalk.bold(name)} ${dts} ${color(`${avg.averagePct}%`)}`);

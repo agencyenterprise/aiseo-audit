@@ -1,5 +1,6 @@
 import type { ExtractedPageType } from "../extractor/schema.js";
 import type { FetchResultType } from "../fetcher/schema.js";
+import { extractEntities } from "../nlp/service.js";
 import { auditAnswerability } from "./categories/answerability.js";
 import { auditAuthorityContext } from "./categories/authority-context.js";
 import { auditContentExtractability } from "./categories/content-extractability.js";
@@ -8,7 +9,6 @@ import { auditEntityClarity } from "./categories/entity-clarity.js";
 import { auditGroundingSignals } from "./categories/grounding-signals.js";
 import { auditReadabilityForCompression } from "./categories/readability.js";
 import type { AuditResultType, DomainSignalsType } from "./schema.js";
-import { extractEntities } from "./support/nlp.js";
 
 export function runAudits(
   page: ExtractedPageType,

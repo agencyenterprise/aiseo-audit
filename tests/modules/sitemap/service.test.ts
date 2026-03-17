@@ -286,6 +286,32 @@ describe("analyzeSitemap", () => {
       expect(result.totalUrls).toBe(0);
     });
 
+    it("extracts URLs wrapped in CDATA sections", async () => {
+      const cdataSitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc><![CDATA[https://example.com/cdata-page]]></loc></url>
+  <url><loc>https://example.com/normal-page</loc></url>
+</urlset>`;
+
+      vi.mocked(httpGet).mockResolvedValue({
+        status: 200,
+        data: cdataSitemapXml,
+        headers: {},
+        finalUrl: "https://example.com/sitemap.xml",
+      });
+      vi.mocked(analyzeUrlWithSignals).mockResolvedValue(
+        makeMockAnalyzerResult("https://example.com/cdata-page", 70),
+      );
+
+      const result = await analyzeSitemap(
+        { sitemapUrl: "https://example.com/sitemap.xml" },
+        mockConfig,
+      );
+
+      expect(result.totalUrls).toBe(2);
+      expect(analyzeUrlWithSignals).toHaveBeenCalledTimes(2);
+    });
+
     it("throws when sitemap returns non-200", async () => {
       vi.mocked(httpGet).mockResolvedValue({
         status: 404,

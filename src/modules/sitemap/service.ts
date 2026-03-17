@@ -1,3 +1,4 @@
+import { scaffold, type XmlNode } from "xml-to-html-converter";
 import { httpGet } from "../../utils/http.js";
 import { normalizeUrl } from "../../utils/url.js";
 import { VERSION } from "../analyzer/constants.js";
@@ -14,6 +15,43 @@ import type {
   SitemapUrlResultType,
 } from "./schema.js";
 
+function stripCdata(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("<![CDATA[") && trimmed.endsWith("]]>")) {
+    return trimmed.slice(9, -3);
+  }
+  return trimmed;
+}
+
+function collectLocText(nodes: XmlNode[], urls: string[]): void {
+  for (const node of nodes) {
+    if (node.xmlTag === "loc" && node.children) {
+      const text = node.children
+        .filter((c) => c.role === "textLeaf")
+        .map((c) => stripCdata(c.raw))
+        .join("")
+        .trim();
+      if (text) urls.push(text);
+    }
+    if (node.children) collectLocText(node.children, urls);
+  }
+}
+
+function extractLocUrls(xml: string): string[] {
+  const nodes = scaffold(xml);
+  const urls: string[] = [];
+  collectLocText(nodes, urls);
+  return urls;
+}
+
+function hasSitemapIndexNode(nodes: XmlNode[]): boolean {
+  for (const node of nodes) {
+    if (node.xmlTag === "sitemapindex") return true;
+    if (node.children && hasSitemapIndexNode(node.children)) return true;
+  }
+  return false;
+}
+
 async function fetchSitemapUrls(
   sitemapUrl: string,
   timeout: number,
@@ -29,13 +67,15 @@ async function fetchSitemapUrls(
     throw new Error(`Failed to fetch sitemap: HTTP ${response.status}`);
   }
 
-  const isSitemapIndex = response.data.includes("<sitemapindex");
+  const nodes = scaffold(response.data);
 
-  if (isSitemapIndex) {
+  if (hasSitemapIndexNode(nodes)) {
     return fetchSitemapIndexUrls(response.data, timeout, userAgent);
   }
 
-  return extractLocUrls(response.data);
+  const urls: string[] = [];
+  collectLocText(nodes, urls);
+  return urls;
 }
 
 async function fetchSitemapIndexUrls(
@@ -58,11 +98,6 @@ async function fetchSitemapIndexUrls(
   }
 
   return allUrls;
-}
-
-function extractLocUrls(xml: string): string[] {
-  const matches = xml.matchAll(/<loc>\s*(.*?)\s*<\/loc>/g);
-  return Array.from(matches, (m) => m[1]).filter(Boolean);
 }
 
 function computeCategoryAverages(

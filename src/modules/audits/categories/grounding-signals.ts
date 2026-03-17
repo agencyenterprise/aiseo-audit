@@ -1,11 +1,11 @@
 import type { ExtractedPageType } from "../../extractor/schema.js";
+import { countPatternMatches, extractEntities } from "../../nlp/service.js";
 import { CATEGORY_DISPLAY_NAMES } from "../constants.js";
 import type {
   CategoryAuditOutputType,
   ExtractedEntitiesType,
   FactorResultType,
 } from "../schema.js";
-import { countPatternMatches, extractEntities } from "../support/nlp.js";
 import {
   ATTRIBUTION_PATTERNS,
   CITATION_PATTERNS,

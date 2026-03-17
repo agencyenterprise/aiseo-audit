@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { ExtractedEntitiesSchema } from "../nlp/schema.js";
+
+export type { ExtractedEntitiesType } from "../nlp/schema.js";
 
 export const CategoryNameSchema = z.enum([
   "contentExtractability",
@@ -51,15 +54,6 @@ export const SectionLengthResultSchema = z.object({
   sectionCount: z.number(),
   avgWordsPerSection: z.number(),
   sections: z.array(z.number()),
-});
-
-export const ExtractedEntitiesSchema = z.object({
-  people: z.array(z.string()),
-  organizations: z.array(z.string()),
-  places: z.array(z.string()),
-  topics: z.array(z.string()),
-  imperativeVerbCount: z.number().optional(),
-  numberCount: z.number().optional(),
 });
 
 export const FreshnessResultSchema = z.object({
@@ -144,7 +138,6 @@ export type CategoryNameType = z.infer<typeof CategoryNameSchema>;
 export type CategoryResultType = z.infer<typeof CategoryResultSchema>;
 export type CrawlerAccessResultType = z.infer<typeof CrawlerAccessResultSchema>;
 export type DomainSignalsType = z.infer<typeof DomainSignalsSchema>;
-export type ExtractedEntitiesType = z.infer<typeof ExtractedEntitiesSchema>;
 export type FactorResultType = z.infer<typeof FactorResultSchema>;
 export type FactorStatusType = z.infer<typeof FactorStatusSchema>;
 export type FreshnessResultType = z.infer<typeof FreshnessResultSchema>;
