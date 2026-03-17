@@ -95,16 +95,62 @@ describe("auditAnswerability", () => {
     });
   });
 
+  describe("Answer Capsules", () => {
+    it("scores 13 when all question headings have answer capsules (ratio >= 0.7)", () => {
+      const html = `<html><body>
+        <h2>What is SEO?</h2><p>SEO is search engine optimization for websites.</p>
+        <h2>How does AI work?</h2><p>AI uses neural networks and machine learning models.</p>
+        <h2>Why is content important?</h2><p>Content helps users find information they need.</p>
+      </body></html>`;
+      const page = buildPage(html);
+      const result = auditAnswerability(page);
+      const factor = findFactor("Answer Capsules", result);
+      expect(factor?.score).toBe(13);
+    });
+
+    it("scores 9 when most question headings have capsules (ratio 0.4–0.69)", () => {
+      const html = `<html><body>
+        <h2>What is SEO?</h2><p>SEO is search engine optimization for websites.</p>
+        <h2>How does AI work?</h2><p>AI uses neural networks and machine learning models.</p>
+        <h2>Why matters?</h2><h3>Next section</h3>
+      </body></html>`;
+      const page = buildPage(html);
+      const result = auditAnswerability(page);
+      const factor = findFactor("Answer Capsules", result);
+      expect(factor?.score).toBeGreaterThanOrEqual(5);
+    });
+
+    it("scores 2 when question headings have no capsule answers", () => {
+      const html = `<html><body>
+        <h2>What is SEO?</h2><h3>Next heading immediately</h3>
+        <h2>How does AI work?</h2><h3>Another heading</h3>
+      </body></html>`;
+      const page = buildPage(html);
+      const result = auditAnswerability(page);
+      const factor = findFactor("Answer Capsules", result);
+      expect(factor?.score).toBeLessThanOrEqual(9);
+    });
+  });
+
   describe("Summary/Conclusion", () => {
-    it("scores for summary markers", () => {
+    it("scores 9 for two or more summary markers", () => {
       const html = `<html><body>
         <p>In summary, these are the key points. In conclusion, we have covered everything.</p>
       </body></html>`;
       const page = buildPage(html);
       const result = auditAnswerability(page);
       const factor = findFactor("Summary/Conclusion", result);
+      expect(factor?.score).toBe(9);
+    });
 
-      expect(factor?.score).toBeGreaterThan(0);
+    it("scores 5 for exactly one summary marker", () => {
+      const html = `<html><body>
+        <p>This is some content. In summary, here is one takeaway.</p>
+      </body></html>`;
+      const page = buildPage(html);
+      const result = auditAnswerability(page);
+      const factor = findFactor("Summary/Conclusion", result);
+      expect(factor?.score).toBe(5);
     });
   });
 

@@ -84,12 +84,35 @@ describe("auditReadabilityForCompression", () => {
     });
   });
 
+  describe("Sentence Length", () => {
+    it("scores 0 for empty text (avgSentLen = 0)", () => {
+      const html = `<body><p></p></body>`;
+      const page = buildPage(html);
+      const result = auditReadabilityForCompression(page);
+      expect(findFactor("Sentence Length", result)?.score).toBe(0);
+    });
+  });
+
   describe("Jargon Density", () => {
     it("scores 15 for very low jargon (under 2% complex words)", () => {
       const html = `<body><p>${easySentences}</p></body>`;
       const page = buildPage(html);
       const result = auditReadabilityForCompression(page);
       expect(findFactor("Jargon Density", result)?.score).toBe(15);
+    });
+
+    it("scores 12 for moderate jargon (2-5% complex words)", () => {
+      // ~3% complex words: 3 complex per 100 simple words
+      const simpleWords =
+        "The cat sat. The dog ran. The bird flew. The sun set. ".repeat(20);
+      const complexWords =
+        "Implementation optimization characterization. ".repeat(2);
+      const html = `<body><p>${simpleWords}${complexWords}</p></body>`;
+      const page = buildPage(html);
+      const result = auditReadabilityForCompression(page);
+      const score = findFactor("Jargon Density", result)?.score;
+      expect(score).toBeGreaterThanOrEqual(8);
+      expect(score).toBeLessThanOrEqual(12);
     });
 
     it("scores lower for high jargon density", () => {

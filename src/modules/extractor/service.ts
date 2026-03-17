@@ -63,17 +63,15 @@ export function extractPage(html: string, url: string): ExtractedPageType {
   const pageDomain = getDomain(url);
   const externalLinks: ExternalLinkType[] = [];
   $('a[href^="http"]').each((_, el) => {
-    const href = $(el).attr("href");
-    if (href) {
-      try {
-        if (getDomain(href) !== pageDomain) {
-          externalLinks.push({
-            url: href,
-            text: $(el).text().trim().substring(0, 50),
-          });
-        }
-      } catch {}
-    }
+    const href = $(el).attr("href") as string;
+    try {
+      if (getDomain(href) !== pageDomain) {
+        externalLinks.push({
+          url: href,
+          text: $(el).text().trim().substring(0, 50),
+        });
+      }
+    } catch {}
   });
   const externalLinkCount = externalLinks.length;
 

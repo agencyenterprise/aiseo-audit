@@ -36,6 +36,31 @@ describe("loadConfig", () => {
         /Invalid config file/,
       );
     });
+
+    it("throws for auto-discovered config with invalid JSON", async () => {
+      await writeFile(join(testDir, "aiseo.config.json"), "{ not valid json }");
+      const originalCwd = process.cwd();
+      process.chdir(testDir);
+      try {
+        await expect(loadConfig()).rejects.toThrow(/Invalid config file/);
+      } finally {
+        process.chdir(originalCwd);
+      }
+    });
+
+    it("throws for auto-discovered config with invalid schema", async () => {
+      await writeFile(
+        join(testDir, "aiseo.config.json"),
+        JSON.stringify({ timeout: "not-a-number" }),
+      );
+      const originalCwd = process.cwd();
+      process.chdir(testDir);
+      try {
+        await expect(loadConfig()).rejects.toThrow(/Invalid config file/);
+      } finally {
+        process.chdir(originalCwd);
+      }
+    });
   });
 
   describe("with explicit config path", () => {

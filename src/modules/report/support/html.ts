@@ -44,19 +44,16 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function buildGaugeSvg(
-  score: number,
-  size: "large" | "small" = "small",
-): string {
+function buildGaugeSvg(score: number): string {
   const pct = Math.max(0, Math.min(100, score));
   const arcColor = scoreColorHex(pct);
   const textColor = scoreTextColorHex(pct);
   const radius = 56;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference * (1 - pct / 100);
-  const dim = size === "large" ? 120 : 64;
-  const fontSize = size === "large" ? 40 : 22;
-  const strokeWidth = size === "large" ? 8 : 7;
+  const dim = 64;
+  const fontSize = 22;
+  const strokeWidth = 7;
 
   return `<svg class="gauge" viewBox="0 0 120 120" width="${dim}" height="${dim}">
       <circle cx="60" cy="60" r="${radius}" fill="none" stroke="#e0e0e0" stroke-width="${strokeWidth}"/>
@@ -177,7 +174,7 @@ function buildCategoryGauge(category: {
       : 0;
 
   return `<a class="gauge-item" href="#cat-${escapeHtml(category.name.replace(/\s+/g, "-").toLowerCase())}">
-      ${buildGaugeSvg(pct, "small")}
+      ${buildGaugeSvg(pct)}
       <span class="gauge-label">${escapeHtml(category.name)}</span>
     </a>`;
 }

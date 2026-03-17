@@ -259,6 +259,33 @@ describe("analyzeSitemap", () => {
       expect(result.totalUrls).toBe(2);
     });
 
+    it("skips child sitemap URLs when child sitemap returns non-200", async () => {
+      vi.mocked(httpGet)
+        .mockResolvedValueOnce({
+          status: 200,
+          data: sitemapIndexXml,
+          headers: {},
+          finalUrl: "https://example.com/sitemap.xml",
+        })
+        .mockResolvedValue({
+          status: 404,
+          data: "",
+          headers: {},
+          finalUrl: "https://example.com/sitemap-blog.xml",
+        });
+      vi.mocked(analyzeUrlWithSignals).mockResolvedValue(
+        makeMockAnalyzerResult("https://example.com/page-one", 70),
+      );
+
+      const result = await analyzeSitemap(
+        { sitemapUrl: "https://example.com/sitemap.xml" },
+        mockConfig,
+      );
+
+      // No URLs extracted from failed child sitemaps
+      expect(result.totalUrls).toBe(0);
+    });
+
     it("throws when sitemap returns non-200", async () => {
       vi.mocked(httpGet).mockResolvedValue({
         status: 404,
@@ -353,6 +380,75 @@ describe("analyzeSitemap", () => {
 
       expect(result.categoryAverages).toBeDefined();
       expect(Object.keys(result.categoryAverages).length).toBeGreaterThan(0);
+    });
+
+    it("handles category with maxScore zero in category averages", async () => {
+      vi.mocked(httpGet).mockResolvedValue({
+        status: 200,
+        data: standardSitemapXml,
+        headers: {},
+        finalUrl: "https://example.com/sitemap.xml",
+      });
+      const resultWithZeroMax = makeMockAnalyzerResult(
+        "https://example.com/page-one",
+        50,
+      );
+      resultWithZeroMax.categories.contentExtractability.score = 0;
+      resultWithZeroMax.categories.contentExtractability.maxScore = 0;
+      vi.mocked(analyzeUrlWithSignals).mockResolvedValue(resultWithZeroMax);
+
+      const result = await analyzeSitemap(
+        { sitemapUrl: "https://example.com/sitemap.xml" },
+        mockConfig,
+      );
+
+      expect(result.categoryAverages.contentExtractability?.averagePct).toBe(0);
+    });
+
+    it("returns averageScore of 0 when all URLs fail", async () => {
+      vi.mocked(httpGet).mockResolvedValue({
+        status: 200,
+        data: standardSitemapXml,
+        headers: {},
+        finalUrl: "https://example.com/sitemap.xml",
+      });
+      vi.mocked(analyzeUrlWithSignals)
+        .mockRejectedValueOnce(new Error("timeout 1"))
+        .mockRejectedValueOnce(new Error("timeout 2"));
+
+      const result = await analyzeSitemap(
+        { sitemapUrl: "https://example.com/sitemap.xml" },
+        mockConfig,
+      );
+
+      expect(result.averageScore).toBe(0);
+      expect(result.succeededCount).toBe(0);
+      expect(result.failedCount).toBe(2);
+    });
+
+    it("handles non-Error thrown during URL analysis", async () => {
+      vi.mocked(httpGet).mockResolvedValue({
+        status: 200,
+        data: standardSitemapXml,
+        headers: {},
+        finalUrl: "https://example.com/sitemap.xml",
+      });
+      vi.mocked(analyzeUrlWithSignals)
+        .mockResolvedValueOnce(
+          makeMockAnalyzerResult("https://example.com/page-one", 70),
+        )
+        .mockRejectedValueOnce("string error, not an Error");
+
+      const result = await analyzeSitemap(
+        { sitemapUrl: "https://example.com/sitemap.xml" },
+        mockConfig,
+      );
+
+      expect(result.failedCount).toBe(1);
+      const failed = result.urlResults.find((r) => r.status === "failed");
+      expect(failed?.status === "failed" && failed.error).toBe(
+        "string error, not an Error",
+      );
     });
 
     it("includes sitemapUrl and signalsBase in result", async () => {
