@@ -56,7 +56,7 @@ export function extractEntities(text: string): ExtractedEntitiesType {
   ]);
   const places = smartDedup([...new Set(compromisePlaces)]);
 
-  const topics = extractTopicsByTfIdf(text);
+  const topics = extractTopicsByTfIdf(doc);
 
   const imperativeVerbCount = doc.verbs().isImperative().length;
   const numberCount = doc.numbers().length;

@@ -1,10 +1,17 @@
+import type compromise from "compromise";
 import { STOPWORDS } from "../constants.js";
 
-export function extractTopicsByTfIdf(text: string): string[] {
-  const lower = text.toLowerCase();
-  const words = lower
-    .replace(/[^a-z0-9\s'-]/g, " ")
-    .split(/\s+/)
+export function extractTopicsByTfIdf(
+  doc: ReturnType<typeof compromise>,
+): string[] {
+  const nouns = doc.nouns().out("array") as string[];
+  const words = nouns
+    .map((w) =>
+      w
+        .toLowerCase()
+        .replace(/[^a-z0-9\s'-]/g, "")
+        .trim(),
+    )
     .filter((w) => w.length > 2 && !STOPWORDS.has(w));
 
   if (words.length === 0) return [];
