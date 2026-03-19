@@ -1,6 +1,6 @@
 import { httpGet, httpHead } from "../../utils/http.js";
-import { normalizeUrl } from "../../utils/url.js";
 import type { HttpResponseType } from "../../utils/schema.js";
+import { normalizeUrl } from "../../utils/url.js";
 import type { DomainSignalsType } from "../audits/schema.js";
 import { runAudits } from "../audits/service.js";
 import type { AiseoConfigType } from "../config/schema.js";
@@ -15,7 +15,8 @@ import type { AnalyzerOptionsType, AnalyzerResultType } from "./schema.js";
 function isLlmsTxtFound(
   result: PromiseSettledResult<HttpResponseType>,
 ): boolean {
-  if (result.status !== "fulfilled" || result.value.status !== 200) return false;
+  if (result.status !== "fulfilled" || result.value.status !== 200)
+    return false;
   const contentType = result.value.headers["content-type"] ?? "";
   return !contentType.includes("text/html");
 }
