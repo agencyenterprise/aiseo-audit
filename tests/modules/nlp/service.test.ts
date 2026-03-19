@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFINITION_PATTERNS } from "../../../src/modules/audits/support/patterns.js";
+import { DEFINITION_PATTERNS } from "../../../src/modules/answerability/patterns.js";
 import {
   avgSentenceLength,
   computeFleschReadingEase,
