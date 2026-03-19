@@ -9,6 +9,7 @@
 [![Tests](https://img.shields.io/badge/tests-459%20passed-8FBC8F)](https://github.com/agencyenterprise/aiseo-audit)
 [![Coverage](https://img.shields.io/codecov/c/github/agencyenterprise/aiseo-audit?color=8FBC8F&label=coverage)](https://codecov.io/gh/agencyenterprise/aiseo-audit)
 [![GitHub Stars](https://img.shields.io/github/stars/agencyenterprise/aiseo-audit?style=flat&color=8FBC8F)](https://github.com/agencyenterprise/aiseo-audit/stargazers)
+![npm downloads](https://img.shields.io/npm/dt/aiseo-audit?label=Total%20Downloads)
 
 <div align="center">
   <strong>Testing example</strong><br /><br />
@@ -217,7 +218,10 @@ The audit also checks for three domain-level files that AI crawlers look for:
 - **`llms.txt`** is a proposed standard that provides LLMs with a concise summary of your site's purpose, key pages, and preferred citation format.
 - **`llms-full.txt`** is the extended version of `llms.txt` with more comprehensive site documentation.
 
-When auditing over HTTP, these files are checked against your local server. If your local server serves them, they will pass. If not, they will show as missing. Keep in mind that your local and production configurations for these files may differ, so verify them separately against your production domain.
+When auditing over HTTP, these files are checked against your local server. If your local server serves them, they will pass. If not, they will show as missing.
+
+> [!NOTE]
+> Local audit results may differ slightly from production. Domain signal files (`robots.txt`, `llms.txt`, `llms-full.txt`) are often configured at the hosting or CDN level and may not be present on your local dev server. Always verify these signals separately against your production domain.
 
 ## Audit Categories
 

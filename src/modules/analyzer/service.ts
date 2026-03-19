@@ -1,5 +1,6 @@
 import { httpGet, httpHead } from "../../utils/http.js";
 import { normalizeUrl } from "../../utils/url.js";
+import type { HttpResponseType } from "../../utils/schema.js";
 import type { DomainSignalsType } from "../audits/schema.js";
 import { runAudits } from "../audits/service.js";
 import type { AiseoConfigType } from "../config/schema.js";
@@ -10,6 +11,14 @@ import { generateRecommendations } from "../recommendations/service.js";
 import { computeScore } from "../scoring/service.js";
 import { DOMAIN_SIGNAL_TIMEOUT_CAP, VERSION } from "./constants.js";
 import type { AnalyzerOptionsType, AnalyzerResultType } from "./schema.js";
+
+function isLlmsTxtFound(
+  result: PromiseSettledResult<HttpResponseType>,
+): boolean {
+  if (result.status !== "fulfilled" || result.value.status !== 200) return false;
+  const contentType = result.value.headers["content-type"] ?? "";
+  return !contentType.includes("text/html");
+}
 
 export async function fetchDomainSignals(
   url: string,
@@ -42,10 +51,8 @@ export async function fetchDomainSignals(
       robotsRes.status === "fulfilled" && robotsRes.value.status === 200
         ? robotsRes.value.data
         : null,
-    llmsTxtExists:
-      llmsRes.status === "fulfilled" && llmsRes.value.status === 200,
-    llmsFullTxtExists:
-      llmsFullRes.status === "fulfilled" && llmsFullRes.value.status === 200,
+    llmsTxtExists: isLlmsTxtFound(llmsRes),
+    llmsFullTxtExists: isLlmsTxtFound(llmsFullRes),
   };
 }
 
