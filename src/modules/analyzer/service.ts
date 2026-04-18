@@ -1,4 +1,4 @@
-import { httpGet, httpHead } from "../../utils/http.js";
+import { httpGet, httpProbe } from "../../utils/http.js";
 import type { HttpResponseType } from "../../utils/schema.js";
 import { normalizeUrl } from "../../utils/url.js";
 import type { DomainSignalsType } from "../audits/schema.js";
@@ -15,10 +15,16 @@ import type { AnalyzerOptionsType, AnalyzerResultType } from "./schema.js";
 function isLlmsTxtFound(
   result: PromiseSettledResult<HttpResponseType>,
 ): boolean {
-  if (result.status !== "fulfilled" || result.value.status !== 200)
-    return false;
-  const contentType = result.value.headers["content-type"] ?? "";
-  return !contentType.includes("text/html");
+  if (result.status !== "fulfilled" || !result.value) return false;
+  const { status, headers = {}, data = "" } = result.value;
+  if (status !== 200 && status !== 206) return false;
+  const contentType = (headers["content-type"] ?? "").toLowerCase();
+  if (contentType.includes("text/html")) return false;
+  // Some SPA hosts serve the SPA shell for unknown paths with a missing or
+  // generic content-type. Sniff the body for HTML as a second line of defense.
+  const sniff = data.slice(0, 256).toLowerCase();
+  if (sniff.includes("<!doctype html") || sniff.includes("<html")) return false;
+  return true;
 }
 
 export async function fetchDomainSignals(
@@ -34,12 +40,12 @@ export async function fetchDomainSignals(
       timeout: cappedTimeout,
       userAgent,
     }),
-    httpHead({
+    httpProbe({
       url: `${url}/llms.txt`,
       timeout: cappedTimeout,
       userAgent,
     }),
-    httpHead({
+    httpProbe({
       url: `${url}/llms-full.txt`,
       timeout: cappedTimeout,
       userAgent,

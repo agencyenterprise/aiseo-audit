@@ -4,6 +4,7 @@ import type {
   SitemapResultType,
   SitemapUrlResultType,
 } from "../../sitemap/schema.js";
+import { buildTldr, type TldrType } from "./tldr.js";
 
 function scoreColor(score: number, max: number): (text: string) => string {
   const pct = max > 0 ? (score / max) * 100 : 0;
@@ -24,6 +25,70 @@ function pad(str: string, len: number): string {
 
 function dots(len: number): string {
   return chalk.dim(".".repeat(len));
+}
+
+export function renderPrettyTldr(result: AnalyzerResultType): string {
+  const tldr = buildTldr(result);
+  const lines: string[] = [];
+  const divider = chalk.dim("=".repeat(60));
+
+  lines.push("");
+  lines.push(divider);
+  lines.push(chalk.bold("  AI SEO Audit"));
+  lines.push(chalk.dim(`  ${result.url}`));
+  lines.push(divider);
+  lines.push("");
+
+  if (tldr.quickestWins.length > 0) {
+    renderTldrBlock(lines, tldr);
+  } else {
+    const overallScoreColor = scoreColor(tldr.score, 100);
+    lines.push(
+      `  Score: ${overallScoreColor(`${tldr.score}/100`)}  Grade: ${gradeColor(tldr.grade)(tldr.grade)}`,
+    );
+    lines.push(
+      chalk.dim("  No quick wins identified — everything is already solid."),
+    );
+  }
+
+  lines.push("");
+  return lines.join("\n");
+}
+
+function renderTldrBlock(lines: string[], tldr: TldrType): void {
+  if (tldr.quickestWins.length === 0) return;
+
+  const projectedColor = scoreColor(tldr.projectedScore, 100);
+  const projectedGradeColor = gradeColor(tldr.projectedGrade);
+
+  lines.push(
+    `  Score: ${scoreColor(tldr.score, 100)(`${tldr.score}/100`)} ${chalk.dim(
+      "Grade:",
+    )} ${gradeColor(tldr.grade)(tldr.grade)}   ${chalk.dim("→")}   Top ${
+      tldr.quickestWins.length
+    } fixes: ~${projectedColor(`${tldr.projectedScore}/100`)} ${projectedGradeColor(
+      tldr.projectedGrade,
+    )}`,
+  );
+  lines.push("");
+  lines.push(chalk.bold("  Quickest wins:"));
+
+  const indexWidth = String(tldr.quickestWins.length).length;
+  const gainWidth = Math.max(
+    ...tldr.quickestWins.map((w) => `+${w.expectedGain}`.length),
+  );
+  const factorWidth = Math.max(
+    ...tldr.quickestWins.map((w) => w.factor.length),
+  );
+
+  tldr.quickestWins.forEach((win, i) => {
+    const index = String(i + 1).padStart(indexWidth, " ");
+    const gain = `+${win.expectedGain}`.padStart(gainWidth, " ");
+    const factor = win.factor.padEnd(factorWidth, " ");
+    lines.push(
+      `    ${index}. ${chalk.green(gain)} pts  ${factor}  ${chalk.dim(`(${win.category})`)}`,
+    );
+  });
 }
 
 function renderDomainSignalsBlock(
@@ -65,6 +130,14 @@ export function renderPretty(result: AnalyzerResultType): string {
   lines.push(chalk.dim(`  ${result.url}`));
   lines.push(divider);
   lines.push("");
+
+  const tldr = buildTldr(result);
+  if (tldr.quickestWins.length > 0) {
+    renderTldrBlock(lines, tldr);
+    lines.push("");
+    lines.push(thinDivider);
+    lines.push("");
+  }
 
   const overallScoreColor = scoreColor(result.overallScore, 100);
   const overallGradeColor = gradeColor(result.grade);

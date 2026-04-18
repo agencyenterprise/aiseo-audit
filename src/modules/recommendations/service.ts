@@ -23,12 +23,15 @@ export function generateRecommendations(
             text: `Review and improve "${factor.name}" based on best practices for AI search readiness.`,
           };
 
+      const expectedGain = Math.max(0, factor.maxScore - factor.score);
+
       recommendations.push({
         category: category.name,
         factor: factor.name,
         currentValue: factor.value,
         priority,
         recommendation: output.text,
+        expectedGain,
         ...(output.steps && { steps: output.steps }),
         ...(output.codeExample && { codeExample: output.codeExample }),
         ...(output.learnMoreUrl && { learnMoreUrl: output.learnMoreUrl }),

@@ -6,6 +6,7 @@ export const RecommendationSchema = z.object({
   currentValue: z.string(),
   priority: z.enum(["high", "medium", "low"]),
   recommendation: z.string(),
+  expectedGain: z.number().min(0).optional(),
   steps: z.array(z.string()).optional(),
   codeExample: z.string().optional(),
   learnMoreUrl: z.string().url().optional(),

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { getDomain, isValidUrl, normalizeUrl } from "../../src/utils/url.js";
+import {
+  getDomain,
+  isValidUrl,
+  normalizeUrl,
+  slugifyUrl,
+} from "../../src/utils/url.js";
 
 describe("normalizeUrl", () => {
   it("adds https:// when missing", () => {
@@ -57,5 +62,40 @@ describe("getDomain", () => {
 
   it("returns input for invalid URL", () => {
     expect(getDomain("not-a-url")).toBe("not-a-url");
+  });
+});
+
+describe("slugifyUrl", () => {
+  it("turns a bare domain into a filesystem-safe slug", () => {
+    expect(slugifyUrl("https://example.com")).toBe("example-com");
+  });
+
+  it("preserves subdomain, path and drops protocol", () => {
+    expect(slugifyUrl("https://www.example.com/pricing/enterprise")).toBe(
+      "www-example-com-pricing-enterprise",
+    );
+  });
+
+  it("collapses consecutive separators", () => {
+    expect(slugifyUrl("https://example.com///a//b/")).toBe("example-com-a-b");
+  });
+
+  it("strips query strings and fragments", () => {
+    expect(slugifyUrl("https://example.com/path?q=1&x=2#section")).toBe(
+      "example-com-path",
+    );
+  });
+
+  it("lowercases the slug", () => {
+    expect(slugifyUrl("https://EXAMPLE.COM/Path")).toBe("example-com-path");
+  });
+
+  it("handles URLs passed without a protocol", () => {
+    expect(slugifyUrl("example.com/path")).toBe("example-com-path");
+  });
+
+  it("is idempotent — re-slugifying a slug returns the same slug", () => {
+    const slug = slugifyUrl("https://example.com/path");
+    expect(slugifyUrl(slug)).toBe(slug);
   });
 });

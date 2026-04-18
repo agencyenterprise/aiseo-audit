@@ -1,10 +1,17 @@
+import { resolve } from "node:path";
 import { Command } from "commander";
 import { z } from "zod";
 import { VERSION } from "./modules/analyzer/constants.js";
 import { analyzeUrl } from "./modules/analyzer/service.js";
 import { loadConfig } from "./modules/config/service.js";
+import { orchestrateDiff } from "./modules/diff/orchestrate.js";
 import type { ReportFormatType } from "./modules/report/schema.js";
-import { renderReport, renderSitemapReport } from "./modules/report/service.js";
+import {
+  renderDiffReport,
+  renderHistoryTimeline,
+  renderReport,
+  renderSitemapReport,
+} from "./modules/report/service.js";
 import { analyzeSitemap } from "./modules/sitemap/service.js";
 import { writeOutputFile } from "./utils/fs.js";
 import { isValidUrl } from "./utils/url.js";
@@ -20,6 +27,10 @@ const CliOptionsSchema = z.object({
   timeout: z.coerce.number().int().positive().optional(),
   userAgent: z.string().optional(),
   config: z.string().optional(),
+  tldr: z.boolean().optional(),
+  diff: z.boolean().optional(),
+  all: z.boolean().optional(),
+  baseline: z.string().optional(),
 });
 
 const program = new Command();
@@ -45,6 +56,19 @@ program
   .option("--timeout <ms>", "Request timeout in milliseconds")
   .option("--user-agent <ua>", "Custom User-Agent string")
   .option("--config <path>", "Path to aiseo.config.json config file")
+  .option("--tldr", "Emit only the TL;DR summary (no detailed breakdown)")
+  .option(
+    "--diff",
+    "Track score over time: records this run, compares against the previous recorded run",
+  )
+  .option(
+    "--all",
+    "With --diff and no URL, render the audit history across every tracked URL",
+  )
+  .option(
+    "--baseline <path>",
+    "Diff against a specific prior JSON result (bypasses history tracking)",
+  )
   .action(async (url: string | undefined, rawOpts: unknown) => {
     try {
       const optsResult = CliOptionsSchema.safeParse(rawOpts);
@@ -57,8 +81,10 @@ program
       }
       const opts = optsResult.data;
 
-      if (!url && !opts.sitemap) {
-        console.error("Error: Provide a URL to audit or use --sitemap <url>");
+      if (!url && !opts.sitemap && !(opts.diff && opts.all)) {
+        console.error(
+          "Error: Provide a URL to audit, use --sitemap <url>, or use --diff --all",
+        );
         process.exit(2);
       }
 
@@ -70,6 +96,7 @@ program
       }
 
       const config = await loadConfig(opts.config);
+      const configPath = resolve(opts.config ?? "aiseo.config.json");
 
       const inferredFormat: ReportFormatType | undefined = opts.out?.endsWith(
         ".html",
@@ -91,6 +118,18 @@ program
 
       const timeout = opts.timeout ?? config.timeout;
       const userAgent = opts.userAgent ?? config.userAgent;
+
+      if (opts.diff && opts.all && !url && !opts.sitemap) {
+        const diffMap = config.diff ?? {};
+        const timeline = renderHistoryTimeline(diffMap, { format });
+        if (opts.out) {
+          await writeOutputFile(opts.out, timeline);
+          console.error(`Results written to ${opts.out}`);
+        } else {
+          console.log(timeline);
+        }
+        return;
+      }
 
       if (opts.sitemap) {
         if (!isValidUrl(opts.sitemap)) {
@@ -141,11 +180,37 @@ program
         config,
       );
 
-      const output = renderReport(result, { format });
+      const useDiff = opts.diff || Boolean(opts.baseline);
+      let output: string;
 
-      if (opts.out) {
+      if (useDiff) {
+        const outcome = await orchestrateDiff({
+          result,
+          config,
+          configPath,
+          baselinePath: opts.baseline,
+          explicitOutPath: opts.out,
+        });
+
+        for (const note of outcome.notifications) {
+          console.error(`💡 ${note}`);
+        }
+
+        output = outcome.diff
+          ? renderDiffReport(result, outcome.diff, {
+              format,
+              tldrOnly: opts.tldr,
+            })
+          : renderReport(result, { format, tldrOnly: opts.tldr });
+      } else {
+        output = renderReport(result, { format, tldrOnly: opts.tldr });
+      }
+
+      if (opts.out && !useDiff) {
         await writeOutputFile(opts.out, output);
         console.error(`Results written to ${opts.out}`);
+      } else if (!useDiff) {
+        console.log(output);
       } else {
         console.log(output);
       }

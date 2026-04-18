@@ -3,6 +3,45 @@ import type {
   SitemapResultType,
   SitemapUrlResultType,
 } from "../../sitemap/schema.js";
+import { buildTldr, type TldrType } from "./tldr.js";
+
+export function renderMarkdownTldr(result: AnalyzerResultType): string {
+  const tldr = buildTldr(result);
+  const lines: string[] = [];
+  lines.push(`# AI SEO Audit`);
+  lines.push("");
+  lines.push(`**URL:** ${result.url}`);
+  lines.push("");
+
+  if (tldr.quickestWins.length > 0) {
+    renderTldrSection(lines, tldr);
+  } else {
+    lines.push(
+      `**${tldr.score}/100 (${tldr.grade})** — no quick wins identified.`,
+    );
+    lines.push("");
+  }
+
+  return lines.join("\n");
+}
+
+function renderTldrSection(lines: string[], tldr: TldrType): void {
+  if (tldr.quickestWins.length === 0) return;
+
+  lines.push(`## Quick Summary`);
+  lines.push("");
+  lines.push(
+    `**${tldr.score}/100 (${tldr.grade})** → Top ${tldr.quickestWins.length} fixes: **~${tldr.projectedScore}/100 (${tldr.projectedGrade})**`,
+  );
+  lines.push("");
+  lines.push("Quickest wins:");
+  tldr.quickestWins.forEach((win, i) => {
+    lines.push(
+      `${i + 1}. **+${win.expectedGain} pts** — ${win.factor} (${win.category})`,
+    );
+  });
+  lines.push("");
+}
 
 export function renderMarkdown(result: AnalyzerResultType): string {
   const lines: string[] = [];
@@ -13,6 +52,8 @@ export function renderMarkdown(result: AnalyzerResultType): string {
   lines.push("");
   lines.push(`**Domain signals checked at:** \`${result.signalsBase}\``);
   lines.push("");
+
+  renderTldrSection(lines, buildTldr(result));
 
   lines.push("| Category | Score | Percentage |");
   lines.push("|----------|-------|------------|");

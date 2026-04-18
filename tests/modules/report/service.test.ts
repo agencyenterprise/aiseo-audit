@@ -1197,3 +1197,209 @@ describe("pretty format grade color branches", () => {
     expect(output).toContain("[MED]");
   });
 });
+
+describe("TL;DR block", () => {
+  function makeResultWithWins(): AnalyzerResultType {
+    return {
+      ...makeMinimalResult(),
+      recommendations: [
+        {
+          category: "Answerability",
+          factor: "Answer Capsules",
+          currentValue: "0",
+          priority: "high",
+          recommendation: "Add answer capsules",
+          expectedGain: 13,
+        },
+        {
+          category: "Authority Context",
+          factor: "Author Attribution",
+          currentValue: "Not found",
+          priority: "high",
+          recommendation: "Add author",
+          expectedGain: 10,
+        },
+        {
+          category: "Content Extractability",
+          factor: "Image Alt Text",
+          currentValue: "1/8",
+          priority: "high",
+          recommendation: "Add alt text",
+          expectedGain: 7,
+        },
+      ],
+    };
+  }
+
+  describe("pretty format", () => {
+    it("includes the top 3 quickest wins with expected gains", () => {
+      const output = renderReport(makeResultWithWins(), { format: "pretty" });
+      expect(output).toContain("Quickest wins");
+      expect(output).toContain("Answer Capsules");
+      expect(output).toContain("Author Attribution");
+      expect(output).toContain("Image Alt Text");
+      expect(output).toContain("+13");
+      expect(output).toContain("+10");
+      expect(output).toContain("+7");
+    });
+
+    it("includes the projected score after the top fixes", () => {
+      const output = renderReport(makeResultWithWins(), { format: "pretty" });
+      // chalk may insert ANSI color codes between the tokens, so assert on
+      // substrings rather than a single regex.
+      expect(output).toContain("Top 3 fixes:");
+      expect(output).toContain("/100");
+    });
+
+    it("omits the TL;DR block when there are no recommendations", () => {
+      const result = { ...makeMinimalResult(), recommendations: [] };
+      const output = renderReport(result, { format: "pretty" });
+      expect(output).not.toContain("Quickest wins");
+    });
+  });
+
+  describe("markdown format", () => {
+    it("includes a Quick Summary section with ranked wins", () => {
+      const output = renderReport(makeResultWithWins(), { format: "md" });
+      expect(output).toContain("## Quick Summary");
+      expect(output).toContain("Answer Capsules");
+      expect(output).toContain("+13");
+    });
+
+    it("omits the Quick Summary section when there are no recommendations", () => {
+      const result = { ...makeMinimalResult(), recommendations: [] };
+      const output = renderReport(result, { format: "md" });
+      expect(output).not.toContain("## Quick Summary");
+    });
+  });
+
+  describe("html format", () => {
+    it("includes a quick-summary section with the top wins", () => {
+      const output = renderReport(makeResultWithWins(), { format: "html" });
+      expect(output).toContain("Quickest wins");
+      expect(output).toContain("Answer Capsules");
+      expect(output).toContain("+13");
+    });
+
+    it("omits the quick-summary section when there are no recommendations", () => {
+      const result = { ...makeMinimalResult(), recommendations: [] };
+      const output = renderReport(result, { format: "html" });
+      expect(output).not.toContain("Quickest wins");
+    });
+  });
+
+  describe("json format", () => {
+    it("exposes a tldr field with score, projectedScore, and quickestWins", () => {
+      const output = renderReport(makeResultWithWins(), { format: "json" });
+      const parsed = JSON.parse(output);
+      expect(parsed.tldr).toBeDefined();
+      expect(parsed.tldr.score).toBe(72);
+      expect(parsed.tldr.projectedScore).toBeGreaterThanOrEqual(
+        parsed.tldr.score,
+      );
+      expect(parsed.tldr.quickestWins).toHaveLength(3);
+      expect(parsed.tldr.quickestWins[0].factor).toBe("Answer Capsules");
+      expect(parsed.tldr.quickestWins[0].expectedGain).toBe(13);
+    });
+
+    it("omits quickestWins when there are no recommendations but still exposes tldr", () => {
+      const result = { ...makeMinimalResult(), recommendations: [] };
+      const output = renderReport(result, { format: "json" });
+      const parsed = JSON.parse(output);
+      expect(parsed.tldr.quickestWins).toHaveLength(0);
+    });
+  });
+});
+
+describe("tldrOnly mode", () => {
+  function makeResultWithWins(): AnalyzerResultType {
+    return {
+      ...makeMinimalResult(),
+      recommendations: [
+        {
+          category: "Answerability",
+          factor: "Answer Capsules",
+          currentValue: "0",
+          priority: "high",
+          recommendation: "Add answer capsules",
+          expectedGain: 13,
+        },
+      ],
+    };
+  }
+
+  describe("pretty format", () => {
+    it("includes the TL;DR block", () => {
+      const output = renderReport(makeResultWithWins(), {
+        format: "pretty",
+        tldrOnly: true,
+      });
+      expect(output).toContain("Quickest wins");
+      expect(output).toContain("Answer Capsules");
+    });
+
+    it("excludes the detailed category breakdown", () => {
+      const output = renderReport(makeResultWithWins(), {
+        format: "pretty",
+        tldrOnly: true,
+      });
+      expect(output).not.toContain("Authority Context");
+      expect(output).not.toContain("Fetch Success");
+    });
+
+    it("excludes the recommendations detail section", () => {
+      const output = renderReport(makeResultWithWins(), {
+        format: "pretty",
+        tldrOnly: true,
+      });
+      expect(output).not.toMatch(/\n\s*Recommendations:/);
+    });
+  });
+
+  describe("markdown format", () => {
+    it("emits only the Quick Summary section", () => {
+      const output = renderReport(makeResultWithWins(), {
+        format: "md",
+        tldrOnly: true,
+      });
+      expect(output).toContain("## Quick Summary");
+      expect(output).not.toContain("### "); // no category sub-sections
+      expect(output).not.toContain("| Factor |");
+    });
+  });
+
+  describe("html format", () => {
+    it("renders only the TL;DR card, no gauges or sections", () => {
+      const output = renderReport(makeResultWithWins(), {
+        format: "html",
+        tldrOnly: true,
+      });
+      expect(output).toContain("Quickest wins");
+      expect(output).not.toContain("gauges-row");
+      expect(output).not.toContain("category-section");
+    });
+
+    it("is still a valid standalone HTML document", () => {
+      const output = renderReport(makeResultWithWins(), {
+        format: "html",
+        tldrOnly: true,
+      });
+      expect(output).toMatch(/^<!DOCTYPE html>/);
+      expect(output).toContain("</html>");
+    });
+  });
+
+  describe("json format", () => {
+    it("emits only the tldr field plus top-level url", () => {
+      const output = renderReport(makeResultWithWins(), {
+        format: "json",
+        tldrOnly: true,
+      });
+      const parsed = JSON.parse(output);
+      expect(parsed.tldr).toBeDefined();
+      expect(parsed.url).toBe("https://example.com");
+      expect(parsed.categories).toBeUndefined();
+      expect(parsed.recommendations).toBeUndefined();
+    });
+  });
+});

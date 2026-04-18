@@ -1,8 +1,11 @@
-import { mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { loadConfig } from "../../../src/modules/config/service.js";
+import {
+  loadConfig,
+  updateConfig,
+} from "../../../src/modules/config/service.js";
 
 describe("loadConfig", () => {
   const testDir = join(tmpdir(), `aiseo-audit-test-${Date.now()}`);
@@ -184,5 +187,124 @@ describe("loadConfig", () => {
 
       expect(config.failUnder).toBeUndefined();
     });
+  });
+
+  describe("diff history", () => {
+    it("parses a config with a diff map keyed by URL", async () => {
+      const configPath = join(testDir, "with-diff.json");
+      await writeFile(
+        configPath,
+        JSON.stringify({
+          diff: {
+            "https://example.com": [
+              {
+                path: "audits/example-1.json",
+                timestamp: "2026-04-15T10:00:00Z",
+                score: 59,
+              },
+            ],
+          },
+        }),
+      );
+
+      const config = await loadConfig(configPath);
+
+      expect(config.diff?.["https://example.com"]).toHaveLength(1);
+      expect(config.diff?.["https://example.com"]?.[0].score).toBe(59);
+    });
+
+    it("parses historyDir when provided", async () => {
+      const configPath = join(testDir, "history-dir.json");
+      await writeFile(
+        configPath,
+        JSON.stringify({ historyDir: "./my-audits" }),
+      );
+
+      const config = await loadConfig(configPath);
+
+      expect(config.historyDir).toBe("./my-audits");
+    });
+
+    it("defaults diff and historyDir to undefined", async () => {
+      const config = await loadConfig();
+
+      expect(config.diff).toBeUndefined();
+      expect(config.historyDir).toBeUndefined();
+    });
+  });
+});
+
+describe("updateConfig", () => {
+  const testDir = join(tmpdir(), `aiseo-audit-update-test-${Date.now()}`);
+
+  beforeEach(async () => {
+    await mkdir(testDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    try {
+      await rm(testDir, { recursive: true, force: true });
+    } catch {}
+  });
+
+  it("creates aiseo.config.json when none exists", async () => {
+    const configPath = join(testDir, "aiseo.config.json");
+
+    await updateConfig(configPath, {
+      diff: {
+        "https://example.com": [
+          {
+            path: "audits/a.json",
+            timestamp: "2026-04-17T00:00:00Z",
+            score: 60,
+          },
+        ],
+      },
+    });
+
+    const raw = await readFile(configPath, "utf-8");
+    const parsed = JSON.parse(raw);
+    expect(parsed.diff["https://example.com"]).toHaveLength(1);
+    expect(parsed.diff["https://example.com"][0].score).toBe(60);
+  });
+
+  it("preserves existing keys when patching a new one", async () => {
+    const configPath = join(testDir, "aiseo.config.json");
+    await writeFile(
+      configPath,
+      JSON.stringify(
+        {
+          timeout: 30000,
+          weights: { contentExtractability: 2 },
+        },
+        null,
+        2,
+      ),
+    );
+
+    await updateConfig(configPath, {
+      diff: {
+        "https://example.com": [
+          {
+            path: "audits/a.json",
+            timestamp: "2026-04-17T00:00:00Z",
+            score: 60,
+          },
+        ],
+      },
+    });
+
+    const parsed = JSON.parse(await readFile(configPath, "utf-8"));
+    expect(parsed.timeout).toBe(30000);
+    expect(parsed.weights.contentExtractability).toBe(2);
+    expect(parsed.diff["https://example.com"]).toHaveLength(1);
+  });
+
+  it("writes JSON with 2-space indent", async () => {
+    const configPath = join(testDir, "aiseo.config.json");
+    await updateConfig(configPath, { historyDir: "./audits" });
+
+    const raw = await readFile(configPath, "utf-8");
+    expect(raw).toMatch(/^{\n  "historyDir"/);
   });
 });
