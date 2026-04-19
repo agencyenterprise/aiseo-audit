@@ -143,6 +143,9 @@ aiseo-audit https://example.com --tldr
 
 `--diff` records every audit and shows you what changed since the last run for the same URL.
 
+> [!IMPORTANT]
+> `--diff` is the only flag that writes files outside of `--out`. On first use it creates `./audits/` (or your configured `historyDir`) and an `aiseo.config.json` in the current directory if one doesn't exist. Both are announced on stderr the moment they're created — nothing is written silently. Add `./audits/` to `.gitignore` if you don't want the history tracked in version control, or commit it to keep a record of AI SEO over time.
+
 ```bash
 # First run — establishes a baseline
 aiseo-audit https://example.com --diff
@@ -181,8 +184,6 @@ Output on the second run:
   }
 }
 ```
-
-The first `--diff` run prints a one-time notification so you know exactly what was created, and you can `.gitignore` `./audits/` or commit it to track AI SEO in version control.
 
 ### Saving a formatted report alongside the baseline
 
