@@ -125,11 +125,11 @@ When releasing a `v2.0.0` with breaking changes to the Action's `inputs` or `out
 
 ## Publishing the MCP Server
 
-The package ships an MCP server via the `aiseo-audit-mcp` bin entry. It is distributed **through npm** (published automatically with every npm release) and additionally listed on third-party MCP registries so Cursor, Claude Desktop, and Windsurf users can discover it.
+The package ships an MCP server via the `aiseo-audit-mcp` bin entry. It's distributed through npm and listed in the [official MCP Registry](https://registry.modelcontextprotocol.io) at `io.github.agencyenterprise/aiseo-audit`. The official registry is the canonical metadata source for the MCP ecosystem (backed by Anthropic, GitHub, PulseMCP, and Microsoft). Downstream aggregators like Smithery, mcp.so, and PulseMCP scrape it on an hourly cadence, so **one registry publish propagates to every marketplace automatically**.
 
 ### How users install it
 
-No extra step required on their end — once a version is published to npm, users can wire it into any MCP client with a single config block:
+Once a version is on npm, users wire it into any MCP client with a single config block:
 
 ```json
 // ~/.cursor/mcp.json  or  Claude Desktop config
@@ -143,27 +143,51 @@ No extra step required on their end — once a version is published to npm, user
 }
 ```
 
-`npx -y` pulls the latest published version of `aiseo-audit` (which contains the `aiseo-audit-mcp` bin) on first run.
+`npx -y` pulls the latest `aiseo-audit` package (which contains the `aiseo-audit-mcp` bin) on first run.
 
-### First-time registry listings
+### Prerequisites (one-time setup)
 
-Do this once, after the release that first ships `aiseo-audit-mcp`:
+- `package.json` contains `"mcpName": "io.github.agencyenterprise/aiseo-audit"` (links the npm package to the registry entry).
+- `server.json` exists at the repo root and declares the server metadata. The MCP Registry validates that `server.json.name` matches `package.json.mcpName`.
+- `NPM_TOKEN` is stored as a repo secret for the publish workflow. No additional secret is required for the MCP Registry — authentication uses GitHub OIDC from the Actions runner.
 
-1. **[modelcontextprotocol/servers](https://github.com/modelcontextprotocol/servers)** (community registry on GitHub)
-   - Fork the repo
-   - Add a row for `aiseo-audit` in the community servers list with a short description and link to the package
-   - Open a PR
+### Automated publishing (recommended)
 
-2. **[smithery.ai](https://smithery.ai)** — the largest third-party MCP marketplace
-   - Sign in with GitHub
-   - Click **Submit a server**
-   - Fill in name (`aiseo-audit`), description, install command (`npx -y aiseo-audit-mcp`), and link to the GitHub repo
+`.github/workflows/publish-mcp.yml` runs on every `v*` tag push. It:
 
-3. **[mcp.so](https://mcp.so)** — secondary marketplace, similar submission flow
+1. Runs `npm run ci` (format + lint + tests + build).
+2. Publishes the package to npm.
+3. Syncs `server.json`'s `version` fields to the release tag via `jq`.
+4. Authenticates to the MCP Registry with GitHub OIDC (no secret required).
+5. Runs `mcp-publisher publish`.
 
-### Every subsequent release
+So the full release flow becomes: `npm version minor` → `git push origin main --tags` → the workflow handles npm and the MCP Registry together. Create the GitHub Release afterwards as usual (the workflow does not draft releases).
 
-Nothing to do. The npm publish automatically ships the latest `aiseo-audit-mcp` to every user running `npx -y aiseo-audit-mcp`. The registry entries continue to point at the npm package, so they stay current without manual updates.
+### Manual publish (dry run or recovery)
+
+Install the CLI once:
+
+```bash
+brew install mcp-publisher
+# or download a release binary: https://github.com/modelcontextprotocol/registry/releases
+```
+
+Publish from the repo root after a successful `npm publish`:
+
+```bash
+mcp-publisher login github        # opens a GitHub device-code flow in your browser
+mcp-publisher publish             # reads server.json and submits to the registry
+```
+
+### Verify the listing
+
+After the workflow succeeds, confirm the server is live:
+
+```bash
+curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.agencyenterprise/aiseo-audit"
+```
+
+The response should include the latest version. Within an hour or two, the listing propagates to aggregators like [Smithery](https://smithery.ai) and [mcp.so](https://mcp.so) automatically.
 
 ### Testing the MCP server locally before release
 
@@ -174,4 +198,9 @@ npm run build
 printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list"}\n' | node bin/aiseo-audit-mcp.js
 ```
 
-Expected: two JSON-RPC response lines on stdout — one confirming the protocol handshake, the second listing the `audit_url` tool with its input schema.
+Expected: two JSON-RPC response lines on stdout. The first confirms the protocol handshake, the second lists the `audit_url` tool with its input schema.
+
+### Registry notes
+
+- **The MCP Registry is in preview.** Breaking changes or data resets may occur before GA. Keep `server.json` committed so reruns are idempotent.
+- **Namespace ownership.** The `io.github.agencyenterprise/` prefix is tied to the GitHub organization. Only members with push access can publish under that name (via GitHub OIDC from this repo's workflows).
