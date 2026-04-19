@@ -1,6 +1,12 @@
 export { analyzeUrl } from "./modules/analyzer/service.js";
 export { loadConfig } from "./modules/config/service.js";
-export { renderReport, renderSitemapReport } from "./modules/report/service.js";
+export { computeDiff } from "./modules/diff/service.js";
+export {
+  renderDiffReport,
+  renderHistoryTimeline,
+  renderReport,
+  renderSitemapReport,
+} from "./modules/report/service.js";
 export { analyzeSitemap } from "./modules/sitemap/service.js";
 
 export type {
@@ -17,7 +23,12 @@ export type {
 export type {
   AiseoConfigType,
   CategoryWeightType,
+  DiffEntryType,
 } from "./modules/config/schema.js";
+export type {
+  CategoryDeltaType,
+  DiffResultType,
+} from "./modules/diff/schema.js";
 export type {
   ExternalLinkType,
   ExtractedPageType,

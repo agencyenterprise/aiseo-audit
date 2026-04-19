@@ -1164,4 +1164,54 @@ describe("actionable recommendation fields", () => {
     expect(recs[0].steps).toBeDefined();
     expect(recs[0].codeExample).toContain("alt=");
   });
+
+  describe("expectedGain", () => {
+    it("attaches expectedGain equal to (maxScore - score) for each recommendation", () => {
+      const auditResult = makeAuditResult({
+        content: makeCategory("Content", "contentExtractability", [
+          makeFactor("Word Count", 3, 10),
+        ]),
+      });
+
+      const recs = generateRecommendations(auditResult);
+
+      expect(recs).toHaveLength(1);
+      expect(recs[0].expectedGain).toBe(7);
+    });
+
+    it("reports zero gain when a factor is already at max", () => {
+      const auditResult = makeAuditResult({
+        content: makeCategory("Content", "contentExtractability", [
+          makeFactor("Word Count", 10, 10),
+          makeFactor("Headings", 0, 10),
+        ]),
+      });
+
+      const recs = generateRecommendations(auditResult);
+
+      expect(recs).toHaveLength(1);
+      expect(recs[0].factor).toBe("Headings");
+      expect(recs[0].expectedGain).toBe(10);
+    });
+
+    it("computes gains independently per factor across multiple categories", () => {
+      const auditResult = makeAuditResult({
+        content: makeCategory("Content", "contentExtractability", [
+          makeFactor("Word Count", 2, 10),
+        ]),
+        authority: makeCategory("Authority", "authorityContext", [
+          makeFactor("Author Attribution", 5, 15),
+        ]),
+      });
+
+      const recs = generateRecommendations(auditResult);
+
+      const byFactor = Object.fromEntries(
+        recs.map((r) => [r.factor, r.expectedGain]),
+      );
+
+      expect(byFactor["Word Count"]).toBe(8);
+      expect(byFactor["Author Attribution"]).toBe(10);
+    });
+  });
 });

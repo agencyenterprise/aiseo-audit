@@ -169,3 +169,46 @@ export async function httpHead(
     clearTimeout(timer);
   }
 }
+
+const PROBE_MAX_BYTES = 512;
+
+export async function httpProbe(
+  options: HttpRequestOptionsType,
+): Promise<HttpResponseType> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeout);
+
+  try {
+    const response = await fetch(options.url, {
+      method: "GET",
+      headers: {
+        "User-Agent": options.userAgent,
+        Range: `bytes=0-${PROBE_MAX_BYTES - 1}`,
+        ...DEFAULT_HEADERS,
+      },
+      signal: controller.signal,
+      redirect: "follow",
+    });
+
+    const headers: Record<string, string> = {};
+    response.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+
+    const buffer = await response.arrayBuffer();
+    const data = new TextDecoder("utf-8", { fatal: false }).decode(
+      buffer.slice(0, PROBE_MAX_BYTES),
+    );
+
+    return {
+      status: response.status,
+      data,
+      headers,
+      finalUrl: response.url,
+    };
+  } catch (err) {
+    throw classifyFetchError(err, options.url);
+  } finally {
+    clearTimeout(timer);
+  }
+}

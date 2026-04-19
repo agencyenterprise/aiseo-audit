@@ -1,7 +1,11 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { fileExists, writeOutputFile } from "../../src/utils/fs.js";
+import {
+  assertOutputPathIsNotDirectory,
+  fileExists,
+  writeOutputFile,
+} from "../../src/utils/fs.js";
 
 describe("fileExists", () => {
   it("returns true when the file exists", async () => {
@@ -44,5 +48,44 @@ describe("writeOutputFile", () => {
     const { readFile } = await import("node:fs/promises");
     const content = await readFile(path, "utf-8");
     expect(content).toBe("second");
+  });
+});
+
+describe("assertOutputPathIsNotDirectory", () => {
+  const testDir = join(import.meta.dirname, "tmp-assert-dir-test");
+
+  beforeEach(async () => {
+    await mkdir(testDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(testDir, { recursive: true, force: true });
+  });
+
+  it("throws a descriptive error when the path is an existing directory", async () => {
+    await expect(assertOutputPathIsNotDirectory(testDir)).rejects.toThrow(
+      /directory/i,
+    );
+  });
+
+  it("includes the offending path in the error message", async () => {
+    await expect(assertOutputPathIsNotDirectory(testDir)).rejects.toThrow(
+      new RegExp(testDir.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")),
+    );
+  });
+
+  it("resolves cleanly when the path points at an existing file", async () => {
+    const filePath = join(testDir, "report.html");
+    await writeFile(filePath, "<html></html>");
+    await expect(
+      assertOutputPathIsNotDirectory(filePath),
+    ).resolves.toBeUndefined();
+  });
+
+  it("resolves cleanly when the path does not exist yet", async () => {
+    const filePath = join(testDir, "not-yet-created.html");
+    await expect(
+      assertOutputPathIsNotDirectory(filePath),
+    ).resolves.toBeUndefined();
   });
 });

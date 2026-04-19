@@ -1,6 +1,7 @@
 {
   "name": "aiseo-audit",
   "version": "1.4.19",
+  "mcpName": "io.github.agencyenterprise/aiseo-audit",
   "description": "Lighthouse for AI SEO. Audit any webpage for AI search readiness. 7 categories, 30+ factors, research-backed scoring. Deterministic, engine-agnostic, zero API keys.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -13,7 +14,8 @@
     }
   },
   "bin": {
-    "aiseo-audit": "./bin/aiseo-audit.js"
+    "aiseo-audit": "./bin/aiseo-audit.js",
+    "aiseo-audit-mcp": "./bin/aiseo-audit-mcp.js"
   },
   "files": [
     "dist",
@@ -81,6 +83,7 @@
     "answer-engine-optimization"
   ],
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "chalk": "^5.6.2",
     "cheerio": "^1.2.0",
     "commander": "^14.0.3",

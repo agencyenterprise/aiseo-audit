@@ -12,23 +12,27 @@ npm install
 
 ## Scripts
 
-| Command              | Description                    |
-| -------------------- | ------------------------------ |
-| `npm run build`      | Build with tsup (CJS + ESM)    |
-| `npm test`           | Run tests once                 |
-| `npm run test:watch` | Run tests in watch mode        |
-| `npm run lint`       | Type-check with `tsc --noEmit` |
+| Command                 | Description                    |
+| ----------------------- | ------------------------------ |
+| `npm run build`         | Build with tsup (CJS + ESM)    |
+| `npm test`              | Run tests once                 |
+| `npm run test:watch`    | Run tests in watch mode        |
+| `npm run test:coverage` | Run tests with coverage report |
+| `npm run lint`          | Type-check with `tsc --noEmit` |
 
 ## Project Structure
 
 ```
 src/
-├── cli.ts                  # CLI entry point
+├── cli.ts                  # CLI entry point (aiseo-audit bin)
 ├── index.ts                # Library entry point
+├── mcp.ts                  # MCP server bootstrap (aiseo-audit-mcp bin)
+├── mcp/                    # MCP tool definitions and handlers
 ├── modules/
 │   ├── analyzer/           # Orchestrates the audit pipeline
 │   ├── audits/             # Audit orchestrator, categories/, support helpers
 │   ├── config/             # Config loading and schema
+│   ├── diff/               # Score diffing, audit history, and --diff orchestration
 │   ├── extractor/          # HTML parsing and content extraction
 │   ├── fetcher/            # HTTP fetching
 │   ├── nlp/                # NLP utilities (entity extraction, readability, topics)

@@ -26,3 +26,13 @@ export function getDomain(url: string): string {
     return url;
   }
 }
+
+export function slugifyUrl(input: string): string {
+  const normalized = normalizeUrl(input);
+  const parsed = new URL(normalized);
+  const hostAndPath = `${parsed.hostname}${parsed.pathname}`;
+  return hostAndPath
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}

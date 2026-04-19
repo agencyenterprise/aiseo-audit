@@ -1,3 +1,9 @@
+import { CATEGORY_DISPLAY_NAMES } from "../audits/constants.js";
+import type {
+  CategoryAuditOutputType,
+  ExtractedEntitiesType,
+  FactorResultType,
+} from "../audits/schema.js";
 import type { ExtractedPageType } from "../extractor/schema.js";
 import { countPatternMatches, extractEntities } from "../nlp/service.js";
 import {
@@ -6,12 +12,6 @@ import {
   sumFactors,
   thresholdScore,
 } from "../scoring/service.js";
-import { CATEGORY_DISPLAY_NAMES } from "../audits/constants.js";
-import type {
-  CategoryAuditOutputType,
-  ExtractedEntitiesType,
-  FactorResultType,
-} from "../audits/schema.js";
 import { detectAnswerCapsules } from "./capsules.js";
 import {
   DEFINITION_PATTERNS,
@@ -20,6 +20,7 @@ import {
   STEP_PATTERNS,
   SUMMARY_MARKERS,
 } from "./patterns.js";
+import { extractQuestions } from "./questions.js";
 
 export function auditAnswerability(
   page: ExtractedPageType,
@@ -103,7 +104,7 @@ export function auditAnswerability(
     ),
   );
 
-  const questionMatches = text.match(/[^.!?]*\?/g) || [];
+  const questionMatches = extractQuestions(text);
   const queryMatches = countPatternMatches(text, QUESTION_PATTERNS);
   const qaScore = thresholdScore(questionMatches.length + queryMatches, [
     [10, 11],

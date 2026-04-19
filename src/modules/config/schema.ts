@@ -25,6 +25,12 @@ export const CategoryWeightSchema = z
   })
   .default(DEFAULT_WEIGHTS);
 
+export const DiffEntrySchema = z.object({
+  path: z.string(),
+  timestamp: z.string(),
+  score: z.number().min(0).max(100),
+});
+
 export const AiseoConfigSchema = z
   .object({
     timeout: z.number().positive().default(45000),
@@ -32,6 +38,8 @@ export const AiseoConfigSchema = z
     format: z.enum(["pretty", "json", "md", "html"]).default("pretty"),
     failUnder: z.number().min(0).max(100).optional(),
     weights: CategoryWeightSchema,
+    historyDir: z.string().optional(),
+    diff: z.record(z.string(), z.array(DiffEntrySchema)).optional(),
   })
   .default({
     timeout: 45000,
@@ -41,4 +49,5 @@ export const AiseoConfigSchema = z
   });
 
 export type CategoryWeightType = z.infer<typeof CategoryWeightSchema>;
+export type DiffEntryType = z.infer<typeof DiffEntrySchema>;
 export type AiseoConfigType = z.infer<typeof AiseoConfigSchema>;

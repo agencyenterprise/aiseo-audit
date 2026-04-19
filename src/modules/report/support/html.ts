@@ -3,6 +3,7 @@ import type {
   SitemapResultType,
   SitemapUrlResultType,
 } from "../../sitemap/schema.js";
+import { buildTldr, type TldrType } from "./tldr.js";
 
 function scoreColorHex(pct: number): string {
   if (pct >= 90) return "#00cc66";
@@ -320,6 +321,76 @@ function buildRecommendationsByCategory(
   return html;
 }
 
+export function renderHtmlTldr(result: AnalyzerResultType): string {
+  const tldr = buildTldr(result);
+  const card = buildTldrCard(tldr);
+  const fallback =
+    tldr.quickestWins.length === 0
+      ? `<div class="tldr-card"><div class="tldr-headline"><span class="tldr-score">${tldr.score}/100 (${escapeHtml(tldr.grade)})</span><span class="tldr-projection">No quick wins identified.</span></div></div>`
+      : card;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI SEO Audit — ${escapeHtml(result.url)}</title>
+<style>
+${baseStyles()}
+.tldr-card {
+  margin: 16px auto;
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fafafa;
+  max-width: 720px;
+}
+.tldr-headline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 16px; margin-bottom: 12px; }
+.tldr-score { font-weight: 600; }
+.tldr-arrow { color: var(--muted); }
+.tldr-projection { color: #006633; font-weight: 600; }
+.tldr-title { font-weight: 600; margin: 8px 0 6px; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+.tldr-wins { list-style: none; padding: 0; margin: 0; }
+.tldr-win { display: grid; grid-template-columns: 24px 72px 1fr auto; gap: 10px; align-items: baseline; padding: 4px 0; font-size: 14px; }
+.tldr-rank { color: var(--muted); text-align: right; }
+.tldr-gain { color: #006633; font-weight: 600; }
+.tldr-factor { font-weight: 500; }
+.tldr-category { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="topbar-title">AI SEO Audit</span>
+  <span class="topbar-url">${escapeHtml(result.url)}</span>
+</div>
+<div class="report">
+  ${fallback}
+</div>
+</body>
+</html>`;
+}
+
+function buildTldrCard(tldr: TldrType): string {
+  if (tldr.quickestWins.length === 0) return "";
+
+  const wins = tldr.quickestWins
+    .map(
+      (win, i) =>
+        `<li class="tldr-win"><span class="tldr-rank">${i + 1}</span><span class="tldr-gain">+${win.expectedGain} pts</span><span class="tldr-factor">${escapeHtml(win.factor)}</span><span class="tldr-category">${escapeHtml(win.category)}</span></li>`,
+    )
+    .join("");
+
+  return `<div class="tldr-card">
+    <div class="tldr-headline">
+      <span class="tldr-score">${tldr.score}/100 (${escapeHtml(tldr.grade)})</span>
+      <span class="tldr-arrow">→</span>
+      <span class="tldr-projection">Top ${tldr.quickestWins.length} fixes: ~${tldr.projectedScore}/100 (${escapeHtml(tldr.projectedGrade)})</span>
+    </div>
+    <div class="tldr-title">Quickest wins</div>
+    <ol class="tldr-wins">${wins}</ol>
+  </div>`;
+}
+
 export function renderHtml(result: AnalyzerResultType): string {
   const categoryEntries = Object.entries(result.categories);
   const categories = categoryEntries.map(([, c]) => c);
@@ -342,6 +413,7 @@ export function renderHtml(result: AnalyzerResultType): string {
     result.maxPoints,
     categoriesWithKeys,
   );
+  const tldrHtml = buildTldrCard(buildTldr(result));
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -609,6 +681,49 @@ ${baseStyles()}
   .audit-name { min-width: 140px; }
   .rec-row { flex-wrap: wrap; }
 }
+.tldr-card {
+  margin: 16px 0 24px;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fafafa;
+}
+.tldr-headline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 15px;
+  margin-bottom: 10px;
+}
+.tldr-score { font-weight: 600; }
+.tldr-arrow { color: var(--muted); }
+.tldr-projection { color: #006633; font-weight: 600; }
+.tldr-title {
+  font-weight: 600;
+  margin: 8px 0 6px;
+  color: var(--muted);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.tldr-wins {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.tldr-win {
+  display: grid;
+  grid-template-columns: 24px 72px 1fr auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 4px 0;
+  font-size: 14px;
+}
+.tldr-rank { color: var(--muted); text-align: right; }
+.tldr-gain { color: #006633; font-weight: 600; }
+.tldr-factor { font-weight: 500; }
+.tldr-category { color: var(--muted); font-size: 13px; }
 </style>
 </head>
 <body>
@@ -619,6 +734,8 @@ ${baseStyles()}
 </div>
 
 <div class="report">
+  ${tldrHtml}
+
   <div class="gauges-row">
     ${gauges}
   </div>

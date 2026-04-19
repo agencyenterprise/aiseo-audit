@@ -1,0 +1,144 @@
+name: AI SEO Audit
+description: Audit web pages for AI search readiness (ChatGPT, Claude, Perplexity, Gemini). 7 categories, 30+ factors, research-backed scoring.
+author: Agency Enterprise
+branding:
+  icon: search
+  color: blue
+
+inputs:
+  url:
+    description: URL to audit. Either `url` or `sitemap` is required.
+    required: false
+  sitemap:
+    description: Sitemap URL to audit every page. Either `url` or `sitemap` is required.
+    required: false
+  fail-under:
+    description: Exit with failure if the overall score is below this threshold (0-100).
+    required: false
+  config:
+    description: Path to an aiseo.config.json file.
+    required: false
+  user-agent:
+    description: Custom User-Agent string for the audit request.
+    required: false
+  timeout:
+    description: Request timeout in milliseconds. Defaults to 45000.
+    required: false
+  comment-on-pr:
+    description: Post the TL;DR summary as a sticky comment on the triggering pull request.
+    required: false
+    default: "false"
+  version:
+    description: Version of aiseo-audit to run (npm dist-tag or exact version). Defaults to latest.
+    required: false
+    default: latest
+
+outputs:
+  score:
+    description: Overall score (0-100).
+    value: ${{ steps.audit.outputs.score }}
+  grade:
+    description: Letter grade.
+    value: ${{ steps.audit.outputs.grade }}
+  report-path:
+    description: Path to the JSON report written by this step.
+    value: ${{ steps.audit.outputs.report-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Run aiseo-audit
+      id: audit
+      shell: bash
+      env:
+        INPUT_URL: ${{ inputs.url }}
+        INPUT_SITEMAP: ${{ inputs.sitemap }}
+        INPUT_FAIL_UNDER: ${{ inputs.fail-under }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_USER_AGENT: ${{ inputs.user-agent }}
+        INPUT_TIMEOUT: ${{ inputs.timeout }}
+        INPUT_VERSION: ${{ inputs.version }}
+      run: |
+        set -e
+
+        if [ -z "$INPUT_URL" ] && [ -z "$INPUT_SITEMAP" ]; then
+          echo "::error::Either 'url' or 'sitemap' input is required."
+          exit 2
+        fi
+
+        ARGS=()
+        if [ -n "$INPUT_URL" ]; then ARGS+=("$INPUT_URL"); fi
+        if [ -n "$INPUT_SITEMAP" ]; then ARGS+=("--sitemap" "$INPUT_SITEMAP"); fi
+        if [ -n "$INPUT_FAIL_UNDER" ]; then ARGS+=("--fail-under" "$INPUT_FAIL_UNDER"); fi
+        if [ -n "$INPUT_CONFIG" ]; then ARGS+=("--config" "$INPUT_CONFIG"); fi
+        if [ -n "$INPUT_USER_AGENT" ]; then ARGS+=("--user-agent" "$INPUT_USER_AGENT"); fi
+        if [ -n "$INPUT_TIMEOUT" ]; then ARGS+=("--timeout" "$INPUT_TIMEOUT"); fi
+
+        REPORT_PATH="aiseo-result.json"
+        ARGS+=("--json" "--out" "$REPORT_PATH")
+
+        npx --yes "aiseo-audit@${INPUT_VERSION}" "${ARGS[@]}"
+
+        SCORE=$(node -p "require('./${REPORT_PATH}').overallScore ?? require('./${REPORT_PATH}').averageScore ?? 0")
+        GRADE=$(node -p "require('./${REPORT_PATH}').grade ?? require('./${REPORT_PATH}').averageGrade ?? ''")
+
+        echo "score=$SCORE" >> "$GITHUB_OUTPUT"
+        echo "grade=$GRADE" >> "$GITHUB_OUTPUT"
+        echo "report-path=$REPORT_PATH" >> "$GITHUB_OUTPUT"
+
+    - name: Comment on PR
+      if: ${{ inputs.comment-on-pr == 'true' && github.event_name == 'pull_request' }}
+      uses: actions/github-script@v7
+      env:
+        REPORT_PATH: ${{ steps.audit.outputs.report-path }}
+      with:
+        script: |
+          const fs = require('fs');
+          const report = JSON.parse(fs.readFileSync(process.env.REPORT_PATH, 'utf-8'));
+          const marker = '<!-- aiseo-audit-sticky-comment -->';
+
+          const score = report.overallScore ?? report.averageScore ?? 0;
+          const grade = report.grade ?? report.averageGrade ?? '';
+          const tldr = report.tldr;
+          const wins = (tldr?.quickestWins ?? [])
+            .map((w, i) => `${i + 1}. **+${w.expectedGain} pts** — ${w.factor} (${w.category})`)
+            .join('\n');
+
+          const projection = tldr && tldr.projectedScore > tldr.score
+            ? ` → After top ${tldr.quickestWins.length} fixes: **~${tldr.projectedScore}/100 (${tldr.projectedGrade})**`
+            : '';
+
+          const body = [
+            marker,
+            `## AI SEO Audit — ${score}/100 (${grade})${projection}`,
+            '',
+            wins ? 'Quickest wins:' : '_No quick wins identified — the page is already solid._',
+            wins,
+            '',
+            `<sub>Posted by [aiseo-audit](https://github.com/agencyenterprise/aiseo-audit)</sub>`,
+          ].filter(Boolean).join('\n');
+
+          const { owner, repo } = context.repo;
+          const issue_number = context.payload.pull_request.number;
+
+          const existing = await github.paginate(
+            github.rest.issues.listComments,
+            { owner, repo, issue_number, per_page: 100 },
+          );
+          const prior = existing.find((c) => c.body && c.body.includes(marker));
+
+          if (prior) {
+            await github.rest.issues.updateComment({
+              owner,
+              repo,
+              comment_id: prior.id,
+              body,
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body,
+            });
+          }
