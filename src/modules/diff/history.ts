@@ -1,10 +1,10 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
+import { fileExists } from "../../utils/fs.js";
+import { slugifyUrl } from "../../utils/url.js";
 import type { AnalyzerResultType } from "../analyzer/schema.js";
 import { type AiseoConfigType, type DiffEntryType } from "../config/schema.js";
 import { updateConfig } from "../config/service.js";
-import { fileExists } from "../../utils/fs.js";
-import { slugifyUrl } from "../../utils/url.js";
 
 export const DEFAULT_HISTORY_DIR = "./audits";
 
@@ -13,7 +13,6 @@ export type RecordRunInputs = {
   configPath: string;
   existingDiff: AiseoConfigType["diff"];
   historyDir?: string;
-  explicitOutPath?: string;
 };
 
 export type RecordRunOutcome = {
@@ -25,12 +24,10 @@ export type RecordRunOutcome = {
 export async function recordAuditRun(
   inputs: RecordRunInputs,
 ): Promise<RecordRunOutcome> {
-  const { result, configPath, existingDiff, explicitOutPath } = inputs;
+  const { result, configPath, existingDiff } = inputs;
   const historyDir = inputs.historyDir ?? DEFAULT_HISTORY_DIR;
 
-  const resolvedOutPath = explicitOutPath
-    ? resolve(explicitOutPath)
-    : resolve(defaultOutputPath(historyDir, result));
+  const resolvedOutPath = resolve(defaultOutputPath(historyDir, result));
   const historyDirExisted = await fileExists(historyDir);
 
   await mkdir(dirname(resolvedOutPath), { recursive: true });

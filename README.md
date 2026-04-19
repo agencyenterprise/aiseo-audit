@@ -184,6 +184,18 @@ Output on the second run:
 
 The first `--diff` run prints a one-time notification so you know exactly what was created, and you can `.gitignore` `./audits/` or commit it to track AI SEO in version control.
 
+### Saving a formatted report alongside the baseline
+
+`--diff` always writes the JSON baseline to `historyDir` automatically. If you also want a human-friendly report (HTML, Markdown, pretty), pass `--out` with a file path and the rendered report will be written there:
+
+```bash
+# Creates two files: the auto-named JSON baseline in ./audits/,
+# and a rendered HTML report at ./audits/report.html.
+aiseo-audit https://example.com --diff --html --out ./audits/report.html
+```
+
+`--out` never replaces the baseline. It's purely for the rendered report. If `--out` points at an existing directory, the audit exits early with a clear error rather than silently writing an invalid file.
+
 ### Cross-URL timeline
 
 Drop the URL and pass `--diff --all` to see every tracked URL at a glance with a sparkline of its history:

@@ -1,15 +1,14 @@
 import type { AnalyzerResultType } from "../analyzer/schema.js";
 import type { AiseoConfigType } from "../config/schema.js";
 import { loadBaselineResult, recordAuditRun } from "./history.js";
-import { computeDiff } from "./service.js";
 import type { DiffResultType } from "./schema.js";
+import { computeDiff } from "./service.js";
 
 export type OrchestrateDiffInputs = {
   result: AnalyzerResultType;
   config: AiseoConfigType;
   configPath: string;
   historyDir?: string;
-  explicitOutPath?: string;
   baselinePath?: string;
 };
 
@@ -46,7 +45,6 @@ async function orchestrateAgainstTrackedHistory(
     configPath: inputs.configPath,
     existingDiff: inputs.config.diff,
     historyDir,
-    explicitOutPath: inputs.explicitOutPath,
   });
 
   if (!outcome.baselineEntry) {

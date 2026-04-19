@@ -132,18 +132,18 @@ describe("recordAuditRun", () => {
     expect(config.diff["https://example.com"][0]).toEqual(priorEntry);
   });
 
-  it("honors an explicit --out path when provided", async () => {
-    const explicitPath = join(testDir, "custom", "my-audit.json");
+  it("always writes the baseline to historyDir, independent of CLI --out", async () => {
+    const historyDir = join(testDir, "audits");
 
     const outcome = await recordAuditRun({
       result: makeResult(),
       configPath,
       existingDiff: undefined,
-      historyDir: join(testDir, "audits"),
-      explicitOutPath: explicitPath,
+      historyDir,
     });
 
-    expect(outcome.writtenPath).toBe(explicitPath);
+    expect(outcome.writtenPath.startsWith(historyDir)).toBe(true);
+    expect(outcome.writtenPath).toMatch(/\.json$/);
   });
 
   it("includes a first-time notification when the history dir did not exist", async () => {

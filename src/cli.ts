@@ -1,5 +1,5 @@
-import { resolve } from "node:path";
 import { Command } from "commander";
+import { resolve } from "node:path";
 import { z } from "zod";
 import { VERSION } from "./modules/analyzer/constants.js";
 import { analyzeUrl } from "./modules/analyzer/service.js";
@@ -13,7 +13,7 @@ import {
   renderSitemapReport,
 } from "./modules/report/service.js";
 import { analyzeSitemap } from "./modules/sitemap/service.js";
-import { writeOutputFile } from "./utils/fs.js";
+import { assertOutputPathIsNotDirectory, writeOutputFile } from "./utils/fs.js";
 import { isValidUrl } from "./utils/url.js";
 
 const CliOptionsSchema = z.object({
@@ -93,6 +93,10 @@ program
           "Error: Cannot use both a URL argument and --sitemap together",
         );
         process.exit(2);
+      }
+
+      if (opts.out) {
+        await assertOutputPathIsNotDirectory(opts.out);
       }
 
       const config = await loadConfig(opts.config);
@@ -189,7 +193,6 @@ program
           config,
           configPath,
           baselinePath: opts.baseline,
-          explicitOutPath: opts.out,
         });
 
         for (const note of outcome.notifications) {
@@ -206,11 +209,9 @@ program
         output = renderReport(result, { format, tldrOnly: opts.tldr });
       }
 
-      if (opts.out && !useDiff) {
+      if (opts.out) {
         await writeOutputFile(opts.out, output);
         console.error(`Results written to ${opts.out}`);
-      } else if (!useDiff) {
-        console.log(output);
       } else {
         console.log(output);
       }
