@@ -125,7 +125,7 @@ When releasing a `v2.0.0` with breaking changes to the Action's `inputs` or `out
 
 ## Publishing the MCP Server
 
-The package ships an MCP server via the `aiseo-audit-mcp` bin entry. It's distributed through npm and listed in the [official MCP Registry](https://registry.modelcontextprotocol.io) at `io.github.agencyenterprise/aiseo-audit`. The official registry is the canonical metadata source for the MCP ecosystem (backed by Anthropic, GitHub, PulseMCP, and Microsoft). Downstream aggregators like Smithery, mcp.so, and PulseMCP scrape it on an hourly cadence, so **one registry publish propagates to every marketplace automatically**.
+The package ships an MCP server via the `aiseo-audit-mcp` bin entry. It's distributed through npm and listed in the [official MCP Registry](https://registry.modelcontextprotocol.io) at `io.github.agencyenterprise/aiseo-audit`. The registry is the canonical metadata source for the MCP ecosystem (backed by Anthropic, GitHub, PulseMCP, and Microsoft). Downstream aggregators like Smithery, mcp.so, and PulseMCP scrape it on an hourly cadence, so one registry publish propagates to every marketplace automatically.
 
 ### How users install it
 
@@ -143,51 +143,56 @@ Once a version is on npm, users wire it into any MCP client with a single config
 }
 ```
 
-`npx -y` pulls the latest `aiseo-audit` package (which contains the `aiseo-audit-mcp` bin) on first run.
+`npx -y` pulls the latest `aiseo-audit` package (which contains the `aiseo-audit-mcp` bin) on first run. The MCP Registry is for discovery, not runtime resolution — users always get whatever's current on npm.
 
 ### Prerequisites (one-time setup)
 
 - `package.json` contains `"mcpName": "io.github.agencyenterprise/aiseo-audit"` (links the npm package to the registry entry).
 - `server.json` exists at the repo root and declares the server metadata. The MCP Registry validates that `server.json.name` matches `package.json.mcpName`.
-- `NPM_TOKEN` is stored as a repo secret for the publish workflow. No additional secret is required for the MCP Registry — authentication uses GitHub OIDC from the Actions runner.
+- `mcp-publisher` CLI installed locally: `brew install mcp-publisher` (or download a release binary from [github.com/modelcontextprotocol/registry/releases](https://github.com/modelcontextprotocol/registry/releases)).
 
-### Automated publishing (recommended)
+### When to publish
 
-`.github/workflows/publish-mcp.yml` runs on every `v*` tag push. It:
+**Most releases do NOT need an MCP Registry publish.** The registry stores metadata, not code, so version bumps alone don't require a re-publish. Only re-publish when one of these changes in `server.json`:
 
-1. Runs `npm run ci` (format + lint + tests + build).
-2. Publishes the package to npm.
-3. Syncs `server.json`'s `version` fields to the release tag via `jq`.
-4. Authenticates to the MCP Registry with GitHub OIDC (no secret required).
-5. Runs `mcp-publisher publish`.
+- Server description
+- Transport type (e.g., stdio → http)
+- Environment variables the server needs
+- Tool surface (new tool added, schema change)
+- Package identifier on npm (e.g., if we ever rename the package)
 
-So the full release flow becomes: `npm version minor` → `git push origin main --tags` → the workflow handles npm and the MCP Registry together. Create the GitHub Release afterwards as usual (the workflow does not draft releases).
+Patch and minor npm releases that don't touch `server.json` can ship to npm alone. Users running `npx -y aiseo-audit-mcp` get the latest code regardless of what the registry says.
 
-### Manual publish (dry run or recovery)
+### How to publish (when needed)
 
-Install the CLI once:
-
-```bash
-brew install mcp-publisher
-# or download a release binary: https://github.com/modelcontextprotocol/registry/releases
-```
-
-Publish from the repo root after a successful `npm publish`:
+Run from the repo root after the matching npm version is published:
 
 ```bash
-mcp-publisher login github        # opens a GitHub device-code flow in your browser
-mcp-publisher publish             # reads server.json and submits to the registry
+# First time only: authenticate (opens a GitHub device-code flow in your browser)
+mcp-publisher login github
+
+# Sync server.json version to the npm version we just published
+VERSION=$(node -p "require('./package.json').version")
+jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp.json
+mv server.tmp.json server.json
+
+# Publish metadata to the registry
+mcp-publisher publish
 ```
+
+Commit the updated `server.json` on the same branch/release so the repo and registry agree.
 
 ### Verify the listing
-
-After the workflow succeeds, confirm the server is live:
 
 ```bash
 curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.agencyenterprise/aiseo-audit"
 ```
 
-The response should include the latest version. Within an hour or two, the listing propagates to aggregators like [Smithery](https://smithery.ai) and [mcp.so](https://mcp.so) automatically.
+The response should include the version you just published. Within an hour or two, the listing propagates to aggregators like [Smithery](https://smithery.ai) and [mcp.so](https://mcp.so) automatically.
+
+### Version drift is expected
+
+Because we only re-publish when metadata changes, the version in the registry will often lag behind npm. That's by design — users install via `npx -y` and get the real latest from npm. If you ever want the registry to reflect npm exactly, run the publish snippet above on any release. Otherwise treat `server.json`'s version as "what the registry knows," not "what npm has."
 
 ### Testing the MCP server locally before release
 
@@ -203,4 +208,4 @@ Expected: two JSON-RPC response lines on stdout. The first confirms the protocol
 ### Registry notes
 
 - **The MCP Registry is in preview.** Breaking changes or data resets may occur before GA. Keep `server.json` committed so reruns are idempotent.
-- **Namespace ownership.** The `io.github.agencyenterprise/` prefix is tied to the GitHub organization. Only members with push access can publish under that name (via GitHub OIDC from this repo's workflows).
+- **Namespace ownership.** The `io.github.agencyenterprise/` prefix is tied to the GitHub organization. Only members of that organization can publish under that name via `mcp-publisher login github`.
