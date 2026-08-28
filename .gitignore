@@ -10,3 +10,4 @@ coverage/
 
 /audits/
 /aiseo.config.json
+.mcpregistry*
