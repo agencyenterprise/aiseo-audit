@@ -70,21 +70,36 @@ describe("thresholdScore", () => {
     expect(thresholdScore(0.2, brackets, "lower")).toBe(0);
   });
 
-  it("scores by range when type is range", () => {
+  it("scores by range when type is range (min inclusive, max exclusive)", () => {
     const brackets: Array<[number, number, number]> = [
-      [12, 22, 15],
-      [8, 29, 10],
+      [12, 23, 15],
+      [8, 30, 10],
       [1, Infinity, 5],
     ];
 
     expect(thresholdScore(15, brackets, "range")).toBe(15);
     expect(thresholdScore(12, brackets, "range")).toBe(15);
     expect(thresholdScore(22, brackets, "range")).toBe(15);
+    expect(thresholdScore(22.9, brackets, "range")).toBe(15);
+    expect(thresholdScore(23, brackets, "range")).toBe(10);
     expect(thresholdScore(8, brackets, "range")).toBe(10);
     expect(thresholdScore(29, brackets, "range")).toBe(10);
     expect(thresholdScore(1, brackets, "range")).toBe(5);
     expect(thresholdScore(100, brackets, "range")).toBe(5);
     expect(thresholdScore(0, brackets, "range")).toBe(0);
+  });
+
+  it("lands continuous values like 70.5 inside contiguous bands, never in a gap", () => {
+    const brackets: Array<[number, number, number]> = [
+      [60, 71, 15],
+      [71, Infinity, 13],
+      [50, 60, 10],
+      [30, 50, 6],
+    ];
+
+    expect(thresholdScore(70.5, brackets, "range")).toBe(15);
+    expect(thresholdScore(59.4, brackets, "range")).toBe(10);
+    expect(thresholdScore(49.7, brackets, "range")).toBe(6);
   });
 
   it("returns 0 when no range matches", () => {

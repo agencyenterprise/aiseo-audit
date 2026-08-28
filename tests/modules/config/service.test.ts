@@ -21,6 +21,16 @@ describe("loadConfig", () => {
     } catch {}
   });
 
+  async function loadDefaultsFromTempCwd() {
+    const originalCwd = process.cwd();
+    process.chdir(subDir);
+    try {
+      return await loadConfig();
+    } finally {
+      process.chdir(originalCwd);
+    }
+  }
+
   describe("invalid config file", () => {
     it("throws a descriptive error for invalid JSON", async () => {
       const configPath = join(testDir, "invalid.json");
@@ -118,7 +128,7 @@ describe("loadConfig", () => {
     });
 
     it("provides default weights", async () => {
-      const config = await loadConfig();
+      const config = await loadDefaultsFromTempCwd();
 
       expect(config.weights.contentExtractability).toBe(1);
       expect(config.weights.contentStructure).toBe(1);
@@ -183,7 +193,7 @@ describe("loadConfig", () => {
     });
 
     it("defaults to undefined", async () => {
-      const config = await loadConfig();
+      const config = await loadDefaultsFromTempCwd();
 
       expect(config.failUnder).toBeUndefined();
     });
@@ -225,11 +235,11 @@ describe("loadConfig", () => {
       expect(config.historyDir).toBe("./my-audits");
     });
 
-    it("defaults diff and historyDir to undefined", async () => {
-      const config = await loadConfig();
+    it("defaults diff to undefined and historyDir to ./audits", async () => {
+      const config = await loadDefaultsFromTempCwd();
 
       expect(config.diff).toBeUndefined();
-      expect(config.historyDir).toBeUndefined();
+      expect(config.historyDir).toBe("./audits");
     });
   });
 });

@@ -1,5 +1,5 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { VERSION } from "../modules/analyzer/constants.js";
+import { VERSION } from "../version.js";
 import { auditUrlConfig } from "./schema.js";
 import { handleAuditUrl, type AuditUrlDependencies } from "./tools.js";
 

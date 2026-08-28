@@ -1,0 +1,33 @@
+{
+  "name": "aiseo-audit-mcp",
+  "version": "1.0.0",
+  "mcpName": "io.github.agencyenterprise/aiseo-audit",
+  "description": "Launcher for the aiseo-audit MCP server. Lets `npx -y aiseo-audit-mcp` work directly; all functionality lives in the aiseo-audit package.",
+  "bin": {
+    "aiseo-audit-mcp": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agencyenterprise/aiseo-audit.git",
+    "directory": "packages/aiseo-audit-mcp"
+  },
+  "homepage": "https://github.com/agencyenterprise/aiseo-audit#readme",
+  "author": "Agency Enterprise",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "keywords": [
+    "aiseo-audit",
+    "mcp",
+    "model-context-protocol",
+    "ai-seo"
+  ],
+  "dependencies": {
+    "aiseo-audit": "^1.6.0"
+  }
+}

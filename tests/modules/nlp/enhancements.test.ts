@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { extractEntities } from "../../../src/modules/nlp/service.js";
 
-describe("extractEntities — enhanced extraction", () => {
+describe("extractEntities enhanced extraction", () => {
   describe("Phase 1a: Acronym entity extraction", () => {
     it("detects uppercase acronym entities that compromise misses", () => {
       const text =
@@ -15,16 +15,12 @@ describe("extractEntities — enhanced extraction", () => {
       ];
       const allUpper = allEntities.map((e) => e.toUpperCase());
 
-      // At least some acronyms should be captured (in orgs or via topics)
       const hasNASA = allEntities.includes("NASA") || allUpper.includes("NASA");
       const hasWHO = allEntities.includes("WHO") || allUpper.includes("WHO");
       expect(hasNASA || hasWHO).toBe(true);
     });
 
-    it("filters out common non-entity acronyms from supplemental extraction", () => {
-      // Technical acronyms in the stoplist should not be added by our
-      // supplemental extractor. Compromise may still detect some of them
-      // as organizations — that's fine and expected.
+    it("keeps stoplist acronyms like FAQ and ASAP out of the entity lists", () => {
       const text =
         "We use FAQ and DIY guides with ASAP turnaround and FYI notices.";
       const entities = extractEntities(text);
@@ -34,7 +30,6 @@ describe("extractEntities — enhanced extraction", () => {
         ...entities.places,
       ];
 
-      // These common abbreviations should not appear as entities
       expect(allEntities).not.toContain("FAQ");
       expect(allEntities).not.toContain("DIY");
       expect(allEntities).not.toContain("ASAP");
@@ -54,7 +49,6 @@ describe("extractEntities — enhanced extraction", () => {
       ];
       const combined = allEntities.join(" | ");
 
-      // Should find at least one multi-word entity
       const hasMultiWord = allEntities.some((e) => e.includes(" "));
       expect(hasMultiWord).toBe(true);
     });
@@ -66,7 +60,6 @@ describe("extractEntities — enhanced extraction", () => {
         "Acme Corp announced results. Acme Corp is growing. Baker Industries expanded. Baker Industries hired staff.";
       const entities = extractEntities(text);
 
-      // Entities with "Corp" or "Industries" should end up in organizations
       const orgNames = entities.organizations.join(" | ").toLowerCase();
       const hasCorporate =
         orgNames.includes("acme") || orgNames.includes("baker");
@@ -100,7 +93,6 @@ describe("extractEntities — enhanced extraction", () => {
 
       expect(entities.topics.length).toBeGreaterThan(0);
 
-      // "machine learning" should be a top topic (appears many times)
       const topicsLower = entities.topics.map((t) => t.toLowerCase());
       const hasMLTopic = topicsLower.some(
         (t) => t.includes("machine") || t.includes("learning"),
@@ -112,7 +104,6 @@ describe("extractEntities — enhanced extraction", () => {
       const text = "Hello world.";
       const entities = extractEntities(text);
 
-      // Short text with no repeated terms should have few/no topics
       expect(entities.topics.length).toBeLessThanOrEqual(2);
     });
 
@@ -123,8 +114,7 @@ describe("extractEntities — enhanced extraction", () => {
       expect(entities.topics).toEqual([]);
     });
 
-    it("returns all topics without an arbitrary cap", () => {
-      // Long text with many repeated terms
+    it("caps topics at 15 so long pages cannot flood entity scoring", () => {
       const terms = [
         "algorithm",
         "database",
@@ -153,7 +143,7 @@ describe("extractEntities — enhanced extraction", () => {
         .join(" ");
       const entities = extractEntities(text);
 
-      expect(entities.topics.length).toBeGreaterThan(15);
+      expect(entities.topics.length).toBe(15);
     });
 
     it("prefers bigrams over unigrams when both are frequent", () => {
@@ -165,7 +155,6 @@ describe("extractEntities — enhanced extraction", () => {
       const entities = extractEntities(text);
       const topicsLower = entities.topics.map((t) => t.toLowerCase());
 
-      // "search engine" bigram should appear
       const hasBigram = topicsLower.some((t) => t.includes(" "));
       expect(hasBigram).toBe(true);
     });
@@ -173,7 +162,6 @@ describe("extractEntities — enhanced extraction", () => {
 
   describe("Phase 3: Smart deduplication", () => {
     it("deduplicates case-insensitively", () => {
-      // This tests that the merge logic handles case variants
       const text =
         "Google announced results. GOOGLE expanded. Google is growing. Google hired.";
       const entities = extractEntities(text);
@@ -183,7 +171,6 @@ describe("extractEntities — enhanced extraction", () => {
         ...entities.places,
       ];
 
-      // Should not have both "Google" and "GOOGLE"
       const googleVariants = allEntities.filter(
         (e) => e.toLowerCase() === "google",
       );
@@ -200,16 +187,13 @@ describe("extractEntities — enhanced extraction", () => {
         ...entities.places,
       ];
 
-      // If both "New York" and "New York City" were found, only the longer should remain
       const nyEntities = allEntities.filter((e) =>
         e.toLowerCase().startsWith("new york"),
       );
       if (nyEntities.length > 0) {
-        // The longest form should be present
         const hasLong = nyEntities.some((e) => e.includes("City"));
         const hasShortOnly =
           nyEntities.length === 1 && !nyEntities[0].includes("City");
-        // Either we have the long form, or just the short form (but not both)
         expect(hasLong || hasShortOnly).toBe(true);
       }
     });
@@ -252,19 +236,18 @@ describe("extractEntities — enhanced extraction", () => {
 
   describe("supplemental classification branches", () => {
     it("classifies a title-case entity as a person when preceded by an honorific", () => {
-      // Use obscure names that compromise won't detect, with honorific prefix
-      const text =
+      const nameCompromiseCannotRecognize =
         "Dr. Xenthor Valkyr presented results. Dr. Xenthor Valkyr also published a paper. The findings of Dr. Xenthor Valkyr were notable.";
+      const text = nameCompromiseCannotRecognize;
       const entities = extractEntities(text);
       const peopleLower = entities.people.map((p) => p.toLowerCase());
       expect(peopleLower.some((p) => p.includes("xenthor"))).toBe(true);
     });
 
     it("classifies a title-case entity as an organization when it has a corporate suffix", () => {
-      // Use a made-up name with org suffix, placed mid-sentence so the
-      // title-case extractor doesn't filter it as a sentence-start artifact.
-      const text =
+      const madeUpOrgNameUsedMidSentence =
         "The team at Zyblor Technologies announced a new product. Reports from Zyblor Technologies show growth. Analysts praised Zyblor Technologies for innovation.";
+      const text = madeUpOrgNameUsedMidSentence;
       const entities = extractEntities(text);
       const orgsLower = entities.organizations.map((o) => o.toLowerCase());
       expect(orgsLower.some((o) => o.includes("zyblor"))).toBe(true);

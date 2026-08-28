@@ -7,3 +7,6 @@ coverage/
 .env
 .env.*
 !.env.example
+
+/audits/
+/aiseo.config.json

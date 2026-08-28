@@ -5,9 +5,9 @@ import {
   computeFleschReadingEase,
   countComplexWords,
   countPatternMatches,
-  countTransitionWords,
   extractEntities,
 } from "../../../src/modules/nlp/service.js";
+import { countTransitionWords } from "../../../src/modules/readability/transition-words.js";
 
 describe("extractEntities", () => {
   it("extracts people from text", () => {
@@ -154,6 +154,14 @@ describe("countTransitionWords", () => {
   it("returns 0 when no matches", () => {
     const text = "Hello world.";
     const words = ["however", "therefore"];
+    const count = countTransitionWords(text, words);
+
+    expect(count).toBe(0);
+  });
+
+  it("does not match a transition word inside a longer word", () => {
+    const text = "The dissimilarly priced plans cover in additional costs.";
+    const words = ["similarly", "in addition"];
     const count = countTransitionWords(text, words);
 
     expect(count).toBe(0);

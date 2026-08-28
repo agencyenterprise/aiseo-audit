@@ -1,8 +1,14 @@
+import { escapeRegExp } from "../../../utils/strings.js";
 import {
   ACRONYM_STOPLIST,
-  ORG_SUFFIXES,
-  PERSON_HONORIFICS,
+  ORG_NAME_ENDS_WITH_COMPANY_SUFFIX,
+  HONORIFIC_BEFORE_NAME,
 } from "../constants.js";
+
+const ROMAN_NUMERAL = /^[IVXLCDM]+$/;
+
+const TITLE_CASE_COMPOUND =
+  /\b([A-Z][a-z]+(?:\s+(?:of|the|and|for|de|van|von|al|el|la|le|del|der|den|das|di|du))?\s+(?:[A-Z][a-z]+)(?:\s+[A-Z][a-z]+){0,3})\b/g;
 
 export function extractAcronymEntities(text: string): string[] {
   const matches = text.match(/\b[A-Z]{2,6}\b/g);
@@ -10,59 +16,78 @@ export function extractAcronymEntities(text: string): string[] {
 
   const seen = new Set<string>();
   const results: string[] = [];
-  for (const m of matches) {
-    if (!ACRONYM_STOPLIST.has(m) && !seen.has(m)) {
-      seen.add(m);
-      results.push(m);
+  for (const acronym of matches) {
+    if (
+      !ACRONYM_STOPLIST.has(acronym) &&
+      !ROMAN_NUMERAL.test(acronym) &&
+      !seen.has(acronym)
+    ) {
+      seen.add(acronym);
+      results.push(acronym);
     }
   }
   return results;
 }
 
 export function extractTitleCaseEntities(text: string): string[] {
-  const pattern =
-    /\b([A-Z][a-z]+(?:\s+(?:of|the|and|for|de|van|von|al|el|la|le|del|der|den|das|di|du))?\s+(?:[A-Z][a-z]+)(?:\s+[A-Z][a-z]+){0,3})\b/g;
-
-  const sentences = text.split(/[.!?]\s+/);
-  const sentenceStarts = new Set<string>();
-  for (const s of sentences) {
-    const trimmed = s.trim();
-    const firstWord = trimmed.split(/\s+/)[0];
-    if (firstWord) sentenceStarts.add(firstWord);
-  }
-
+  const sentenceStartWords = collectSentenceStartWords(text);
   const seen = new Set<string>();
   const results: string[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(text)) !== null) {
-    const entity = match[1];
-    const firstWord = entity.split(/\s+/)[0];
-    if (
-      sentenceStarts.has(firstWord) &&
-      !text.includes(`. ${entity}`) &&
-      !text.includes(`, ${entity}`)
-    ) {
-      const escapedEntity = entity.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const appearances = text.match(new RegExp(escapedEntity, "g"));
-      if (!appearances || appearances.length < 2) continue;
-    }
 
-    if (!seen.has(entity) && entity.split(/\s+/).length >= 2) {
-      seen.add(entity);
-      results.push(entity);
+  let match: RegExpExecArray | null;
+  while ((match = TITLE_CASE_COMPOUND.exec(text)) !== null) {
+    const candidate = match[1];
+    if (isLikelyCapitalizedProse(candidate, text, sentenceStartWords)) {
+      continue;
+    }
+    if (!seen.has(candidate) && isMultiWord(candidate)) {
+      seen.add(candidate);
+      results.push(candidate);
     }
   }
   return results;
 }
 
+function collectSentenceStartWords(text: string): Set<string> {
+  const sentenceStartWords = new Set<string>();
+  for (const sentence of text.split(/[.!?]\s+/)) {
+    const firstWord = sentence.trim().split(/\s+/)[0];
+    if (firstWord) sentenceStartWords.add(firstWord);
+  }
+  return sentenceStartWords;
+}
+
+function isLikelyCapitalizedProse(
+  candidate: string,
+  text: string,
+  sentenceStartWords: Set<string>,
+): boolean {
+  const firstWord = candidate.split(/\s+/)[0];
+  const onlySeenAtSentenceStarts =
+    sentenceStartWords.has(firstWord) && !appearsMidSentence(text, candidate);
+  return onlySeenAtSentenceStarts && !appearsAtLeastTwice(text, candidate);
+}
+
+function appearsMidSentence(text: string, candidate: string): boolean {
+  return text.includes(`. ${candidate}`) || text.includes(`, ${candidate}`);
+}
+
+function appearsAtLeastTwice(text: string, candidate: string): boolean {
+  const appearances = text.match(new RegExp(escapeRegExp(candidate), "g"));
+  return appearances !== null && appearances.length >= 2;
+}
+
+function isMultiWord(candidate: string): boolean {
+  return candidate.split(/\s+/).length >= 2;
+}
+
 export function isOrganizationByPattern(entity: string): boolean {
-  return ORG_SUFFIXES.test(entity);
+  return ORG_NAME_ENDS_WITH_COMPANY_SUFFIX.test(entity);
 }
 
 export function isPersonByHonorific(text: string, entity: string): boolean {
-  const escapedEntity = entity.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const pattern = new RegExp(
-    `(?:${PERSON_HONORIFICS.source})\\s*${escapedEntity}`,
+    `(?:${HONORIFIC_BEFORE_NAME.source})\\s*${escapeRegExp(entity)}`,
     "i",
   );
   return pattern.test(text);
@@ -71,35 +96,36 @@ export function isPersonByHonorific(text: string, entity: string): boolean {
 export function smartDedup(entities: string[]): string[] {
   if (entities.length === 0) return [];
 
-  const sorted = [...entities].sort((a, b) => b.length - a.length);
+  const longestFirst = [...entities].sort((a, b) => b.length - a.length);
   const result: string[] = [];
-  const lowerSeen = new Set<string>();
+  const acceptedLower = new Set<string>();
 
-  for (const entity of sorted) {
+  for (const entity of longestFirst) {
     const lower = entity.toLowerCase();
-
-    if (lowerSeen.has(lower)) continue;
-
-    let isSubstring = false;
-    for (const accepted of lowerSeen) {
-      if (accepted.includes(lower)) {
-        isSubstring = true;
-        break;
-      }
-    }
-    if (isSubstring) continue;
+    if (acceptedLower.has(lower)) continue;
+    if (isWholeWordSubphraseOfAny(lower, acceptedLower)) continue;
 
     result.push(entity);
-    lowerSeen.add(lower);
+    acceptedLower.add(lower);
   }
 
   return result;
+}
+
+function isWholeWordSubphraseOfAny(
+  candidateLower: string,
+  acceptedLower: Set<string>,
+): boolean {
+  const asWholeWords = new RegExp(`\\b${escapeRegExp(candidateLower)}\\b`);
+  for (const accepted of acceptedLower) {
+    if (asWholeWords.test(accepted)) return true;
+  }
+  return false;
 }
 
 export function mergeEntityLists(
   compromiseList: string[],
   supplementalList: string[],
 ): string[] {
-  const combined = [...compromiseList, ...supplementalList];
-  return smartDedup(combined);
+  return smartDedup([...compromiseList, ...supplementalList]);
 }

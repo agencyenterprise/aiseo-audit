@@ -111,7 +111,7 @@ describe("recordAuditRun", () => {
     expect(outcome.baselineEntry).toEqual(priorEntry);
   });
 
-  it("never overwrites existing entries — appends monotonically", async () => {
+  it("never overwrites existing entries, appends monotonically", async () => {
     const priorEntry: DiffEntryType = {
       path: join(testDir, "audits", "prior.json"),
       timestamp: "2026-04-15T00:00:00Z",

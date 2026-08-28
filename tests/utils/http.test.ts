@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FetchError, httpGet, httpHead } from "../../src/utils/http.js";
+import { FetchError, httpGet, httpProbe } from "../../src/utils/http.js";
 
 const BASE_OPTS = {
   url: "https://example.com",
@@ -151,9 +151,23 @@ describe("httpGet error classification", () => {
     expect(result.data).toBe("<html></html>");
     expect(result.finalUrl).toBe(BASE_OPTS.url);
   });
+
+  it("lets fetch negotiate content encoding instead of forcing one", async () => {
+    const mockResponse = new Response("ok", { status: 200 });
+    Object.defineProperty(mockResponse, "url", { value: BASE_OPTS.url });
+    fetchSpy.mockResolvedValue(mockResponse);
+
+    await httpGet(BASE_OPTS);
+
+    const requestInit = fetchSpy.mock.calls[0][1] as RequestInit;
+    const headerNames = Object.keys(
+      requestInit.headers as Record<string, string>,
+    ).map((h) => h.toLowerCase());
+    expect(headerNames).not.toContain("accept-encoding");
+  });
 });
 
-describe("httpHead error classification", () => {
+describe("httpGet size cap", () => {
   let fetchSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
@@ -164,40 +178,74 @@ describe("httpHead error classification", () => {
     fetchSpy.mockRestore();
   });
 
-  it("classifies AbortError as TIMEOUT", async () => {
-    fetchSpy.mockRejectedValue(new DOMException("aborted", "AbortError"));
-
-    try {
-      await httpHead(BASE_OPTS);
-      expect.unreachable("should have thrown");
-    } catch (err) {
-      expect(err).toBeInstanceOf(FetchError);
-      expect((err as FetchError).code).toBe("TIMEOUT");
-    }
-  });
-
-  it("classifies DNS failure as DNS_FAILURE", async () => {
-    const dnsErr = new TypeError("fetch failed");
-    (dnsErr as any).cause = new Error("getaddrinfo ENOTFOUND example.com");
-    fetchSpy.mockRejectedValue(dnsErr);
-
-    try {
-      await httpHead(BASE_OPTS);
-      expect.unreachable("should have thrown");
-    } catch (err) {
-      expect(err).toBeInstanceOf(FetchError);
-      expect((err as FetchError).code).toBe("DNS_FAILURE");
-    }
-  });
-
-  it("returns successfully on valid response", async () => {
-    const headers = new Headers({ "content-type": "text/html" });
-    const mockResponse = new Response(null, { status: 200, headers });
+  it("throws TOO_LARGE for a chunked body without a content-length, cancelling the stream near the cap", async () => {
+    const chunk = new Uint8Array(1024 * 1024).fill(97);
+    let pushed = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (pushed >= 15) {
+          controller.close();
+          return;
+        }
+        pushed++;
+        controller.enqueue(chunk);
+      },
+    });
+    const mockResponse = new Response(body, { status: 200 });
     Object.defineProperty(mockResponse, "url", { value: BASE_OPTS.url });
     fetchSpy.mockResolvedValue(mockResponse);
 
-    const result = await httpHead(BASE_OPTS);
+    await expect(httpGet(BASE_OPTS)).rejects.toMatchObject({
+      code: "TOO_LARGE",
+    });
+    const chunksJustPastTheTenMegabyteCap = 12;
+    expect(pushed).toBeLessThanOrEqual(chunksJustPastTheTenMegabyteCap);
+  });
+});
+
+describe("httpProbe", () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    fetchSpy = vi.spyOn(globalThis, "fetch");
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it("sends a Range header for the first bytes", async () => {
+    const mockResponse = new Response("# llms.txt", { status: 206 });
+    Object.defineProperty(mockResponse, "url", { value: BASE_OPTS.url });
+    fetchSpy.mockResolvedValue(mockResponse);
+
+    const result = await httpProbe(BASE_OPTS);
+
+    expect(result.status).toBe(206);
+    expect(result.data).toBe("# llms.txt");
+    const requestInit = fetchSpy.mock.calls[0][1] as RequestInit;
+    expect((requestInit.headers as Record<string, string>).Range).toMatch(
+      /^bytes=0-\d+$/,
+    );
+  });
+
+  it("truncates instead of buffering when the server ignores Range", async () => {
+    const bigBody = "x".repeat(100_000);
+    const mockResponse = new Response(bigBody, { status: 200 });
+    Object.defineProperty(mockResponse, "url", { value: BASE_OPTS.url });
+    fetchSpy.mockResolvedValue(mockResponse);
+
+    const result = await httpProbe(BASE_OPTS);
+
     expect(result.status).toBe(200);
-    expect(result.data).toBe("");
+    expect(result.data.length).toBeLessThanOrEqual(512);
+  });
+
+  it("classifies errors the same way as httpGet", async () => {
+    fetchSpy.mockRejectedValue(new DOMException("aborted", "AbortError"));
+
+    await expect(httpProbe(BASE_OPTS)).rejects.toMatchObject({
+      code: "TIMEOUT",
+    });
   });
 });

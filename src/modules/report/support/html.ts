@@ -1,395 +1,36 @@
 import type { AnalyzerResultType } from "../../analyzer/schema.js";
-import type {
-  SitemapResultType,
-  SitemapUrlResultType,
+import {
+  isSuccessResult,
+  type SitemapResultType,
+  type SitemapUrlResultType,
 } from "../../sitemap/schema.js";
 import { buildTldr, type TldrType } from "./tldr.js";
+import {
+  escapeHtml,
+  generatedByLine,
+  groupRecommendationsByCategory,
+  hasHttpUrls,
+  HTTP_AUDIT_NOTE,
+  percent,
+  priorityLabel,
+  scoreBand,
+  SITEMAP_HTTP_AUDIT_NOTE,
+  type ScoreBandType,
+} from "./view-model.js";
 
-function scoreColorHex(pct: number): string {
-  if (pct >= 90) return "#00cc66";
-  if (pct >= 50) return "#ffaa33";
-  return "#ff3333";
-}
+export const DIFF_SLOT_MARKER = "<!-- diff-slot -->";
 
-function scoreTextColorHex(pct: number): string {
-  if (pct >= 90) return "#008800";
-  if (pct >= 50) return "#ffaa33";
-  return "#cc0000";
-}
+const BAND_COLOR_HEX: Record<ScoreBandType, string> = {
+  pass: "#00cc66",
+  average: "#ffaa33",
+  fail: "#ff3333",
+};
 
-function scoreClass(pct: number): string {
-  if (pct >= 90) return "pass";
-  if (pct >= 50) return "average";
-  return "fail";
-}
-
-function statusIcon(status: string): string {
-  if (status === "good") return "&#10003;";
-  if (status === "neutral") return "&#8212;";
-  if (status === "needs_improvement") return "&#9650;";
-  return "&#10007;";
-}
-
-function statusClass(status: string): string {
-  if (status === "good") return "good";
-  if (status === "neutral") return "neutral";
-  if (status === "needs_improvement") return "warn";
-  return "fail";
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function baseStyles(): string {
-  return `:root {
-  --pass: #00cc66;
-  --pass-text: #008800;
-  --average: #ffaa33;
-  --average-text: #ffaa33;
-  --fail: #ff3333;
-  --fail-text: #cc0000;
-  --bg: #fff;
-  --surface: #fff;
-  --text: #212121;
-  --text-secondary: #757575;
-  --border: #e0e0e0;
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
-}
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
-.topbar { display: flex; align-items: center; height: 40px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 13px; }
-.topbar-title { font-weight: 600; margin-right: 12px; white-space: nowrap; }
-.topbar-url { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.report { max-width: 960px; margin: 0 auto; padding: 0 32px; }
-.footer { padding: 16px 0; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-secondary); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
-.pass { color: var(--pass-text); }
-.average { color: var(--average-text); }
-.fail { color: var(--fail-text); }`;
-}
-
-function buildGaugeSvg(score: number): string {
-  const pct = Math.max(0, Math.min(100, score));
-  const arcColor = scoreColorHex(pct);
-  const textColor = scoreTextColorHex(pct);
-  const radius = 56;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference * (1 - pct / 100);
-  const dim = 64;
-  const fontSize = 22;
-  const strokeWidth = 7;
-
-  return `<svg class="gauge" viewBox="0 0 120 120" width="${dim}" height="${dim}">
-      <circle cx="60" cy="60" r="${radius}" fill="none" stroke="#e0e0e0" stroke-width="${strokeWidth}"/>
-      <circle cx="60" cy="60" r="${radius}" fill="none" stroke="${arcColor}" stroke-width="${strokeWidth}"
-        stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"
-        stroke-linecap="round" transform="rotate(-90 60 60)"/>
-      <text x="60" y="${60 + fontSize * 0.35}" text-anchor="middle" font-size="${fontSize}" font-weight="700" fill="${textColor}">${score}</text>
-    </svg>`;
-}
-
-function buildMultiSegmentGauge(
-  overallScore: number,
-  grade: string,
-  totalPoints: number,
-  maxPoints: number,
-  categories: Array<{
-    key: string;
-    name: string;
-    score: number;
-    maxScore: number;
-  }>,
-): string {
-  const radius = 80;
-  const strokeWidth = 14;
-  const pad = 8;
-  const size = (radius + strokeWidth / 2 + pad) * 2;
-  const cx = size / 2;
-  const cy = size / 2;
-  const circ = 2 * Math.PI * radius;
-  const textColor = scoreTextColorHex(overallScore);
-
-  const trackCircle = `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#e8e8e8" stroke-width="${strokeWidth}"/>`;
-
-  const arcs: string[] = [];
-  let consumed = 0;
-  let segIdx = 0;
-
-  for (const cat of categories) {
-    const catDeg = maxPoints > 0 ? (cat.score / maxPoints) * 360 : 0;
-    if (catDeg < 0.1) {
-      consumed += catDeg;
-      continue;
-    }
-
-    const catPct =
-      cat.maxScore > 0 ? Math.round((cat.score / cat.maxScore) * 100) : 0;
-    const color = scoreColorHex(catPct);
-    const arcLen = (catDeg / 360) * circ;
-    const offset = circ * 0.25 - (consumed / 360) * circ;
-    const catName = escapeHtml(cat.name);
-    const idx = segIdx;
-
-    arcs.push(
-      `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none"
-        stroke="${color}" stroke-width="${strokeWidth}"
-        stroke-dasharray="${arcLen.toFixed(2)} ${(circ - arcLen).toFixed(2)}"
-        stroke-dashoffset="${offset.toFixed(2)}"
-        class="seg-arc" data-idx="${idx}"
-        onmouseenter="document.getElementById('seg-pop-${idx}').style.display='flex'"
-        onmouseleave="document.getElementById('seg-pop-${idx}').style.display='none'"/>`,
-    );
-
-    consumed += catDeg;
-
-    const divRad = (consumed / 360) * 2 * Math.PI - Math.PI / 2;
-    const half = strokeWidth / 2 + 1;
-    const dx = Math.cos(divRad);
-    const dy = Math.sin(divRad);
-    arcs.push(
-      `<line x1="${(cx + (radius - half) * dx).toFixed(2)}" y1="${(cy + (radius - half) * dy).toFixed(2)}"
-        x2="${(cx + (radius + half) * dx).toFixed(2)}" y2="${(cy + (radius + half) * dy).toFixed(2)}"
-        stroke="#fff" stroke-width="2" pointer-events="none"/>`,
-    );
-
-    segIdx++;
-  }
-
-  const popovers = categories
-    .filter((cat) => cat.score > 0)
-    .map((cat, i) => {
-      const catPct =
-        cat.maxScore > 0 ? Math.round((cat.score / cat.maxScore) * 100) : 0;
-      const color = scoreColorHex(catPct);
-      return `<div id="seg-pop-${i}" class="seg-popover">
-        <span class="seg-popover-dot" style="background:${color}"></span>
-        <span class="seg-popover-name">${escapeHtml(cat.name)}</span>
-        <span class="seg-popover-score">${catPct}%</span>
-        <span class="seg-popover-pts">${cat.score}/${cat.maxScore} pts</span>
-      </div>`;
-    })
-    .join("");
-
-  return `<div class="overall-gauge-wrap">
-    <svg class="gauge" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
-      ${trackCircle}
-      ${arcs.join("\n      ")}
-      <text x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="40" font-weight="700" fill="${textColor}">${overallScore}</text>
-      <text x="${cx}" y="${cy + 14}" text-anchor="middle" font-size="14" font-weight="600" fill="${textColor}">${escapeHtml(grade)}</text>
-      <text x="${cx}" y="${cy + 30}" text-anchor="middle" font-size="11" fill="#999">${totalPoints}/${maxPoints} pts</text>
-    </svg>
-    <div class="seg-popovers">${popovers}</div>
-    <div class="score-scale">
-      <span class="scale-fail">0-49</span>
-      <span class="scale-average">50-89</span>
-      <span class="scale-pass">90-100</span>
-    </div>
-  </div>`;
-}
-
-function buildCategoryGauge(category: {
-  name: string;
-  score: number;
-  maxScore: number;
-}): string {
-  const pct =
-    category.maxScore > 0
-      ? Math.round((category.score / category.maxScore) * 100)
-      : 0;
-
-  return `<a class="gauge-item" href="#cat-${escapeHtml(category.name.replace(/\s+/g, "-").toLowerCase())}">
-      ${buildGaugeSvg(pct)}
-      <span class="gauge-label">${escapeHtml(category.name)}</span>
-    </a>`;
-}
-
-function buildCategorySection(category: {
-  name: string;
-  score: number;
-  maxScore: number;
-  factors: Array<{
-    name: string;
-    score: number;
-    maxScore: number;
-    value: string;
-    status: string;
-  }>;
-}): string {
-  const pct =
-    category.maxScore > 0
-      ? Math.round((category.score / category.maxScore) * 100)
-      : 0;
-  const cls = scoreClass(pct);
-  const id = category.name.replace(/\s+/g, "-").toLowerCase();
-
-  const factorRows = category.factors
-    .map(
-      (f) => `
-          <div class="audit-row">
-            <span class="audit-icon ${statusClass(f.status)}">${statusIcon(f.status)}</span>
-            <span class="audit-name">${escapeHtml(f.name)}</span>
-            <span class="audit-detail">${escapeHtml(f.value)}</span>
-            <span class="audit-score">${f.score}/${f.maxScore}</span>
-          </div>`,
-    )
-    .join("");
-
-  return `
-    <div class="category" id="cat-${id}">
-      <div class="category-header">
-        <div class="category-title ${cls}">${escapeHtml(category.name)}</div>
-        <div class="category-score ${cls}">${pct}%</div>
-      </div>
-      <div class="audits">${factorRows}</div>
-    </div>`;
-}
-
-function buildRecommendationRow(rec: {
-  priority: string;
-  factor: string;
-  recommendation: string;
-  steps?: string[];
-  codeExample?: string;
-  learnMoreUrl?: string;
-}): string {
-  const cls =
-    rec.priority === "high"
-      ? "priority-high"
-      : rec.priority === "medium"
-        ? "priority-med"
-        : "priority-low";
-  const label =
-    rec.priority === "high"
-      ? "HIGH"
-      : rec.priority === "medium"
-        ? "MED"
-        : "LOW";
-
-  let detailHtml = "";
-  if (rec.steps || rec.codeExample || rec.learnMoreUrl) {
-    let inner = "";
-    if (rec.steps && rec.steps.length > 0) {
-      const items = rec.steps.map((s) => `<li>${escapeHtml(s)}</li>`).join("");
-      inner += `<ol class="rec-steps">${items}</ol>`;
-    }
-    if (rec.codeExample) {
-      inner += `<pre class="rec-code"><code>${escapeHtml(rec.codeExample)}</code></pre>`;
-    }
-    if (rec.learnMoreUrl) {
-      inner += `<a class="rec-learn-more" href="${escapeHtml(rec.learnMoreUrl)}" target="_blank" rel="noopener">Learn more &rarr;</a>`;
-    }
-    detailHtml = `<div class="rec-detail">${inner}</div>`;
-  }
-
-  return `
-      <div class="rec-row ${cls}">
-        <span class="rec-tag">${label}</span>
-        <span class="rec-factor">${escapeHtml(rec.factor)}</span>
-        <span class="rec-text">${escapeHtml(rec.recommendation)}</span>
-      </div>${detailHtml}`;
-}
-
-function buildRecommendationsByCategory(
-  recommendations: AnalyzerResultType["recommendations"],
-  categories: AnalyzerResultType["categories"],
-): string {
-  const categoryNames = Object.values(categories).map((c) => c.name);
-  const grouped = new Map<string, typeof recommendations>();
-
-  for (const name of categoryNames) {
-    const recs = recommendations.filter((r) => r.category === name);
-    if (recs.length > 0) grouped.set(name, recs);
-  }
-
-  if (grouped.size === 0) return "";
-
-  let html = `<div class="recs-section">
-    <div class="recs-title">Recommendations</div>`;
-
-  for (const [categoryName, recs] of grouped) {
-    html += `<div class="rec-group">
-      <div class="rec-group-name">${escapeHtml(categoryName)}</div>`;
-    html += recs.map(buildRecommendationRow).join("");
-    html += `</div>`;
-  }
-
-  html += `</div>`;
-  return html;
-}
-
-export function renderHtmlTldr(result: AnalyzerResultType): string {
-  const tldr = buildTldr(result);
-  const card = buildTldrCard(tldr);
-  const fallback =
-    tldr.quickestWins.length === 0
-      ? `<div class="tldr-card"><div class="tldr-headline"><span class="tldr-score">${tldr.score}/100 (${escapeHtml(tldr.grade)})</span><span class="tldr-projection">No quick wins identified.</span></div></div>`
-      : card;
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AI SEO Audit — ${escapeHtml(result.url)}</title>
-<style>
-${baseStyles()}
-.tldr-card {
-  margin: 16px auto;
-  padding: 20px 24px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: #fafafa;
-  max-width: 720px;
-}
-.tldr-headline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 16px; margin-bottom: 12px; }
-.tldr-score { font-weight: 600; }
-.tldr-arrow { color: var(--muted); }
-.tldr-projection { color: #006633; font-weight: 600; }
-.tldr-title { font-weight: 600; margin: 8px 0 6px; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
-.tldr-wins { list-style: none; padding: 0; margin: 0; }
-.tldr-win { display: grid; grid-template-columns: 24px 72px 1fr auto; gap: 10px; align-items: baseline; padding: 4px 0; font-size: 14px; }
-.tldr-rank { color: var(--muted); text-align: right; }
-.tldr-gain { color: #006633; font-weight: 600; }
-.tldr-factor { font-weight: 500; }
-.tldr-category { color: var(--muted); font-size: 13px; }
-</style>
-</head>
-<body>
-<div class="topbar">
-  <span class="topbar-title">AI SEO Audit</span>
-  <span class="topbar-url">${escapeHtml(result.url)}</span>
-</div>
-<div class="report">
-  ${fallback}
-</div>
-</body>
-</html>`;
-}
-
-function buildTldrCard(tldr: TldrType): string {
-  if (tldr.quickestWins.length === 0) return "";
-
-  const wins = tldr.quickestWins
-    .map(
-      (win, i) =>
-        `<li class="tldr-win"><span class="tldr-rank">${i + 1}</span><span class="tldr-gain">+${win.expectedGain} pts</span><span class="tldr-factor">${escapeHtml(win.factor)}</span><span class="tldr-category">${escapeHtml(win.category)}</span></li>`,
-    )
-    .join("");
-
-  return `<div class="tldr-card">
-    <div class="tldr-headline">
-      <span class="tldr-score">${tldr.score}/100 (${escapeHtml(tldr.grade)})</span>
-      <span class="tldr-arrow">→</span>
-      <span class="tldr-projection">Top ${tldr.quickestWins.length} fixes: ~${tldr.projectedScore}/100 (${escapeHtml(tldr.projectedGrade)})</span>
-    </div>
-    <div class="tldr-title">Quickest wins</div>
-    <ol class="tldr-wins">${wins}</ol>
-  </div>`;
-}
+const BAND_TEXT_COLOR_HEX: Record<ScoreBandType, string> = {
+  pass: "#008800",
+  average: "#ffaa33",
+  fail: "#cc0000",
+};
 
 export function renderHtml(result: AnalyzerResultType): string {
   const categoryEntries = Object.entries(result.categories);
@@ -402,10 +43,7 @@ export function renderHtml(result: AnalyzerResultType): string {
   }));
   const gauges = categories.map(buildCategoryGauge).join("");
   const sections = categories.map(buildCategorySection).join("");
-  const recsHtml = buildRecommendationsByCategory(
-    result.recommendations,
-    result.categories,
-  );
+  const recsHtml = buildRecommendationsByCategory(result);
   const overallGauge = buildMultiSegmentGauge(
     result.overallScore,
     result.grade,
@@ -681,49 +319,7 @@ ${baseStyles()}
   .audit-name { min-width: 140px; }
   .rec-row { flex-wrap: wrap; }
 }
-.tldr-card {
-  margin: 16px 0 24px;
-  padding: 16px 20px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: #fafafa;
-}
-.tldr-headline {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  font-size: 15px;
-  margin-bottom: 10px;
-}
-.tldr-score { font-weight: 600; }
-.tldr-arrow { color: var(--muted); }
-.tldr-projection { color: #006633; font-weight: 600; }
-.tldr-title {
-  font-weight: 600;
-  margin: 8px 0 6px;
-  color: var(--muted);
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.tldr-wins {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.tldr-win {
-  display: grid;
-  grid-template-columns: 24px 72px 1fr auto;
-  gap: 10px;
-  align-items: baseline;
-  padding: 4px 0;
-  font-size: 14px;
-}
-.tldr-rank { color: var(--muted); text-align: right; }
-.tldr-gain { color: #006633; font-weight: 600; }
-.tldr-factor { font-weight: 500; }
-.tldr-category { color: var(--muted); font-size: 13px; }
+${tldrStyles()}
 </style>
 </head>
 <body>
@@ -734,6 +330,7 @@ ${baseStyles()}
 </div>
 
 <div class="report">
+  ${DIFF_SLOT_MARKER}
   ${tldrHtml}
 
   <div class="gauges-row">
@@ -749,10 +346,10 @@ ${baseStyles()}
   ${recsHtml}
 
   <div class="footer">
-    <span>Generated by aiseo-audit v${escapeHtml(result.meta.version)}</span>
+    <span>${escapeHtml(generatedByLine(result.meta.version))}</span>
     <span>${escapeHtml(result.analyzedAt)} &middot; ${result.meta.analysisDurationMs}ms</span>
     <span>Domain signals checked at: <code>${escapeHtml(result.signalsBase)}</code></span>
-    ${result.url.startsWith("http://") ? '<span style="color:#e8a735;margin-top:4px">Note: Audited over HTTP. Domain signals (robots.txt, llms.txt) may differ in production.</span>' : ""}
+    ${result.url.startsWith("http://") ? `<span style="color:#e8a735;margin-top:4px">Note: ${HTTP_AUDIT_NOTE}</span>` : ""}
   </div>
 </div>
 
@@ -760,74 +357,45 @@ ${baseStyles()}
 </html>`;
 }
 
-function buildSitemapUrlSection(
-  urlResult: SitemapUrlResultType,
-  index: number,
-): string {
-  if (urlResult.status === "failed") {
-    return `
-    <div class="sitemap-url-section failed">
-      <div class="sitemap-url-header">
-        <span class="sitemap-url-status fail">&#10007;</span>
-        <span class="sitemap-url-label">${escapeHtml(urlResult.url)}</span>
-      </div>
-      <div class="sitemap-url-error">Error: ${escapeHtml(urlResult.error)}</div>
-    </div>`;
-  }
+export function renderHtmlTldr(result: AnalyzerResultType): string {
+  const tldr = buildTldr(result);
+  const card = buildTldrCard(tldr);
+  const fallback =
+    tldr.quickestWins.length === 0
+      ? `<div class="tldr-card"><div class="tldr-headline"><span class="tldr-score">${tldr.score}/100 (${escapeHtml(tldr.grade)})</span><span class="tldr-projection">No quick wins identified.</span></div></div>`
+      : card;
 
-  const { result } = urlResult as Extract<
-    SitemapUrlResultType,
-    { status: "success" }
-  >;
-  const pct = result.overallScore;
-  const scoreCol = scoreColorHex(pct);
-  const categoryEntries = Object.entries(result.categories);
-  const topRec = result.recommendations[0];
-
-  const categoryRows = categoryEntries
-    .map(([, c]) => {
-      const catPct =
-        c.maxScore > 0 ? Math.round((c.score / c.maxScore) * 100) : 0;
-      const cls = scoreClass(catPct);
-      return `<div class="sitemap-cat-row">
-      <span class="sitemap-cat-name">${escapeHtml(c.name)}</span>
-      <span class="sitemap-cat-score ${cls}">${catPct}%</span>
-    </div>`;
-    })
-    .join("");
-
-  const recHtml = topRec
-    ? `<div class="sitemap-top-rec">Top recommendation: <strong>${escapeHtml(topRec.factor)}</strong> — ${escapeHtml(topRec.recommendation)}</div>`
-    : "";
-
-  return `
-    <div class="sitemap-url-section" id="url-${index}">
-      <div class="sitemap-url-header">
-        <span class="sitemap-url-status" style="color:${scoreCol}">&#10003;</span>
-        <span class="sitemap-url-label">${escapeHtml(result.url)}</span>
-        <span class="sitemap-url-score" style="color:${scoreCol}">${result.overallScore}/100</span>
-        <span class="sitemap-url-grade" style="color:${scoreCol}">${escapeHtml(result.grade)}</span>
-      </div>
-      <div class="sitemap-url-body">
-        <div class="sitemap-cats">${categoryRows}</div>
-        ${recHtml}
-      </div>
-    </div>`;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI SEO Audit - ${escapeHtml(result.url)}</title>
+<style>
+${baseStyles()}
+${tldrStyles()}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="topbar-title">AI SEO Audit</span>
+  <span class="topbar-url">${escapeHtml(result.url)}</span>
+</div>
+<div class="report">
+  ${DIFF_SLOT_MARKER}
+  ${fallback}
+</div>
+</body>
+</html>`;
 }
 
 export function renderSitemapHtml(result: SitemapResultType): string {
   const avgTextColor = scoreTextColorHex(result.averageScore);
-  const hasHttpUrls = result.urlResults.some(
-    (r) =>
-      r.status === "success" &&
-      (
-        r as Extract<SitemapUrlResultType, { status: "success" }>
-      ).result.url.startsWith("http://"),
-  );
+  const httpAudited = hasHttpUrls(result.urlResults);
 
   const categoryAvgRows = Object.values(result.categoryAverages)
     .map((avg) => {
-      const cls = scoreClass(avg.averagePct);
+      const cls = scoreBand(avg.averagePct);
       return `<div class="sitemap-cat-row">
       <span class="sitemap-cat-name">${escapeHtml(avg.name)}</span>
       <span class="sitemap-cat-score ${cls}">${avg.averagePct}%</span>
@@ -866,7 +434,7 @@ ${baseStyles()}
 .url-results-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
 .sitemap-url-section { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
 .sitemap-url-section.failed { border-color: #fce8e6; }
-.sitemap-url-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #fafafa; cursor: pointer; font-size: 13px; }
+.sitemap-url-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #fafafa; font-size: 13px; }
 .sitemap-url-status { font-size: 14px; flex-shrink: 0; }
 .sitemap-url-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 .sitemap-url-score { font-weight: 700; white-space: nowrap; }
@@ -913,12 +481,376 @@ ${baseStyles()}
   </div>
 
   <div class="footer">
-    <span>Generated by aiseo-audit v${escapeHtml(result.meta.version)}</span>
+    <span>${escapeHtml(generatedByLine(result.meta.version))}</span>
     <span>${escapeHtml(result.analyzedAt)} &middot; ${result.meta.analysisDurationMs}ms</span>
-    ${hasHttpUrls ? '<span style="color:#e8a735;margin-top:4px">Note: Some URLs were audited over HTTP. Domain signals (robots.txt, llms.txt) may differ in production.</span>' : ""}
+    ${httpAudited ? `<span style="color:#e8a735;margin-top:4px">Note: ${SITEMAP_HTTP_AUDIT_NOTE}</span>` : ""}
   </div>
 </div>
 
 </body>
 </html>`;
+}
+
+function buildTldrCard(tldr: TldrType): string {
+  if (tldr.quickestWins.length === 0) return "";
+
+  const wins = tldr.quickestWins
+    .map(
+      (win, i) =>
+        `<li class="tldr-win"><span class="tldr-rank">${i + 1}</span><span class="tldr-gain">+${win.expectedGain} pts</span><span class="tldr-factor">${escapeHtml(win.factor)}</span><span class="tldr-category">${escapeHtml(win.category)}</span></li>`,
+    )
+    .join("");
+
+  return `<div class="tldr-card">
+    <div class="tldr-headline">
+      <span class="tldr-score">${tldr.score}/100 (${escapeHtml(tldr.grade)})</span>
+      <span class="tldr-arrow">→</span>
+      <span class="tldr-projection">Top ${tldr.quickestWins.length} fixes: ~${tldr.projectedScore}/100 (${escapeHtml(tldr.projectedGrade)})</span>
+    </div>
+    <div class="tldr-title">Quickest wins</div>
+    <ol class="tldr-wins">${wins}</ol>
+  </div>`;
+}
+
+function buildCategoryGauge(category: {
+  name: string;
+  score: number;
+  maxScore: number;
+}): string {
+  const pct = percent(category.score, category.maxScore);
+
+  return `<a class="gauge-item" href="#cat-${escapeHtml(category.name.replace(/\s+/g, "-").toLowerCase())}">
+      ${buildGaugeSvg(pct)}
+      <span class="gauge-label">${escapeHtml(category.name)}</span>
+    </a>`;
+}
+
+function buildMultiSegmentGauge(
+  overallScore: number,
+  grade: string,
+  totalPoints: number,
+  maxPoints: number,
+  categories: Array<{
+    key: string;
+    name: string;
+    score: number;
+    maxScore: number;
+  }>,
+): string {
+  const radius = 80;
+  const strokeWidth = 14;
+  const pad = 8;
+  const size = (radius + strokeWidth / 2 + pad) * 2;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circ = 2 * Math.PI * radius;
+  const textColor = scoreTextColorHex(overallScore);
+
+  const trackCircle = `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#e8e8e8" stroke-width="${strokeWidth}"/>`;
+
+  const arcs: string[] = [];
+  const popovers: string[] = [];
+  let consumed = 0;
+  let segIdx = 0;
+
+  for (const cat of categories) {
+    const catDeg = maxPoints > 0 ? (cat.score / maxPoints) * 360 : 0;
+    if (catDeg < 0.1) {
+      consumed += catDeg;
+      continue;
+    }
+
+    const catPct = percent(cat.score, cat.maxScore);
+    const color = scoreColorHex(catPct);
+    const arcLen = (catDeg / 360) * circ;
+    const offset = circ * 0.25 - (consumed / 360) * circ;
+    const idx = segIdx;
+
+    arcs.push(
+      `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none"
+        stroke="${color}" stroke-width="${strokeWidth}"
+        stroke-dasharray="${arcLen.toFixed(2)} ${(circ - arcLen).toFixed(2)}"
+        stroke-dashoffset="${offset.toFixed(2)}"
+        class="seg-arc" data-idx="${idx}"
+        onmouseenter="document.getElementById('seg-pop-${idx}').style.display='flex'"
+        onmouseleave="document.getElementById('seg-pop-${idx}').style.display='none'"/>`,
+    );
+
+    popovers.push(`<div id="seg-pop-${idx}" class="seg-popover">
+        <span class="seg-popover-dot" style="background:${color}"></span>
+        <span class="seg-popover-name">${escapeHtml(cat.name)}</span>
+        <span class="seg-popover-score">${catPct}%</span>
+        <span class="seg-popover-pts">${cat.score}/${cat.maxScore} pts</span>
+      </div>`);
+
+    consumed += catDeg;
+
+    const divRad = (consumed / 360) * 2 * Math.PI - Math.PI / 2;
+    const half = strokeWidth / 2 + 1;
+    const dx = Math.cos(divRad);
+    const dy = Math.sin(divRad);
+    arcs.push(
+      `<line x1="${(cx + (radius - half) * dx).toFixed(2)}" y1="${(cy + (radius - half) * dy).toFixed(2)}"
+        x2="${(cx + (radius + half) * dx).toFixed(2)}" y2="${(cy + (radius + half) * dy).toFixed(2)}"
+        stroke="#fff" stroke-width="2" pointer-events="none"/>`,
+    );
+
+    segIdx++;
+  }
+
+  return `<div class="overall-gauge-wrap">
+    <svg class="gauge" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+      ${trackCircle}
+      ${arcs.join("\n      ")}
+      <text x="${cx}" y="${cy - 8}" text-anchor="middle" font-size="40" font-weight="700" fill="${textColor}">${overallScore}</text>
+      <text x="${cx}" y="${cy + 14}" text-anchor="middle" font-size="14" font-weight="600" fill="${textColor}">${escapeHtml(grade)}</text>
+      <text x="${cx}" y="${cy + 30}" text-anchor="middle" font-size="11" fill="#999">${totalPoints}/${maxPoints} pts</text>
+    </svg>
+    <div class="seg-popovers">${popovers.join("")}</div>
+    <div class="score-scale">
+      <span class="scale-fail">0-49</span>
+      <span class="scale-average">50-89</span>
+      <span class="scale-pass">90-100</span>
+    </div>
+  </div>`;
+}
+
+function buildGaugeSvg(score: number): string {
+  const pct = Math.max(0, Math.min(100, score));
+  const arcColor = scoreColorHex(pct);
+  const textColor = scoreTextColorHex(pct);
+  const radius = 56;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - pct / 100);
+  const dim = 64;
+  const fontSize = 22;
+  const strokeWidth = 7;
+
+  return `<svg class="gauge" viewBox="0 0 120 120" width="${dim}" height="${dim}">
+      <circle cx="60" cy="60" r="${radius}" fill="none" stroke="#e0e0e0" stroke-width="${strokeWidth}"/>
+      <circle cx="60" cy="60" r="${radius}" fill="none" stroke="${arcColor}" stroke-width="${strokeWidth}"
+        stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"
+        stroke-linecap="round" transform="rotate(-90 60 60)"/>
+      <text x="60" y="${60 + fontSize * 0.35}" text-anchor="middle" font-size="${fontSize}" font-weight="700" fill="${textColor}">${score}</text>
+    </svg>`;
+}
+
+function buildCategorySection(category: {
+  name: string;
+  score: number;
+  maxScore: number;
+  factors: Array<{
+    name: string;
+    score: number;
+    maxScore: number;
+    value: string;
+    status: string;
+  }>;
+}): string {
+  const pct = percent(category.score, category.maxScore);
+  const cls = scoreBand(pct);
+  const id = escapeHtml(category.name.replace(/\s+/g, "-").toLowerCase());
+
+  const factorRows = category.factors
+    .map(
+      (f) => `
+          <div class="audit-row">
+            <span class="audit-icon ${statusClass(f.status)}">${statusIcon(f.status)}</span>
+            <span class="audit-name">${escapeHtml(f.name)}</span>
+            <span class="audit-detail">${escapeHtml(f.value)}</span>
+            <span class="audit-score">${f.score}/${f.maxScore}</span>
+          </div>`,
+    )
+    .join("");
+
+  return `
+    <div class="category" id="cat-${id}">
+      <div class="category-header">
+        <div class="category-title ${cls}">${escapeHtml(category.name)}</div>
+        <div class="category-score ${cls}">${pct}%</div>
+      </div>
+      <div class="audits">${factorRows}</div>
+    </div>`;
+}
+
+function buildRecommendationsByCategory(
+  result: Pick<AnalyzerResultType, "recommendations" | "categories">,
+): string {
+  const grouped = groupRecommendationsByCategory(result);
+  if (grouped.length === 0) return "";
+
+  let html = `<div class="recs-section">
+    <div class="recs-title">Recommendations</div>`;
+
+  for (const [categoryName, recs] of grouped) {
+    html += `<div class="rec-group">
+      <div class="rec-group-name">${escapeHtml(categoryName)}</div>`;
+    html += recs.map(buildRecommendationRow).join("");
+    html += `</div>`;
+  }
+
+  html += `</div>`;
+  return html;
+}
+
+function buildRecommendationRow(rec: {
+  priority: string;
+  factor: string;
+  recommendation: string;
+  steps?: string[];
+  codeExample?: string;
+  learnMoreUrl?: string;
+}): string {
+  const label = priorityLabel(rec.priority as "high" | "medium" | "low");
+  const cls = {
+    HIGH: "priority-high",
+    MED: "priority-med",
+    LOW: "priority-low",
+  }[label];
+
+  let detailHtml = "";
+  if (rec.steps || rec.codeExample || rec.learnMoreUrl) {
+    let inner = "";
+    if (rec.steps && rec.steps.length > 0) {
+      const items = rec.steps.map((s) => `<li>${escapeHtml(s)}</li>`).join("");
+      inner += `<ol class="rec-steps">${items}</ol>`;
+    }
+    if (rec.codeExample) {
+      inner += `<pre class="rec-code"><code>${escapeHtml(rec.codeExample)}</code></pre>`;
+    }
+    if (rec.learnMoreUrl) {
+      inner += `<a class="rec-learn-more" href="${escapeHtml(rec.learnMoreUrl)}" target="_blank" rel="noopener">Learn more &rarr;</a>`;
+    }
+    detailHtml = `<div class="rec-detail">${inner}</div>`;
+  }
+
+  return `
+      <div class="rec-row ${cls}">
+        <span class="rec-tag">${label}</span>
+        <span class="rec-factor">${escapeHtml(rec.factor)}</span>
+        <span class="rec-text">${escapeHtml(rec.recommendation)}</span>
+      </div>${detailHtml}`;
+}
+
+function buildSitemapUrlSection(
+  urlResult: SitemapUrlResultType,
+  index: number,
+): string {
+  if (urlResult.status === "failed") {
+    return `
+    <div class="sitemap-url-section failed">
+      <div class="sitemap-url-header">
+        <span class="sitemap-url-status fail">&#10007;</span>
+        <span class="sitemap-url-label">${escapeHtml(urlResult.url)}</span>
+      </div>
+      <div class="sitemap-url-error">Error: ${escapeHtml(urlResult.error)}</div>
+    </div>`;
+  }
+
+  const { result } = urlResult;
+  const pct = result.overallScore;
+  const scoreCol = scoreColorHex(pct);
+  const categoryEntries = Object.entries(result.categories);
+  const topRec = result.recommendations[0];
+
+  const categoryRows = categoryEntries
+    .map(([, c]) => {
+      const catPct = percent(c.score, c.maxScore);
+      const cls = scoreBand(catPct);
+      return `<div class="sitemap-cat-row">
+      <span class="sitemap-cat-name">${escapeHtml(c.name)}</span>
+      <span class="sitemap-cat-score ${cls}">${catPct}%</span>
+    </div>`;
+    })
+    .join("");
+
+  const recHtml = topRec
+    ? `<div class="sitemap-top-rec">Top recommendation: <strong>${escapeHtml(topRec.factor)}</strong>: ${escapeHtml(topRec.recommendation)}</div>`
+    : "";
+
+  return `
+    <div class="sitemap-url-section" id="url-${index}">
+      <div class="sitemap-url-header">
+        <span class="sitemap-url-status" style="color:${scoreCol}">&#10003;</span>
+        <span class="sitemap-url-label">${escapeHtml(result.url)}</span>
+        <span class="sitemap-url-score" style="color:${scoreCol}">${result.overallScore}/100</span>
+        <span class="sitemap-url-grade" style="color:${scoreCol}">${escapeHtml(result.grade)}</span>
+      </div>
+      <div class="sitemap-url-body">
+        <div class="sitemap-cats">${categoryRows}</div>
+        ${recHtml}
+      </div>
+    </div>`;
+}
+
+function baseStyles(): string {
+  return `:root {
+  --pass: #00cc66;
+  --pass-text: #008800;
+  --average: #ffaa33;
+  --average-text: #ffaa33;
+  --fail: #ff3333;
+  --fail-text: #cc0000;
+  --bg: #fff;
+  --surface: #fff;
+  --text: #212121;
+  --text-secondary: #757575;
+  --muted: #757575;
+  --border: #e0e0e0;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+.topbar { display: flex; align-items: center; height: 40px; padding: 0 16px; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 13px; }
+.topbar-title { font-weight: 600; margin-right: 12px; white-space: nowrap; }
+.topbar-url { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.report { max-width: 960px; margin: 0 auto; padding: 0 32px; }
+.footer { padding: 16px 0; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-secondary); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.pass { color: var(--pass-text); }
+.average { color: var(--average-text); }
+.fail { color: var(--fail-text); }`;
+}
+
+function tldrStyles(): string {
+  return `.tldr-card {
+  margin: 16px auto;
+  padding: 20px 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fafafa;
+  max-width: 720px;
+}
+.tldr-headline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 16px; margin-bottom: 12px; }
+.tldr-score { font-weight: 600; }
+.tldr-arrow { color: var(--muted); }
+.tldr-projection { color: #006633; font-weight: 600; }
+.tldr-title { font-weight: 600; margin: 8px 0 6px; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+.tldr-wins { list-style: none; padding: 0; margin: 0; }
+.tldr-win { display: grid; grid-template-columns: 24px 72px 1fr auto; gap: 10px; align-items: baseline; padding: 4px 0; font-size: 14px; }
+.tldr-rank { color: var(--muted); text-align: right; }
+.tldr-gain { color: #006633; font-weight: 600; }
+.tldr-factor { font-weight: 500; }
+.tldr-category { color: var(--muted); font-size: 13px; }`;
+}
+
+function scoreColorHex(pct: number): string {
+  return BAND_COLOR_HEX[scoreBand(pct)];
+}
+
+function scoreTextColorHex(pct: number): string {
+  return BAND_TEXT_COLOR_HEX[scoreBand(pct)];
+}
+
+function statusIcon(status: string): string {
+  if (status === "good") return "&#10003;";
+  if (status === "neutral") return "&#8212;";
+  if (status === "needs_improvement") return "&#9650;";
+  return "&#10007;";
+}
+
+function statusClass(status: string): string {
+  if (status === "good") return "good";
+  if (status === "neutral") return "neutral";
+  if (status === "needs_improvement") return "warn";
+  return "fail";
 }

@@ -73,7 +73,6 @@ describe("auditEntityClarity", () => {
 
   describe("Topic Consistency", () => {
     it("scores 25 when 50%+ of title keywords match extracted topics", () => {
-      // Title keywords (> 3 chars): "Content", "Marketing" -- both appear in topics list
       const entities = preExtracted({
         topics: ["content", "marketing", "strategy"],
       });

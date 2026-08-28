@@ -1,3 +1,5 @@
+const SENTENCE_START = /(?:^|[.!?]\s+)/.source;
+
 export const DEFINITION_PATTERNS = [
   /\bis\s+defined\s+as\b/gi,
   /\brefers?\s+to\b/gi,
@@ -8,10 +10,10 @@ export const DEFINITION_PATTERNS = [
 ];
 
 export const DIRECT_ANSWER_PATTERNS = [
-  /^The\s+\w+\s+is\b/gm,
-  /^It\s+is\b/gm,
-  /^This\s+is\b/gm,
-  /^They\s+are\b/gm,
+  new RegExp(`${SENTENCE_START}The\\s+\\w+\\s+is\\b`, "g"),
+  new RegExp(`${SENTENCE_START}It\\s+is\\b`, "g"),
+  new RegExp(`${SENTENCE_START}This\\s+is\\b`, "g"),
+  new RegExp(`${SENTENCE_START}They\\s+are\\b`, "g"),
   /\bsimply\s+put\b/gi,
   /\bin\s+short\b/gi,
 ];
@@ -29,9 +31,11 @@ export const QUESTION_PATTERNS = [
   /who\s+is/gi,
 ];
 
+const NUMBERED_STEP_BUT_NOT_DECIMAL = /(?:^|\s)\d{1,2}\.\s+[A-Za-z]/g;
+
 export const STEP_PATTERNS = [
   /step\s+\d+/gi,
-  /^\s*\d+\.\s+\w/gm,
+  NUMBERED_STEP_BUT_NOT_DECIMAL,
   /\bfirst(?:ly)?,?\s/gi,
   /\bsecond(?:ly)?,?\s/gi,
   /\bfinally,?\s/gi,

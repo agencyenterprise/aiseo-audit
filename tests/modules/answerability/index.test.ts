@@ -108,7 +108,7 @@ describe("auditAnswerability", () => {
       expect(factor?.score).toBe(13);
     });
 
-    it("scores 9 when most question headings have capsules (ratio 0.4-0.69)", () => {
+    it("scores at least 5 when some question headings have capsules", () => {
       const html = `<html><body>
         <h2>What is SEO?</h2><p>SEO is search engine optimization for websites.</p>
         <h2>How does AI work?</h2><p>AI uses neural networks and machine learning models.</p>
@@ -120,7 +120,7 @@ describe("auditAnswerability", () => {
       expect(factor?.score).toBeGreaterThanOrEqual(5);
     });
 
-    it("scores 2 when question headings have no capsule answers", () => {
+    it("scores exactly 2 when question headings have no capsule answers", () => {
       const html = `<html><body>
         <h2>What is SEO?</h2><h3>Next heading immediately</h3>
         <h2>How does AI work?</h2><h3>Another heading</h3>
@@ -128,7 +128,7 @@ describe("auditAnswerability", () => {
       const page = buildPage(html);
       const result = auditAnswerability(page);
       const factor = findFactor("Answer Capsules", result);
-      expect(factor?.score).toBeLessThanOrEqual(9);
+      expect(factor?.score).toBe(2);
     });
   });
 

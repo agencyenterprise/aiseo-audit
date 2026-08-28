@@ -1,6 +1,9 @@
 import chalk from "chalk";
 import type { AiseoConfigType, DiffEntryType } from "../../config/schema.js";
 import type { CategoryDeltaType, DiffResultType } from "../../diff/schema.js";
+import { escapeHtml, escapeMarkdownTableCell } from "./view-model.js";
+
+const WIDTH_OF_LONGEST_CATEGORY_NAME = 28;
 
 const SPARK_LEVELS = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
 
@@ -19,7 +22,7 @@ export function renderDiffBlockPretty(diff: DiffResultType): string[] {
 
   for (const delta of Object.values(diff.categoryDeltas)) {
     if (delta.delta === 0) continue;
-    const paddedName = delta.name.padEnd(18, " ");
+    const paddedName = delta.name.padEnd(WIDTH_OF_LONGEST_CATEGORY_NAME, " ");
     lines.push(
       `    ${paddedName} ${delta.baselineScore} → ${delta.currentScore}  (${colorForDelta(delta.delta)(formatDelta(delta.delta))})`,
     );
@@ -56,11 +59,11 @@ export function renderDiffBlockHtml(diff: DiffResultType): string {
     .join("");
 
   return `<section class="diff-block">
-    <h2>Changes since ${escapeTextForHtml(shortDate(diff.baselineAnalyzedAt))} → ${escapeTextForHtml(shortDate(diff.currentAnalyzedAt))}</h2>
+    <h2>Changes since ${escapeHtml(shortDate(diff.baselineAnalyzedAt))} → ${escapeHtml(shortDate(diff.currentAnalyzedAt))}</h2>
     <table class="diff-table">
       <thead><tr><th>Scope</th><th>Baseline</th><th>Current</th><th>Change</th></tr></thead>
       <tbody>
-        <tr class="diff-overall"><td>Overall</td><td>${diff.baselineScore}</td><td>${diff.currentScore}</td><td class="${cssClassForDelta(diff.overallDelta)}">${escapeTextForHtml(formatDelta(diff.overallDelta))}</td></tr>
+        <tr class="diff-overall"><td>Overall</td><td>${diff.baselineScore}</td><td>${diff.currentScore}</td><td class="${cssClassForDelta(diff.overallDelta)}">${escapeHtml(formatDelta(diff.overallDelta))}</td></tr>
         ${rows}
       </tbody>
     </table>
@@ -111,9 +114,12 @@ export function renderTimelineMarkdown(
   lines.push("| URL | Runs | Latest Score | Trend |");
   lines.push("|---|---|---|---|");
   for (const [url, entries] of Object.entries(diff)) {
+    if (!hasRuns(entries)) continue;
     const latest = entries[entries.length - 1];
     const trend = entries.map((e) => e.score).join(" → ");
-    lines.push(`| ${url} | ${entries.length} | ${latest.score} | ${trend} |`);
+    lines.push(
+      `| ${escapeMarkdownTableCell(url)} | ${entries.length} | ${latest.score} | ${trend} |`,
+    );
   }
   return lines.join("\n");
 }
@@ -122,11 +128,12 @@ export function renderTimelineHtml(
   diff: NonNullable<AiseoConfigType["diff"]>,
 ): string {
   const rows = Object.entries(diff)
+    .filter(([, entries]) => hasRuns(entries))
     .map(([url, entries]) => {
       const sparklineSvg = renderSparklineSvg(entries);
       const latestScore = entries[entries.length - 1].score;
       return `<tr>
-        <td class="timeline-url">${escapeTextForHtml(url)}</td>
+        <td class="timeline-url">${escapeHtml(url)}</td>
         <td class="timeline-runs">${entries.length}</td>
         <td class="timeline-latest">${latestScore}</td>
         <td class="timeline-trend">${sparklineSvg}</td>
@@ -161,7 +168,7 @@ th { color: #666; font-weight: 600; font-size: 13px; text-transform: uppercase; 
 }
 
 function renderCategoryDeltaRowHtml(delta: CategoryDeltaType): string {
-  return `<tr><td>${escapeTextForHtml(delta.name)}</td><td>${delta.baselineScore}</td><td>${delta.currentScore}</td><td class="${cssClassForDelta(delta.delta)}">${escapeTextForHtml(formatDelta(delta.delta))}</td></tr>`;
+  return `<tr><td>${escapeHtml(delta.name)}</td><td>${delta.baselineScore}</td><td>${delta.currentScore}</td><td class="${cssClassForDelta(delta.delta)}">${escapeHtml(formatDelta(delta.delta))}</td></tr>`;
 }
 
 function formatDelta(delta: number): string {
@@ -219,10 +226,6 @@ function renderSparklineSvg(entries: DiffEntryType[]): string {
   return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><polyline fill="none" stroke="#006633" stroke-width="2" points="${points}"/></svg>`;
 }
 
-function escapeTextForHtml(input: string): string {
-  return input
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+function hasRuns(entries: DiffEntryType[]): boolean {
+  return entries.length > 0;
 }

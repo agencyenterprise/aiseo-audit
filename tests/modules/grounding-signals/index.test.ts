@@ -40,7 +40,7 @@ describe("auditGroundingSignals", () => {
       expect(factor?.score).toBeGreaterThan(0);
     });
 
-    it("factor value includes both statistical references and numeric values", () => {
+    it("factor value reports statistical references and written-out numbers", () => {
       const html = `<html><body>
         <p>Five studies show a 42% improvement across three companies.</p>
       </body></html>`;
@@ -49,7 +49,19 @@ describe("auditGroundingSignals", () => {
       const factor = findFactor("Numeric Claims", result);
 
       expect(factor?.value).toContain("statistical references");
-      expect(factor?.value).toContain("numeric values");
+      expect(factor?.value).toContain("written-out numbers");
+    });
+
+    it("does not double-count a digit statistic as both regex and NLP number", () => {
+      const html = `<html><body>
+        <p>Five studies show a 42% improvement across three companies.</p>
+      </body></html>`;
+      const page = buildPage(html);
+      const result = auditGroundingSignals(page);
+      const factor = findFactor("Numeric Claims", result);
+
+      expect(factor?.value).toContain("1 statistical references");
+      expect(factor?.value).toContain("2 written-out numbers");
     });
 
     it("scores zero for content with no numbers", () => {

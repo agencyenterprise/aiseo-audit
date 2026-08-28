@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { VERSION } from "../analyzer/constants.js";
 import { AnalyzerResultSchema } from "../analyzer/schema.js";
 
 export const SitemapUrlResultSchema = z.discriminatedUnion("status", [
@@ -30,20 +29,31 @@ export const SitemapResultSchema = z.object({
   averageGrade: z.string(),
   categoryAverages: z.record(z.string(), CategoryAverageSchema),
   urlResults: z.array(SitemapUrlResultSchema),
+  warnings: z.array(z.string()),
   meta: z.object({
     version: z.string(),
     analysisDurationMs: z.number(),
   }),
 });
 
-export const SitemapOptionsSchema = z.object({
-  sitemapUrl: z.string(),
-  signalsBase: z.string().optional(),
-  timeout: z.number().positive().default(45000),
-  userAgent: z.string().default(`AISEOAudit/${VERSION}`),
-});
+export type SitemapOptionsType = {
+  sitemapUrl: string;
+  signalsBase?: string;
+  timeout?: number;
+  userAgent?: string;
+};
 
 export type SitemapUrlResultType = z.infer<typeof SitemapUrlResultSchema>;
 export type CategoryAverageType = z.infer<typeof CategoryAverageSchema>;
 export type SitemapResultType = z.infer<typeof SitemapResultSchema>;
-export type SitemapOptionsType = z.input<typeof SitemapOptionsSchema>;
+
+export type SitemapSuccessResultType = Extract<
+  SitemapUrlResultType,
+  { status: "success" }
+>;
+
+export function isSuccessResult(
+  result: SitemapUrlResultType,
+): result is SitemapSuccessResultType {
+  return result.status === "success";
+}

@@ -176,13 +176,49 @@ describe("extractPage", () => {
       expect(result.stats.imagesWithAlt).toBe(0);
     });
 
-    it("does not count alt text that is a single word", () => {
+    it("counts a specific single-word alt (e.g. a brand name)", () => {
       const html = `<html><body>
-        <img src="a.jpg" alt="diagram" />
+        <img src="a.jpg" alt="Anthropic" />
       </body></html>`;
       const result = extractPage(html, "https://example.com");
 
-      expect(result.stats.imagesWithAlt).toBe(0);
+      expect(result.stats.imagesWithAlt).toBe(1);
+    });
+
+    it("does not count subdomain links as external", () => {
+      const html = `<html><body>
+        <a href="https://www.example.com/about">About</a>
+        <a href="https://blog.example.com/post">Post</a>
+        <a href="https://other.com/page">Other</a>
+      </body></html>`;
+      const result = extractPage(html, "https://example.com/page");
+
+      expect(result.stats.externalLinkCount).toBe(1);
+      expect(result.externalLinks[0].url).toBe("https://other.com/page");
+    });
+
+    it("removes boilerplate UI but keeps content whose class merely contains a boilerplate word", () => {
+      const html = `<html><body>
+        <div class="cookie-consent-banner">We use cookies to improve your experience on this site.</div>
+        <div class="modal-backdrop">Subscribe to our newsletter now.</div>
+        <article class="cookie-recipe-card"><p>Cream the butter and sugar, then fold in the chocolate chips gently.</p></article>
+        <div class="image-modal-inline"><p>The gallery includes original photographs from the expedition.</p></div>
+      </body></html>`;
+      const result = extractPage(html, "https://example.com");
+
+      expect(result.cleanText).toContain("chocolate chips");
+      expect(result.cleanText).toContain("original photographs");
+      expect(result.cleanText).not.toContain("We use cookies");
+      expect(result.cleanText).not.toContain("Subscribe to our newsletter");
+    });
+
+    it("ignores links whose href cannot be parsed as a URL", () => {
+      const html = `<html><body>
+        <a href="http://">Broken</a>
+      </body></html>`;
+      const result = extractPage(html, "https://example.com/page");
+
+      expect(result.stats.externalLinkCount).toBe(0);
     });
 
     it("does not count alt text over 200 characters", () => {

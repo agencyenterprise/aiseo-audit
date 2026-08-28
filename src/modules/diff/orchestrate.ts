@@ -1,6 +1,10 @@
 import type { AnalyzerResultType } from "../analyzer/schema.js";
 import type { AiseoConfigType } from "../config/schema.js";
-import { loadBaselineResult, recordAuditRun } from "./history.js";
+import {
+  loadBaselineResult,
+  recordAuditRun,
+  resolveHistoryPath,
+} from "./history.js";
 import type { DiffResultType } from "./schema.js";
 import { computeDiff } from "./service.js";
 
@@ -55,7 +59,9 @@ async function orchestrateAgainstTrackedHistory(
     };
   }
 
-  const baseline = await loadBaselineResult(outcome.baselineEntry.path);
+  const baseline = await loadBaselineResult(
+    resolveHistoryPath(outcome.baselineEntry.path, inputs.configPath),
+  );
   const diff = computeDiff(inputs.result, baseline);
   return {
     diff,

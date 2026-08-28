@@ -15,17 +15,14 @@ describe("extractQuestions", () => {
     ]);
   });
 
-  it("does not greedily absorb unrelated preceding text", () => {
-    // Regression: text extracted from multiple concatenated headings used to
-    // produce a single garbled "question" spanning all of them.
+  it("does not absorb preceding headings into one garbled question", () => {
     const text =
       "The AE Team We help global teams turn AI curiosity into shipped systems What are you working on?";
     expect(extractQuestions(text)).toEqual(["What are you working on?"]);
   });
 
-  it("ignores non-question text that ends in ?", () => {
+  it("drops a ?-terminated sentence that starts with a non-interrogative", () => {
     const text = "Something went wrong with the request at this URL?";
-    // Starts with a non-interrogative so it is dropped.
     expect(extractQuestions(text)).toEqual([]);
   });
 

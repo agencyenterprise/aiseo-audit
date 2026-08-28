@@ -1,6 +1,5 @@
-import { httpGet, httpProbe } from "../../utils/http.js";
-import type { HttpResponseType } from "../../utils/schema.js";
-import { normalizeUrl } from "../../utils/url.js";
+import { httpGet, httpProbe, type HttpResponseType } from "../../utils/http.js";
+import { normalizeUrl, originOf } from "../../utils/url.js";
 import type { DomainSignalsType } from "../audits/schema.js";
 import { runAudits } from "../audits/service.js";
 import type { AiseoConfigType } from "../config/schema.js";
@@ -9,55 +8,71 @@ import type { FetchResultType } from "../fetcher/schema.js";
 import { fetchUrl } from "../fetcher/service.js";
 import { generateRecommendations } from "../recommendations/service.js";
 import { computeScore } from "../scoring/service.js";
-import { DOMAIN_SIGNAL_TIMEOUT_CAP, VERSION } from "./constants.js";
+import { VERSION } from "../../version.js";
+import { DOMAIN_SIGNAL_TIMEOUT_CAP } from "./constants.js";
 import type { AnalyzerOptionsType, AnalyzerResultType } from "./schema.js";
 
-function isLlmsTxtFound(
-  result: PromiseSettledResult<HttpResponseType>,
-): boolean {
-  if (result.status !== "fulfilled" || !result.value) return false;
-  const { status, headers = {}, data = "" } = result.value;
-  if (status !== 200 && status !== 206) return false;
-  const contentType = (headers["content-type"] ?? "").toLowerCase();
-  if (contentType.includes("text/html")) return false;
-  // Some SPA hosts serve the SPA shell for unknown paths with a missing or
-  // generic content-type. Sniff the body for HTML as a second line of defense.
-  const sniff = data.slice(0, 256).toLowerCase();
-  if (sniff.includes("<!doctype html") || sniff.includes("<html")) return false;
-  return true;
+export async function analyzeUrl(
+  options: AnalyzerOptionsType,
+  config: AiseoConfigType,
+): Promise<AnalyzerResultType> {
+  const startTime = Date.now();
+  const url = normalizeUrl(options.url);
+  const timeout = options.timeout ?? config.timeout;
+  const userAgent = options.userAgent ?? config.userAgent;
+
+  const fetchResult = await fetchUrl({ url, timeout, userAgent });
+
+  const signalsBase =
+    options.signalsBase ?? originOf(fetchResult.finalUrl ?? url);
+  const domainSignals = await fetchDomainSignals(
+    signalsBase,
+    timeout,
+    userAgent,
+  );
+
+  return buildResult(url, fetchResult, domainSignals, config, startTime);
+}
+
+export async function analyzeUrlWithSignals(
+  url: string,
+  fetchResult: FetchResultType,
+  domainSignals: DomainSignalsType,
+  config: AiseoConfigType,
+): Promise<AnalyzerResultType> {
+  return buildResult(url, fetchResult, domainSignals, config, Date.now());
 }
 
 export async function fetchDomainSignals(
-  url: string,
+  baseUrl: string,
   timeout: number,
   userAgent: string,
 ): Promise<DomainSignalsType> {
   const cappedTimeout = Math.min(timeout, DOMAIN_SIGNAL_TIMEOUT_CAP);
+  const signalFileUrl = (file: string) =>
+    new URL(file, `${baseUrl.replace(/\/+$/, "")}/`).toString();
 
   const [robotsRes, llmsRes, llmsFullRes] = await Promise.allSettled([
     httpGet({
-      url: `${url}/robots.txt`,
+      url: signalFileUrl("robots.txt"),
       timeout: cappedTimeout,
       userAgent,
     }),
     httpProbe({
-      url: `${url}/llms.txt`,
+      url: signalFileUrl("llms.txt"),
       timeout: cappedTimeout,
       userAgent,
     }),
     httpProbe({
-      url: `${url}/llms-full.txt`,
+      url: signalFileUrl("llms-full.txt"),
       timeout: cappedTimeout,
       userAgent,
     }),
   ]);
 
   return {
-    signalsBase: url,
-    robotsTxt:
-      robotsRes.status === "fulfilled" && robotsRes.value.status === 200
-        ? robotsRes.value.data
-        : null,
+    signalsBase: baseUrl,
+    robotsTxt: robotsTxtContent(robotsRes),
     llmsTxtExists: isLlmsTxtFound(llmsRes),
     llmsFullTxtExists: isLlmsTxtFound(llmsFullRes),
   };
@@ -68,9 +83,8 @@ function buildResult(
   fetchResult: FetchResultType,
   domainSignals: DomainSignalsType,
   config: AiseoConfigType,
-): Omit<AnalyzerResultType, "meta"> & {
-  meta: Omit<AnalyzerResultType["meta"], "analysisDurationMs">;
-} {
+  startTime: number,
+): AnalyzerResultType {
   const page = extractPage(fetchResult.html, url);
   const auditResult = runAudits(page, fetchResult, domainSignals);
   const scoring = computeScore(auditResult.categories, config.weights);
@@ -89,45 +103,37 @@ function buildResult(
     rawData: auditResult.rawData,
     meta: {
       version: VERSION,
+      weights: config.weights,
+      analysisDurationMs: Date.now() - startTime,
     },
   };
 }
 
-export async function analyzeUrlWithSignals(
-  url: string,
-  fetchResult: FetchResultType,
-  domainSignals: DomainSignalsType,
-  config: AiseoConfigType,
-): Promise<AnalyzerResultType> {
-  const startTime = Date.now();
-  const result = buildResult(url, fetchResult, domainSignals, config);
-  return {
-    ...result,
-    meta: { ...result.meta, analysisDurationMs: Date.now() - startTime },
-  };
+function robotsTxtContent(
+  result: PromiseSettledResult<HttpResponseType>,
+): string | null {
+  if (result.status !== "fulfilled" || result.value.status !== 200) {
+    return null;
+  }
+  const { headers = {}, data = "" } = result.value;
+  return isSpaShellServedAsPlainFile(headers, data) ? null : data;
 }
 
-export async function analyzeUrl(
-  options: AnalyzerOptionsType,
-  config: AiseoConfigType,
-): Promise<AnalyzerResultType> {
-  const startTime = Date.now();
-  const url = normalizeUrl(options.url);
-  const timeout = options.timeout ?? config.timeout;
-  const userAgent = options.userAgent ?? config.userAgent;
+function isLlmsTxtFound(
+  result: PromiseSettledResult<HttpResponseType>,
+): boolean {
+  if (result.status !== "fulfilled") return false;
+  const { status, headers = {}, data = "" } = result.value;
+  if (status !== 200 && status !== 206) return false;
+  return !isSpaShellServedAsPlainFile(headers, data);
+}
 
-  const fetchResult = await fetchUrl({ url, timeout, userAgent });
-
-  const signalsBase = options.signalsBase ?? fetchResult.finalUrl ?? url;
-  const domainSignals = await fetchDomainSignals(
-    signalsBase,
-    timeout,
-    userAgent,
-  );
-
-  const result = buildResult(url, fetchResult, domainSignals, config);
-  return {
-    ...result,
-    meta: { ...result.meta, analysisDurationMs: Date.now() - startTime },
-  };
+function isSpaShellServedAsPlainFile(
+  headers: Record<string, string>,
+  data: string,
+): boolean {
+  const contentType = (headers["content-type"] ?? "").toLowerCase();
+  if (contentType.includes("text/html")) return true;
+  const bodyStart = data.slice(0, 256).toLowerCase();
+  return bodyStart.includes("<!doctype html") || bodyStart.includes("<html");
 }

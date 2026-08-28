@@ -1,23 +1,17 @@
 import { countWords } from "../../utils/strings.js";
+import { buildCategoryOutput } from "../audits/category.js";
 import type { ExtractedPageType } from "../extractor/schema.js";
 import {
   avgSentenceLength,
   computeFleschReadingEase,
   countComplexWords,
-  countTransitionWords,
 } from "../nlp/service.js";
-import {
-  makeFactor,
-  maxFactors,
-  sumFactors,
-  thresholdScore,
-} from "../scoring/service.js";
-import { CATEGORY_DISPLAY_NAMES } from "../audits/constants.js";
+import { makeFactor, thresholdScore } from "../scoring/service.js";
 import type {
   CategoryAuditOutputType,
   FactorResultType,
 } from "../audits/schema.js";
-import { TRANSITION_WORDS } from "./patterns.js";
+import { countTransitionWords, TRANSITION_WORDS } from "./transition-words.js";
 
 export function auditReadabilityForCompression(
   page: ExtractedPageType,
@@ -29,8 +23,8 @@ export function auditReadabilityForCompression(
   const sentScore = thresholdScore(
     avgSentLen,
     [
-      [12, 22, 15],
-      [8, 29, 10],
+      [12, 23, 15],
+      [8, 30, 10],
       [1, Infinity, 5],
     ],
     "range",
@@ -48,10 +42,10 @@ export function auditReadabilityForCompression(
   const freScore = thresholdScore(
     fre,
     [
-      [60, 70, 15],
+      [60, 71, 15],
       [71, Infinity, 13],
-      [50, 59, 10],
-      [30, 49, 6],
+      [50, 60, 10],
+      [30, 50, 6],
     ],
     "range",
   );
@@ -102,17 +96,8 @@ export function auditReadabilityForCompression(
     ),
   );
 
-  return {
-    category: {
-      name: CATEGORY_DISPLAY_NAMES.readabilityForCompression,
-      key: "readabilityForCompression",
-      score: sumFactors(factors),
-      maxScore: maxFactors(factors),
-      factors,
-    },
-    rawData: {
-      avgSentenceLength: avgSentLen,
-      readabilityScore: fre,
-    },
-  };
+  return buildCategoryOutput("readabilityForCompression", factors, {
+    avgSentenceLength: avgSentLen,
+    readabilityScore: fre,
+  });
 }

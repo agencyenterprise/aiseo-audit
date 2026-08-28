@@ -118,7 +118,6 @@ export const STOPWORDS = new Set([
   "back",
   "even",
   "still",
-  "also",
   "get",
   "got",
   "one",
@@ -257,7 +256,6 @@ export const ACRONYM_STOPLIST = new Set([
   "CMS",
   "CRM",
   "ERP",
-  "SaaS",
   "AI",
   "ML",
   "NLP",
@@ -270,8 +268,8 @@ export const ACRONYM_STOPLIST = new Set([
   "PS",
 ]);
 
-export const ORG_SUFFIXES =
-  /\b(?:Inc|Corp|Corporation|LLC|Ltd|Limited|Co|Company|Group|Foundation|Institute|University|Association|Society|Agency|Authority|Bureau|Commission|Council|Department|Board|Trust|Fund|Partners|Ventures|Labs|Technologies|Solutions|Systems|Services|Consulting|Media|Network|Studios|Entertainment|Healthcare|Pharmaceuticals|Dynamics|Holdings|Capital|Enterprises|International)\b/i;
+export const ORG_NAME_ENDS_WITH_COMPANY_SUFFIX =
+  /(?:^|\s)(?:Inc|Corp|Corporation|LLC|Ltd|Limited|Co|Company|Group|Foundation|Institute|University|Association|Society|Agency|Authority|Bureau|Commission|Council|Department|Board|Trust|Fund|Partners|Ventures|Labs|Technologies|Solutions|Systems|Services|Consulting|Media|Network|Studios|Entertainment|Healthcare|Pharmaceuticals|Dynamics|Holdings|Capital|Enterprises|International)\.?$/i;
 
-export const PERSON_HONORIFICS =
-  /\b(?:Mr|Mrs|Ms|Miss|Dr|Prof|Professor|Rev|Reverend|Sen|Senator|Rep|Representative|Gov|Governor|Pres|President|Gen|General|Col|Colonel|Sgt|Sergeant|Cpl|Corporal|Pvt|Private|Adm|Admiral|Capt|Captain|Lt|Lieutenant|Maj|Major|Sir|Dame|Lord|Lady|Hon|Honorable|Judge|Justice|Chancellor|Dean|Provost)\.\s*/;
+export const HONORIFIC_BEFORE_NAME =
+  /\b(?:Mr|Mrs|Ms|Miss|Dr|Prof|Professor|Rev|Reverend|Sen|Senator|Rep|Representative|Gov|Governor|Pres|President|Gen|General|Col|Colonel|Sgt|Sergeant|Cpl|Corporal|Pvt|Private|Adm|Admiral|Capt|Captain|Lt|Lieutenant|Maj|Major|Sir|Dame|Lord|Lady|Hon|Honorable|Judge|Justice|Chancellor|Dean|Provost)\.?\s+/;

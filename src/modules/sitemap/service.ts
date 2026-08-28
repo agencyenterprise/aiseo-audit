@@ -1,7 +1,7 @@
 import { scaffold, type XmlNode } from "xml-to-html-converter";
 import { httpGet } from "../../utils/http.js";
-import { normalizeUrl } from "../../utils/url.js";
-import { VERSION } from "../analyzer/constants.js";
+import { normalizeUrl, originOf } from "../../utils/url.js";
+import { VERSION } from "../../version.js";
 import {
   analyzeUrlWithSignals,
   fetchDomainSignals,
@@ -9,18 +9,164 @@ import {
 import type { AiseoConfigType } from "../config/schema.js";
 import { fetchUrl } from "../fetcher/service.js";
 import { computeGrade } from "../scoring/service.js";
-import type {
-  SitemapOptionsType,
-  SitemapResultType,
-  SitemapUrlResultType,
+import {
+  isSuccessResult,
+  type SitemapOptionsType,
+  type SitemapResultType,
+  type SitemapUrlResultType,
 } from "./schema.js";
 
-function stripCdata(raw: string): string {
-  const trimmed = raw.trim();
-  if (trimmed.startsWith("<![CDATA[") && trimmed.endsWith("]]>")) {
-    return trimmed.slice(9, -3);
+const MAX_SITEMAP_INDEX_DEPTH = 5;
+
+export async function analyzeSitemap(
+  options: SitemapOptionsType,
+  config: AiseoConfigType,
+): Promise<SitemapResultType> {
+  const startTime = Date.now();
+  const timeout = options.timeout ?? config.timeout;
+  const userAgent = options.userAgent ?? config.userAgent;
+
+  const context: SitemapWalkContext = {
+    timeout,
+    userAgent,
+    visited: new Set(),
+    warnings: [],
+  };
+  const urls = [
+    ...new Set(await fetchSitemapUrls(options.sitemapUrl, context)),
+  ];
+
+  const signalsBase = options.signalsBase ?? originOf(options.sitemapUrl);
+  const domainSignals = await fetchDomainSignals(
+    signalsBase,
+    timeout,
+    userAgent,
+  );
+
+  const urlResults: SitemapUrlResultType[] = [];
+
+  for (const rawUrl of urls) {
+    const url = normalizeUrl(rawUrl);
+    try {
+      const fetchResult = await fetchUrl({ url, timeout, userAgent });
+      const result = await analyzeUrlWithSignals(
+        url,
+        fetchResult,
+        domainSignals,
+        config,
+      );
+      urlResults.push({ status: "success", result });
+    } catch (error) {
+      urlResults.push({
+        status: "failed",
+        url,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
-  return trimmed;
+
+  const successResults = urlResults
+    .filter(isSuccessResult)
+    .map((r) => r.result);
+
+  const succeededCount = successResults.length;
+  const failedCount = urlResults.length - succeededCount;
+
+  const averageScore =
+    succeededCount > 0
+      ? Math.round(
+          successResults.reduce((sum, r) => sum + r.overallScore, 0) /
+            succeededCount,
+        )
+      : 0;
+
+  const averageGrade = computeGrade(averageScore);
+  const categoryAverages = computeCategoryAverages(urlResults);
+
+  return {
+    sitemapUrl: options.sitemapUrl,
+    signalsBase: domainSignals.signalsBase,
+    analyzedAt: new Date().toISOString(),
+    totalUrls: urlResults.length,
+    succeededCount,
+    failedCount,
+    averageScore,
+    averageGrade,
+    categoryAverages,
+    urlResults,
+    warnings: context.warnings,
+    meta: {
+      version: VERSION,
+      analysisDurationMs: Date.now() - startTime,
+    },
+  };
+}
+
+type SitemapWalkContext = {
+  timeout: number;
+  userAgent: string;
+  visited: Set<string>;
+  warnings: string[];
+};
+
+async function fetchSitemapUrls(
+  sitemapUrl: string,
+  context: SitemapWalkContext,
+  depth = 0,
+): Promise<string[]> {
+  if (context.visited.has(sitemapUrl)) return [];
+  context.visited.add(sitemapUrl);
+
+  const response = await httpGet({
+    url: sitemapUrl,
+    timeout: context.timeout,
+    userAgent: context.userAgent,
+  });
+
+  if (response.status !== 200) {
+    throw new Error(`Failed to fetch sitemap: HTTP ${response.status}`);
+  }
+
+  const nodes = scaffold(response.data);
+
+  if (!hasSitemapIndexNode(nodes)) {
+    return extractLocUrls(nodes);
+  }
+
+  if (depth >= MAX_SITEMAP_INDEX_DEPTH) {
+    context.warnings.push(
+      `Sitemap index nesting exceeded ${MAX_SITEMAP_INDEX_DEPTH} levels at ${sitemapUrl}; skipping deeper levels`,
+    );
+    return [];
+  }
+
+  const allUrls: string[] = [];
+  for (const childUrl of extractLocUrls(nodes)) {
+    try {
+      allUrls.push(...(await fetchSitemapUrls(childUrl, context, depth + 1)));
+    } catch (error) {
+      context.warnings.push(
+        `Skipped child sitemap ${childUrl}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+  return allUrls;
+}
+
+function hasSitemapIndexNode(nodes: XmlNode[]): boolean {
+  for (const node of nodes) {
+    if (node.xmlTag === "sitemapindex") return true;
+    if (node.children && hasSitemapIndexNode(node.children)) return true;
+  }
+  return false;
+}
+
+function extractLocUrls(nodes: XmlNode[]): string[] {
+  const urls: string[] = [];
+  collectLocText(nodes, urls);
+  return urls;
 }
 
 function collectLocText(nodes: XmlNode[], urls: string[]): void {
@@ -37,77 +183,20 @@ function collectLocText(nodes: XmlNode[], urls: string[]): void {
   }
 }
 
-function extractLocUrls(xml: string): string[] {
-  const nodes = scaffold(xml);
-  const urls: string[] = [];
-  collectLocText(nodes, urls);
-  return urls;
-}
-
-function hasSitemapIndexNode(nodes: XmlNode[]): boolean {
-  for (const node of nodes) {
-    if (node.xmlTag === "sitemapindex") return true;
-    if (node.children && hasSitemapIndexNode(node.children)) return true;
+function stripCdata(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.startsWith("<![CDATA[") && trimmed.endsWith("]]>")) {
+    return trimmed.slice(9, -3);
   }
-  return false;
-}
-
-async function fetchSitemapUrls(
-  sitemapUrl: string,
-  timeout: number,
-  userAgent: string,
-): Promise<string[]> {
-  const response = await httpGet({
-    url: sitemapUrl,
-    timeout,
-    userAgent,
-  });
-
-  if (response.status !== 200) {
-    throw new Error(`Failed to fetch sitemap: HTTP ${response.status}`);
-  }
-
-  const nodes = scaffold(response.data);
-
-  if (hasSitemapIndexNode(nodes)) {
-    return fetchSitemapIndexUrls(response.data, timeout, userAgent);
-  }
-
-  const urls: string[] = [];
-  collectLocText(nodes, urls);
-  return urls;
-}
-
-async function fetchSitemapIndexUrls(
-  xml: string,
-  timeout: number,
-  userAgent: string,
-): Promise<string[]> {
-  const childSitemapUrls = extractLocUrls(xml);
-  const allUrls: string[] = [];
-
-  for (const childUrl of childSitemapUrls) {
-    const response = await httpGet({
-      url: childUrl,
-      timeout,
-      userAgent,
-    });
-    if (response.status === 200) {
-      allUrls.push(...extractLocUrls(response.data));
-    }
-  }
-
-  return allUrls;
+  return trimmed;
 }
 
 function computeCategoryAverages(
   urlResults: SitemapUrlResultType[],
 ): SitemapResultType["categoryAverages"] {
   const successResults = urlResults
-    .filter((r) => r.status === "success")
-    .map(
-      (r) => (r as Extract<SitemapUrlResultType, { status: "success" }>).result,
-    );
+    .filter(isSuccessResult)
+    .map((r) => r.result);
 
   if (successResults.length === 0) return {};
 
@@ -139,85 +228,4 @@ function computeCategoryAverages(
   }
 
   return averages;
-}
-
-export async function analyzeSitemap(
-  options: SitemapOptionsType,
-  config: AiseoConfigType,
-): Promise<SitemapResultType> {
-  const startTime = Date.now();
-  const timeout = options.timeout ?? config.timeout;
-  const userAgent = options.userAgent ?? config.userAgent;
-
-  const urls = await fetchSitemapUrls(options.sitemapUrl, timeout, userAgent);
-
-  const sitemapDir = options.sitemapUrl.substring(
-    0,
-    options.sitemapUrl.lastIndexOf("/"),
-  );
-  const signalsBase = options.signalsBase ?? sitemapDir;
-  const domainSignals = await fetchDomainSignals(
-    signalsBase,
-    timeout,
-    userAgent,
-  );
-
-  const urlResults: SitemapUrlResultType[] = [];
-
-  for (const rawUrl of urls) {
-    const url = normalizeUrl(rawUrl);
-    try {
-      const fetchResult = await fetchUrl({ url, timeout, userAgent });
-      const result = await analyzeUrlWithSignals(
-        url,
-        fetchResult,
-        domainSignals,
-        config,
-      );
-      urlResults.push({ status: "success", result });
-    } catch (error) {
-      urlResults.push({
-        status: "failed",
-        url,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-  }
-
-  const successResults = urlResults
-    .filter((r) => r.status === "success")
-    .map(
-      (r) => (r as Extract<SitemapUrlResultType, { status: "success" }>).result,
-    );
-
-  const succeededCount = successResults.length;
-  const failedCount = urlResults.length - succeededCount;
-
-  const averageScore =
-    succeededCount > 0
-      ? Math.round(
-          successResults.reduce((sum, r) => sum + r.overallScore, 0) /
-            succeededCount,
-        )
-      : 0;
-
-  const averageGrade = computeGrade(averageScore);
-  const categoryAverages = computeCategoryAverages(urlResults);
-
-  return {
-    sitemapUrl: options.sitemapUrl,
-    signalsBase: domainSignals.signalsBase,
-    analyzedAt: new Date().toISOString(),
-    totalUrls: urlResults.length,
-    succeededCount,
-    failedCount,
-    averageScore,
-    averageGrade,
-    categoryAverages,
-    urlResults,
-    meta: {
-      version: VERSION,
-      analysisDurationMs: Date.now() - startTime,
-    },
-  };
 }

@@ -107,13 +107,56 @@ describe("buildTldr", () => {
     expect(tldr.grade).toBe("F");
   });
 
-  it("picks the top 3 wins sorted by expectedGain descending", () => {
+  it("picks the top 3 wins ranked by weighted overall impact", () => {
     const tldr = buildTldr(makeResult());
     expect(tldr.quickestWins).toHaveLength(3);
     expect(tldr.quickestWins[0].factor).toBe("Answer Capsules");
     expect(tldr.quickestWins[0].expectedGain).toBe(13);
     expect(tldr.quickestWins[1].factor).toBe("Author Attribution");
     expect(tldr.quickestWins[2].factor).toBe("Image Alt Text");
+  });
+
+  it("ranks 8 points in a small category above 11 points in a large one", () => {
+    const result = makeResult();
+    result.categories.answerability.maxScore = 20;
+    result.categories.answerability.score = 5;
+    result.recommendations = [
+      {
+        category: "Authority Context",
+        factor: "Author Attribution",
+        currentValue: "Not found",
+        priority: "high",
+        recommendation: "Add author",
+        expectedGain: 11,
+      },
+      {
+        category: "Answerability",
+        factor: "Answer Capsules",
+        currentValue: "0",
+        priority: "high",
+        recommendation: "Add answer capsules",
+        expectedGain: 8,
+      },
+    ];
+
+    const tldr = buildTldr(result);
+    expect(tldr.quickestWins[0].factor).toBe("Answer Capsules");
+  });
+
+  it("lets a 10x category weight promote that category's win to first place", () => {
+    const result = makeResult();
+    result.meta.weights = {
+      contentExtractability: 10,
+      contentStructure: 1,
+      answerability: 1,
+      entityClarity: 1,
+      groundingSignals: 1,
+      authorityContext: 1,
+      readabilityForCompression: 1,
+    };
+
+    const tldr = buildTldr(result);
+    expect(tldr.quickestWins[0].factor).toBe("Image Alt Text");
   });
 
   it("excludes recommendations with zero expected gain", () => {
@@ -138,7 +181,7 @@ describe("buildTldr", () => {
   });
 
   it("honors a smaller maxWins cap", () => {
-    const tldr = buildTldr(makeResult(), undefined, 1);
+    const tldr = buildTldr(makeResult(), 1);
     expect(tldr.quickestWins).toHaveLength(1);
     expect(tldr.quickestWins[0].factor).toBe("Answer Capsules");
   });
@@ -148,13 +191,7 @@ describe("buildTldr", () => {
     expect(tldr.projectedGrade).toMatch(/^[A-F][+-]?$/);
   });
 
-  it("projects the exact expected score for a hand-computed fixture", () => {
-    // Single category, single factor, single win. Uniform weights means each
-    // category contributes 1/7 to the weighted score.
-    //   Baseline:  Word Count 5/10 = 50% * 1/7 ≈ 7  (rounded)
-    //   With win:  Word Count 10/10 = 100% * 1/7 ≈ 14 (rounded)
-    //   Delta = 14 - 7 = 7
-    //   projectedScore = clamp(overallScore + delta) = 50 + 7 = 57
+  it("projects 100 when the only category's only factor reaches full marks", () => {
     const result: AnalyzerResultType = {
       url: "https://example.com",
       signalsBase: "https://example.com",
@@ -197,7 +234,7 @@ describe("buildTldr", () => {
     const tldr = buildTldr(result);
 
     expect(tldr.score).toBe(50);
-    expect(tldr.projectedScore).toBe(57);
-    expect(tldr.projectedGrade).toBe("F");
+    expect(tldr.projectedScore).toBe(100);
+    expect(tldr.projectedGrade).toBe("A");
   });
 });

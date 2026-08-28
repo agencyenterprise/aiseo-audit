@@ -1,3 +1,5 @@
+import { normalizeWhitespace } from "../extractor/support/text.js";
+
 const INTERROGATIVES =
   "what|how|why|when|where|who|whom|whose|which|can|could|should|would|will|is|are|was|were|am|do|does|did|has|have|had|may|might|must";
 
@@ -12,10 +14,6 @@ export function extractQuestions(text: string): string[] {
   const matches =
     text.match(interrogativeLedSentenceEndingInQuestionMark) ?? [];
   return matches.map(normalizeWhitespace).filter(isWithinQuestionLengthRange);
-}
-
-function normalizeWhitespace(text: string): string {
-  return text.replace(/\s+/g, " ").trim();
 }
 
 function isWithinQuestionLengthRange(text: string): boolean {

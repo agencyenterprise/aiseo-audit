@@ -155,9 +155,7 @@ beforeEach(() => {
     statusCode: 200,
     contentType: "text/html",
     html: "<html><body>Test</body></html>",
-    byteLength: 100,
     fetchTimeMs: 50,
-    redirected: false,
   });
 });
 
@@ -234,6 +232,43 @@ describe("analyzeSitemap", () => {
     });
 
     it("flattens sitemap index into individual URLs", async () => {
+      const secondChildXml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://example.com/pages/page-one</loc></url>
+</urlset>`;
+      vi.mocked(httpGet)
+        .mockResolvedValueOnce({
+          status: 200,
+          data: sitemapIndexXml,
+          headers: {},
+          finalUrl: "https://example.com/sitemap.xml",
+        })
+        .mockResolvedValueOnce({
+          status: 200,
+          data: childSitemapXml,
+          headers: {},
+          finalUrl: "https://example.com/sitemap-blog.xml",
+        })
+        .mockResolvedValue({
+          status: 200,
+          data: secondChildXml,
+          headers: {},
+          finalUrl: "https://example.com/sitemap-pages.xml",
+        });
+      vi.mocked(analyzeUrlWithSignals).mockResolvedValue(
+        makeMockAnalyzerResult("https://example.com/blog/post-one", 70),
+      );
+
+      const result = await analyzeSitemap(
+        { sitemapUrl: "https://example.com/sitemap.xml" },
+        mockConfig,
+      );
+
+      expect(result.totalUrls).toBe(2);
+      expect(result.warnings).toEqual([]);
+    });
+
+    it("deduplicates URLs listed in multiple child sitemaps", async () => {
       vi.mocked(httpGet)
         .mockResolvedValueOnce({
           status: 200,
@@ -256,7 +291,73 @@ describe("analyzeSitemap", () => {
         mockConfig,
       );
 
-      expect(result.totalUrls).toBe(2);
+      expect(result.totalUrls).toBe(1);
+    });
+
+    it("records a warning and continues when a child sitemap fetch throws", async () => {
+      vi.mocked(httpGet)
+        .mockResolvedValueOnce({
+          status: 200,
+          data: sitemapIndexXml,
+          headers: {},
+          finalUrl: "https://example.com/sitemap.xml",
+        })
+        .mockRejectedValueOnce(new Error("connection reset"))
+        .mockResolvedValue({
+          status: 200,
+          data: childSitemapXml,
+          headers: {},
+          finalUrl: "https://example.com/sitemap-pages.xml",
+        });
+      vi.mocked(analyzeUrlWithSignals).mockResolvedValue(
+        makeMockAnalyzerResult("https://example.com/blog/post-one", 70),
+      );
+
+      const result = await analyzeSitemap(
+        { sitemapUrl: "https://example.com/sitemap.xml" },
+        mockConfig,
+      );
+
+      expect(result.totalUrls).toBe(1);
+      expect(result.warnings).toHaveLength(1);
+      expect(result.warnings[0]).toContain("connection reset");
+    });
+
+    it("recurses into nested sitemap indexes instead of auditing them as pages", async () => {
+      const nestedIndexXml = `<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap><loc>https://example.com/sitemap-deep.xml</loc></sitemap>
+</sitemapindex>`;
+      vi.mocked(httpGet)
+        .mockResolvedValueOnce({
+          status: 200,
+          data: nestedIndexXml,
+          headers: {},
+          finalUrl: "https://example.com/sitemap.xml",
+        })
+        .mockResolvedValueOnce({
+          status: 200,
+          data: sitemapIndexXml,
+          headers: {},
+          finalUrl: "https://example.com/sitemap-deep.xml",
+        })
+        .mockResolvedValue({
+          status: 200,
+          data: childSitemapXml,
+          headers: {},
+          finalUrl: "https://example.com/sitemap-blog.xml",
+        });
+      vi.mocked(analyzeUrlWithSignals).mockResolvedValue(
+        makeMockAnalyzerResult("https://example.com/blog/post-one", 70),
+      );
+
+      const result = await analyzeSitemap(
+        { sitemapUrl: "https://example.com/sitemap.xml" },
+        mockConfig,
+      );
+
+      expect(result.totalUrls).toBe(1);
+      expect(result.urlResults[0]).toMatchObject({ status: "success" });
     });
 
     it("skips child sitemap URLs when child sitemap returns non-200", async () => {
@@ -282,7 +383,6 @@ describe("analyzeSitemap", () => {
         mockConfig,
       );
 
-      // No URLs extracted from failed child sitemaps
       expect(result.totalUrls).toBe(0);
     });
 

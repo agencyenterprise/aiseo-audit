@@ -1,8 +1,25 @@
-import {
-  DEFAULT_HEADERS,
-  MAX_RESPONSE_SIZE,
-} from "../modules/fetcher/constants.js";
-import type { HttpRequestOptionsType, HttpResponseType } from "./schema.js";
+export const MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
+
+const PROBE_MAX_BYTES = 512;
+
+const DEFAULT_HEADERS: Record<string, string> = {
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Cache-Control": "no-cache",
+};
+
+export type HttpRequestOptionsType = {
+  url: string;
+  timeout: number;
+  userAgent: string;
+};
+
+export type HttpResponseType = {
+  status: number;
+  data: string;
+  headers: Record<string, string>;
+  finalUrl: string;
+};
 
 export type FetchErrorCode =
   | "TIMEOUT"
@@ -24,6 +41,144 @@ export class FetchError extends Error {
   }
 }
 
+export async function httpGet(
+  options: HttpRequestOptionsType,
+): Promise<HttpResponseType> {
+  return request(options, {}, rejectBodyOverCap);
+}
+
+export async function httpProbe(
+  options: HttpRequestOptionsType,
+): Promise<HttpResponseType> {
+  return request(
+    options,
+    { Range: `bytes=0-${PROBE_MAX_BYTES - 1}` },
+    truncateBodyToProbeCap,
+  );
+}
+
+type BodyReaderType = (response: Response, url: string) => Promise<string>;
+
+async function request(
+  options: HttpRequestOptionsType,
+  extraHeaders: Record<string, string>,
+  readBody: BodyReaderType,
+): Promise<HttpResponseType> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), options.timeout);
+
+  try {
+    const response = await fetch(options.url, {
+      method: "GET",
+      headers: {
+        "User-Agent": options.userAgent,
+        ...DEFAULT_HEADERS,
+        ...extraHeaders,
+      },
+      signal: controller.signal,
+      redirect: "follow",
+    });
+
+    return {
+      status: response.status,
+      data: await readBody(response, options.url),
+      headers: headersToRecord(response),
+      finalUrl: response.url,
+    };
+  } catch (err) {
+    throw classifyFetchError(err, options.url);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function rejectBodyOverCap(
+  response: Response,
+  url: string,
+): Promise<string> {
+  if (declaredLengthExceeds(response, MAX_RESPONSE_BYTES)) {
+    throw tooLargeError(url);
+  }
+  const body = await streamBodyUpTo(response, MAX_RESPONSE_BYTES);
+  if (body.overflowed) throw tooLargeError(url);
+  return body.text;
+}
+
+async function truncateBodyToProbeCap(response: Response): Promise<string> {
+  const body = await streamBodyUpTo(response, PROBE_MAX_BYTES);
+  return body.text;
+}
+
+function declaredLengthExceeds(response: Response, maxBytes: number): boolean {
+  const contentLength = response.headers.get("content-length");
+  return contentLength !== null && parseInt(contentLength, 10) > maxBytes;
+}
+
+async function streamBodyUpTo(
+  response: Response,
+  maxBytes: number,
+): Promise<{ text: string; overflowed: boolean }> {
+  if (!response.body) {
+    const data = await response.text();
+    return {
+      text: data.slice(0, maxBytes),
+      overflowed: data.length > maxBytes,
+    };
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+
+  try {
+    while (received <= maxBytes) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      received += value.byteLength;
+    }
+  } finally {
+    if (received > maxBytes) await reader.cancel().catch(() => {});
+  }
+
+  return {
+    text: decodeUpTo(chunks, Math.min(received, maxBytes)),
+    overflowed: received > maxBytes,
+  };
+}
+
+function decodeUpTo(chunks: Uint8Array[], byteCount: number): string {
+  const combined = new Uint8Array(byteCount);
+  let offset = 0;
+  for (const chunk of chunks) {
+    const remaining = combined.length - offset;
+    if (remaining <= 0) break;
+    combined.set(
+      remaining >= chunk.byteLength ? chunk : chunk.subarray(0, remaining),
+      offset,
+    );
+    offset += Math.min(chunk.byteLength, remaining);
+  }
+  return new TextDecoder("utf-8", { fatal: false }).decode(combined);
+}
+
+function headersToRecord(response: Response): Record<string, string> {
+  const headers: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    headers[key] = value;
+  });
+  return headers;
+}
+
+function tooLargeError(url: string): FetchError {
+  const maxMegabytes = Math.round(MAX_RESPONSE_BYTES / 1024 / 1024);
+  return new FetchError(
+    "TOO_LARGE",
+    url,
+    `Response from "${safeHostname(url)}" exceeds the ${maxMegabytes}MB size limit.`,
+  );
+}
+
 function classifyFetchError(err: unknown, url: string): FetchError {
   if (err instanceof FetchError) return err;
 
@@ -31,21 +186,17 @@ function classifyFetchError(err: unknown, url: string): FetchError {
   const cause =
     err instanceof Error && err.cause instanceof Error ? err.cause.message : "";
   const combined = `${msg} ${cause}`.toLowerCase();
+  const hostname = safeHostname(url);
 
-  if (
-    err instanceof DOMException ||
-    (err instanceof Error && err.name === "AbortError") ||
-    combined.includes("abort")
-  ) {
+  if (isAbort(err, combined)) {
     return new FetchError(
       "TIMEOUT",
       url,
-      `Request timed out. The server at "${new URL(url).hostname}" did not respond in time.`,
+      `Request timed out. The server at "${hostname}" did not respond in time.`,
     );
   }
 
   if (combined.includes("getaddrinfo") || combined.includes("enotfound")) {
-    const hostname = new URL(url).hostname;
     return new FetchError(
       "DNS_FAILURE",
       url,
@@ -57,20 +208,15 @@ function classifyFetchError(err: unknown, url: string): FetchError {
     return new FetchError(
       "CONNECTION_REFUSED",
       url,
-      `Connection refused by "${new URL(url).hostname}". The server may be down or not accepting connections.`,
+      `Connection refused by "${hostname}". The server may be down or not accepting connections.`,
     );
   }
 
-  if (
-    combined.includes("cert") ||
-    combined.includes("ssl") ||
-    combined.includes("tls") ||
-    combined.includes("unable to verify")
-  ) {
+  if (isTlsFailure(combined)) {
     return new FetchError(
       "TLS_ERROR",
       url,
-      `TLS/SSL error connecting to "${new URL(url).hostname}". The site may have an invalid or expired certificate.`,
+      `TLS/SSL error connecting to "${hostname}". The site may have an invalid or expired certificate.`,
     );
   }
 
@@ -81,134 +227,27 @@ function classifyFetchError(err: unknown, url: string): FetchError {
   );
 }
 
-export async function httpGet(
-  options: HttpRequestOptionsType,
-): Promise<HttpResponseType> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), options.timeout);
-
-  try {
-    const response = await fetch(options.url, {
-      method: "GET",
-      headers: {
-        "User-Agent": options.userAgent,
-        ...DEFAULT_HEADERS,
-      },
-      signal: controller.signal,
-      redirect: "follow",
-    });
-
-    const contentLength = response.headers.get("content-length");
-    if (contentLength && parseInt(contentLength, 10) > MAX_RESPONSE_SIZE) {
-      throw new FetchError(
-        "TOO_LARGE",
-        options.url,
-        `Response from "${new URL(options.url).hostname}" exceeds the ${Math.round(MAX_RESPONSE_SIZE / 1024 / 1024)}MB size limit.`,
-      );
-    }
-
-    const data = await response.text();
-
-    if (data.length > MAX_RESPONSE_SIZE) {
-      throw new FetchError(
-        "TOO_LARGE",
-        options.url,
-        `Response from "${new URL(options.url).hostname}" exceeds the ${Math.round(MAX_RESPONSE_SIZE / 1024 / 1024)}MB size limit.`,
-      );
-    }
-
-    const headers: Record<string, string> = {};
-    response.headers.forEach((value, key) => {
-      headers[key] = value;
-    });
-
-    return {
-      status: response.status,
-      data,
-      headers,
-      finalUrl: response.url,
-    };
-  } catch (err) {
-    throw classifyFetchError(err, options.url);
-  } finally {
-    clearTimeout(timer);
-  }
+function isAbort(err: unknown, combinedMessage: string): boolean {
+  return (
+    err instanceof DOMException ||
+    (err instanceof Error && err.name === "AbortError") ||
+    combinedMessage.includes("abort")
+  );
 }
 
-export async function httpHead(
-  options: HttpRequestOptionsType,
-): Promise<HttpResponseType> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), options.timeout);
-
-  try {
-    const response = await fetch(options.url, {
-      method: "HEAD",
-      headers: {
-        "User-Agent": options.userAgent,
-        ...DEFAULT_HEADERS,
-      },
-      signal: controller.signal,
-      redirect: "follow",
-    });
-
-    const headers: Record<string, string> = {};
-    response.headers.forEach((value, key) => {
-      headers[key] = value;
-    });
-
-    return {
-      status: response.status,
-      data: "",
-      headers,
-      finalUrl: response.url,
-    };
-  } catch (err) {
-    throw classifyFetchError(err, options.url);
-  } finally {
-    clearTimeout(timer);
-  }
+function isTlsFailure(combinedMessage: string): boolean {
+  return (
+    combinedMessage.includes("cert") ||
+    combinedMessage.includes("ssl") ||
+    combinedMessage.includes("tls") ||
+    combinedMessage.includes("unable to verify")
+  );
 }
 
-const PROBE_MAX_BYTES = 512;
-
-export async function httpProbe(
-  options: HttpRequestOptionsType,
-): Promise<HttpResponseType> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), options.timeout);
-
+function safeHostname(url: string): string {
   try {
-    const response = await fetch(options.url, {
-      method: "GET",
-      headers: {
-        "User-Agent": options.userAgent,
-        Range: `bytes=0-${PROBE_MAX_BYTES - 1}`,
-        ...DEFAULT_HEADERS,
-      },
-      signal: controller.signal,
-      redirect: "follow",
-    });
-
-    const headers: Record<string, string> = {};
-    response.headers.forEach((value, key) => {
-      headers[key] = value;
-    });
-
-    const buffer = await response.arrayBuffer();
-    const data = new TextDecoder("utf-8", { fatal: false }).decode(
-      buffer.slice(0, PROBE_MAX_BYTES),
-    );
-
-    return {
-      status: response.status,
-      data,
-      headers,
-      finalUrl: response.url,
-    };
-  } catch (err) {
-    throw classifyFetchError(err, options.url);
-  } finally {
-    clearTimeout(timer);
+    return new URL(url).hostname;
+  } catch {
+    return url;
   }
 }

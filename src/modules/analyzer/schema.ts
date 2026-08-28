@@ -1,14 +1,14 @@
 import { z } from "zod";
 import { AuditRawDataSchema, CategoryResultSchema } from "../audits/schema.js";
+import { CategoryWeightSchema } from "../config/schema.js";
 import { RecommendationSchema } from "../recommendations/schema.js";
-import { VERSION } from "./constants.js";
 
-export const AnalyzerOptionsSchema = z.object({
-  url: z.string(),
-  signalsBase: z.string().optional(),
-  timeout: z.number().positive().default(45000),
-  userAgent: z.string().default(`AISEOAudit/${VERSION}`),
-});
+export type AnalyzerOptionsType = {
+  url: string;
+  signalsBase?: string;
+  timeout?: number;
+  userAgent?: string;
+};
 
 export const AnalyzerResultSchema = z.object({
   url: z.string(),
@@ -23,9 +23,9 @@ export const AnalyzerResultSchema = z.object({
   rawData: AuditRawDataSchema,
   meta: z.object({
     version: z.string(),
+    weights: CategoryWeightSchema.optional(),
     analysisDurationMs: z.number(),
   }),
 });
 
-export type AnalyzerOptionsType = z.input<typeof AnalyzerOptionsSchema>;
 export type AnalyzerResultType = z.infer<typeof AnalyzerResultSchema>;

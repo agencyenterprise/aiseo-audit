@@ -1,5 +1,15 @@
 import * as cheerio from "cheerio";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+const CLOCK_PINNED_MID_MONTH = new Date("2026-06-15T12:00:00Z");
+
+beforeAll(() => {
+  vi.useFakeTimers({ now: CLOCK_PINNED_MID_MONTH });
+});
+
+afterAll(() => {
+  vi.useRealTimers();
+});
 import { evaluateFreshness } from "../../../src/modules/authority-context/freshness.js";
 
 function load(html: string) {
@@ -75,12 +85,8 @@ describe("evaluateFreshness", () => {
   });
 
   it("computes ageInMonths from a valid date", () => {
-    const recentDate = new Date();
-    recentDate.setMonth(recentDate.getMonth() - 3);
-    const dateStr = recentDate.toISOString().split("T")[0];
-
     const $ = load(
-      `<html><body><time datetime="${dateStr}">Recent</time></body></html>`,
+      `<html><body><time datetime="2026-03-15">Recent</time></body></html>`,
     );
     const result = evaluateFreshness($);
 
@@ -98,15 +104,10 @@ describe("evaluateFreshness", () => {
   });
 
   it("prefers modifiedDate over publishDate for age calculation", () => {
-    const oldDate = new Date();
-    oldDate.setMonth(oldDate.getMonth() - 12);
-    const recentDate = new Date();
-    recentDate.setMonth(recentDate.getMonth() - 2);
-
     const $ = load(
       `<html><head>
-        <meta property="article:modified_time" content="${recentDate.toISOString().split("T")[0]}" />
-        <meta property="article:published_time" content="${oldDate.toISOString().split("T")[0]}" />
+        <meta property="article:modified_time" content="2026-04-15" />
+        <meta property="article:published_time" content="2025-06-15" />
       </head></html>`,
     );
     const result = evaluateFreshness($);

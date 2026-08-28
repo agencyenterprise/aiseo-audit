@@ -328,10 +328,13 @@ describe("renderReport", () => {
   });
 
   describe("default format", () => {
-    it("defaults to pretty", () => {
+    it("defaults to pretty when format is omitted at runtime", () => {
       const result = makeMinimalResult();
       const prettyOutput = renderReport(result, { format: "pretty" });
-      const defaultOutput = renderReport(result, { format: "pretty" });
+      const defaultOutput = renderReport(
+        result,
+        {} as Parameters<typeof renderReport>[1],
+      );
 
       expect(defaultOutput).toBe(prettyOutput);
     });
@@ -1200,8 +1203,34 @@ describe("pretty format grade color branches", () => {
 
 describe("TL;DR block", () => {
   function makeResultWithWins(): AnalyzerResultType {
+    const base = makeMinimalResult();
     return {
-      ...makeMinimalResult(),
+      ...base,
+      categories: {
+        ...base.categories,
+        answerability: {
+          name: "Answerability",
+          key: "answerability",
+          score: 27,
+          maxScore: 40,
+          factors: [
+            {
+              name: "Answer Capsules",
+              score: 0,
+              maxScore: 13,
+              value: "0 capsules",
+              status: "critical",
+            },
+            {
+              name: "Direct Answer Statements",
+              score: 27,
+              maxScore: 27,
+              value: "Plenty",
+              status: "good",
+            },
+          ],
+        },
+      },
       recommendations: [
         {
           category: "Answerability",
@@ -1245,8 +1274,6 @@ describe("TL;DR block", () => {
 
     it("includes the projected score after the top fixes", () => {
       const output = renderReport(makeResultWithWins(), { format: "pretty" });
-      // chalk may insert ANSI color codes between the tokens, so assert on
-      // substrings rather than a single regex.
       expect(output).toContain("Top 3 fixes:");
       expect(output).toContain("/100");
     });
@@ -1313,8 +1340,27 @@ describe("TL;DR block", () => {
 
 describe("tldrOnly mode", () => {
   function makeResultWithWins(): AnalyzerResultType {
+    const base = makeMinimalResult();
     return {
-      ...makeMinimalResult(),
+      ...base,
+      categories: {
+        ...base.categories,
+        answerability: {
+          name: "Answerability",
+          key: "answerability",
+          score: 27,
+          maxScore: 40,
+          factors: [
+            {
+              name: "Answer Capsules",
+              score: 0,
+              maxScore: 13,
+              value: "0 capsules",
+              status: "critical",
+            },
+          ],
+        },
+      },
       recommendations: [
         {
           category: "Answerability",

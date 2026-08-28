@@ -24,20 +24,29 @@ npm install
 
 ```
 src/
-├── cli.ts                  # CLI entry point (aiseo-audit bin)
+├── cli.ts                  # CLI entry shim (aiseo-audit bin)
+├── cli/program.ts          # CLI logic: flags, validation, exit codes (testable)
 ├── index.ts                # Library entry point
 ├── mcp.ts                  # MCP server bootstrap (aiseo-audit-mcp bin)
 ├── mcp/                    # MCP tool definitions and handlers
+├── version.ts              # Package version (injected at build time)
 ├── modules/
 │   ├── analyzer/           # Orchestrates the audit pipeline
-│   ├── audits/             # Audit orchestrator, categories/, support helpers
+│   ├── audits/             # Audit orchestrator, factor-name registry, category assembly
+│   ├── answerability/      # Category audit: definitions, capsules, Q/A patterns
+│   ├── authority-context/  # Category audit: author, org, dates, JSON-LD
+│   ├── content-extractability/  # Category audit: fetch, extraction, robots.txt
+│   ├── content-structure/  # Category audit: headings, lists, sections
+│   ├── entity-clarity/     # Category audit: named entities, topics
+│   ├── grounding-signals/  # Category audit: citations, statistics, attribution
+│   ├── readability/        # Category audit: sentence length, Flesch, transitions
 │   ├── config/             # Config loading and schema
 │   ├── diff/               # Score diffing, audit history, and --diff orchestration
 │   ├── extractor/          # HTML parsing and content extraction
 │   ├── fetcher/            # HTTP fetching
 │   ├── nlp/                # NLP utilities (entity extraction, readability, topics)
 │   ├── recommendations/    # Recommendation generation
-│   ├── report/             # Report rendering (pretty, json, md, html)
+│   ├── report/             # Report rendering (pretty, json, md, html) + shared view-model
 │   ├── scoring/            # All scoring logic (thresholds, factors, grades)
 │   └── sitemap/            # Sitemap fetching, parsing, and batch auditing
 └── utils/                  # Shared utilities (fs, http, strings, url)
@@ -45,11 +54,13 @@ src/
 
 Each module follows a consistent pattern:
 
-- `schema.ts` - Zod schemas and TypeScript types
-- `service.ts` - Core logic
-- `constants.ts` - Builder functions and dynamic logic (where needed)
+- `schema.ts` - Contract types; Zod schemas where data is parsed at runtime
+- `service.ts` or `index.ts` - Core logic
+- `constants.ts` - Thresholds and display names (where needed)
 - `examples.ts` - Static code examples for recommendation output (where needed)
 - `support/` - Helper functions (where needed)
+
+Adding a factor touches three places, and the compiler walks you through them: register the display name in `src/modules/audits/factor-names.ts`, score it in its category module via `makeFactor`, and add its builder to `RECOMMENDATION_BUILDERS` (a missing builder is a type error). Adding a category is: create the module, add its key to `CategoryNameSchema`, and wire it in `audits/service.ts`; weights and TLDR projections derive from the schema automatically.
 
 ## How to Contribute
 

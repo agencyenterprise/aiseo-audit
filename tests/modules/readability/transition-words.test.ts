@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TRANSITION_WORDS } from "../../../src/modules/readability/patterns.js";
+import { TRANSITION_WORDS } from "../../../src/modules/readability/transition-words.js";
 
 describe("TRANSITION_WORDS", () => {
   it("contains common transitions", () => {

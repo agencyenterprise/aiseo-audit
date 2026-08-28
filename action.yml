@@ -61,39 +61,68 @@ runs:
       run: |
         set -e
 
-        if [ -z "$INPUT_URL" ] && [ -z "$INPUT_SITEMAP" ]; then
-          echo "::error::Either 'url' or 'sitemap' input is required."
-          exit 2
-        fi
+        require_url_or_sitemap() {
+          if [ -z "$INPUT_URL" ] && [ -z "$INPUT_SITEMAP" ]; then
+            echo "::error::Either 'url' or 'sitemap' input is required."
+            exit 2
+          fi
+        }
 
-        ARGS=()
-        if [ -n "$INPUT_URL" ]; then ARGS+=("$INPUT_URL"); fi
-        if [ -n "$INPUT_SITEMAP" ]; then ARGS+=("--sitemap" "$INPUT_SITEMAP"); fi
-        if [ -n "$INPUT_FAIL_UNDER" ]; then ARGS+=("--fail-under" "$INPUT_FAIL_UNDER"); fi
-        if [ -n "$INPUT_CONFIG" ]; then ARGS+=("--config" "$INPUT_CONFIG"); fi
-        if [ -n "$INPUT_USER_AGENT" ]; then ARGS+=("--user-agent" "$INPUT_USER_AGENT"); fi
-        if [ -n "$INPUT_TIMEOUT" ]; then ARGS+=("--timeout" "$INPUT_TIMEOUT"); fi
+        reject_version_specs_that_execute_arbitrary_packages() {
+          if ! [[ "$INPUT_VERSION" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::Invalid 'version' input: must be an npm dist-tag or version number."
+            exit 2
+          fi
+        }
+
+        build_audit_args() {
+          ARGS=()
+          if [ -n "$INPUT_URL" ]; then ARGS+=("$INPUT_URL"); fi
+          if [ -n "$INPUT_SITEMAP" ]; then ARGS+=("--sitemap" "$INPUT_SITEMAP"); fi
+          if [ -n "$INPUT_FAIL_UNDER" ]; then ARGS+=("--fail-under" "$INPUT_FAIL_UNDER"); fi
+          if [ -n "$INPUT_CONFIG" ]; then ARGS+=("--config" "$INPUT_CONFIG"); fi
+          if [ -n "$INPUT_USER_AGENT" ]; then ARGS+=("--user-agent" "$INPUT_USER_AGENT"); fi
+          if [ -n "$INPUT_TIMEOUT" ]; then ARGS+=("--timeout" "$INPUT_TIMEOUT"); fi
+          ARGS+=("--json" "--out" "$REPORT_PATH")
+        }
+
+        run_audit_capturing_exit_code() {
+          AUDIT_EXIT_CODE=0
+          npx --yes "aiseo-audit@${INPUT_VERSION}" "${ARGS[@]}" || AUDIT_EXIT_CODE=$?
+        }
+
+        write_outputs_even_when_the_gate_failed() {
+          if [ -f "$REPORT_PATH" ]; then
+            SCORE=$(node -p "require('./${REPORT_PATH}').overallScore ?? require('./${REPORT_PATH}').averageScore ?? 0")
+            GRADE=$(node -p "require('./${REPORT_PATH}').grade ?? require('./${REPORT_PATH}').averageGrade ?? ''")
+
+            echo "score=$SCORE" >> "$GITHUB_OUTPUT"
+            echo "grade=$GRADE" >> "$GITHUB_OUTPUT"
+            echo "report-path=$REPORT_PATH" >> "$GITHUB_OUTPUT"
+          fi
+        }
 
         REPORT_PATH="aiseo-result.json"
-        ARGS+=("--json" "--out" "$REPORT_PATH")
 
-        npx --yes "aiseo-audit@${INPUT_VERSION}" "${ARGS[@]}"
-
-        SCORE=$(node -p "require('./${REPORT_PATH}').overallScore ?? require('./${REPORT_PATH}').averageScore ?? 0")
-        GRADE=$(node -p "require('./${REPORT_PATH}').grade ?? require('./${REPORT_PATH}').averageGrade ?? ''")
-
-        echo "score=$SCORE" >> "$GITHUB_OUTPUT"
-        echo "grade=$GRADE" >> "$GITHUB_OUTPUT"
-        echo "report-path=$REPORT_PATH" >> "$GITHUB_OUTPUT"
+        require_url_or_sitemap
+        reject_version_specs_that_execute_arbitrary_packages
+        build_audit_args
+        run_audit_capturing_exit_code
+        write_outputs_even_when_the_gate_failed
+        exit "$AUDIT_EXIT_CODE"
 
     - name: Comment on PR
-      if: ${{ inputs.comment-on-pr == 'true' && github.event_name == 'pull_request' }}
+      if: ${{ !cancelled() && inputs.comment-on-pr == 'true' && github.event_name == 'pull_request' }}
       uses: actions/github-script@v7
       env:
         REPORT_PATH: ${{ steps.audit.outputs.report-path }}
       with:
         script: |
           const fs = require('fs');
+          if (!process.env.REPORT_PATH || !fs.existsSync(process.env.REPORT_PATH)) {
+            core.info('No audit report was produced (runtime error); skipping PR comment.');
+            return;
+          }
           const report = JSON.parse(fs.readFileSync(process.env.REPORT_PATH, 'utf-8'));
           const marker = '<!-- aiseo-audit-sticky-comment -->';
 
@@ -101,7 +130,7 @@ runs:
           const grade = report.grade ?? report.averageGrade ?? '';
           const tldr = report.tldr;
           const wins = (tldr?.quickestWins ?? [])
-            .map((w, i) => `${i + 1}. **+${w.expectedGain} pts** — ${w.factor} (${w.category})`)
+            .map((w, i) => `${i + 1}. **+${w.expectedGain} pts**: ${w.factor} (${w.category})`)
             .join('\n');
 
           const projection = tldr && tldr.projectedScore > tldr.score
@@ -110,9 +139,9 @@ runs:
 
           const body = [
             marker,
-            `## AI SEO Audit — ${score}/100 (${grade})${projection}`,
+            `## AI SEO Audit: ${score}/100 (${grade})${projection}`,
             '',
-            wins ? 'Quickest wins:' : '_No quick wins identified — the page is already solid._',
+            wins ? 'Quickest wins:' : '_No quick wins identified. The page is already solid._',
             wins,
             '',
             `<sub>Posted by [aiseo-audit](https://github.com/agencyenterprise/aiseo-audit)</sub>`,

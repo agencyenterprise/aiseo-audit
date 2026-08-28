@@ -49,6 +49,26 @@ function makeAuditResult(
 }
 
 describe("generateRecommendations", () => {
+  it("skips neutral factors even at zero score so recommendations never contradict the factor table", () => {
+    const auditResult = makeAuditResult({
+      structure: makeCategory("Content Structure", "contentStructure", [
+        {
+          name: "Tables Presence",
+          score: 0,
+          maxScore: 8,
+          value: "0 table(s)",
+          status: "neutral",
+        },
+        makeFactor("Heading Hierarchy", 2, 10),
+      ]),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs.some((r) => r.factor === "Tables Presence")).toBe(false);
+    expect(recs.some((r) => r.factor === "Heading Hierarchy")).toBe(true);
+  });
+
   it("generates no recommendations for perfect scores", () => {
     const auditResult = makeAuditResult({
       content: makeCategory("Content", "contentExtractability", [
@@ -730,140 +750,80 @@ describe("actionable recommendation fields", () => {
     expect(recs[0].learnMoreUrl).toBeUndefined();
   });
 
-  it("includes steps and codeExample for Lists Presence", () => {
-    const auditResult = makeAuditResult({
-      content: makeCategory("Content Structure for Reuse", "contentStructure", [
-        makeFactor("Lists Presence", 0, 11),
-      ]),
-    });
+  const FREE_FORM_CODE_EXAMPLE = null;
 
-    const recs = generateRecommendations(auditResult);
+  it.each([
+    [
+      "Lists Presence",
+      "Content Structure for Reuse",
+      "contentStructure",
+      "<ul>",
+    ],
+    [
+      "Tables Presence",
+      "Content Structure for Reuse",
+      "contentStructure",
+      "<table>",
+    ],
+    ["Definition Patterns", "Answerability", "answerability", "is defined as"],
+    [
+      "Direct Answer Statements",
+      "Answerability",
+      "answerability",
+      FREE_FORM_CODE_EXAMPLE,
+    ],
+    ["Summary/Conclusion", "Answerability", "answerability", "<h2>"],
+    [
+      "Attribution Indicators",
+      "Grounding Signals",
+      "groundingSignals",
+      "According to",
+    ],
+    ["Citation Patterns", "Grounding Signals", "groundingSignals", "<cite>"],
+    [
+      "Quoted Attribution",
+      "Grounding Signals",
+      "groundingSignals",
+      "<blockquote>",
+    ],
+    [
+      "Transition Usage",
+      "Readability for Compression",
+      "readabilityForCompression",
+      FREE_FORM_CODE_EXAMPLE,
+    ],
+    [
+      "Jargon Density",
+      "Readability for Compression",
+      "readabilityForCompression",
+      FREE_FORM_CODE_EXAMPLE,
+    ],
+    [
+      "Publication Date",
+      "Authority Context",
+      "authorityContext",
+      "datePublished",
+    ],
+    ["Contact/About Links", "Authority Context", "authorityContext", "About"],
+  ] as Array<[string, string, CategoryNameType, string | null]>)(
+    "includes steps and codeExample for %s",
+    (factorName, categoryName, categoryKey, codeToken) => {
+      const auditResult = makeAuditResult({
+        [categoryKey]: makeCategory(categoryName, categoryKey, [
+          makeFactor(factorName, 0, 10),
+        ]),
+      });
 
-    expect(recs[0].steps).toBeDefined();
-    expect(recs[0].steps!.length).toBeGreaterThan(0);
-    expect(recs[0].codeExample).toContain("<ul>");
-  });
+      const recs = generateRecommendations(auditResult);
 
-  it("includes steps and codeExample for Tables Presence", () => {
-    const auditResult = makeAuditResult({
-      content: makeCategory("Content Structure for Reuse", "contentStructure", [
-        makeFactor("Tables Presence", 0, 8),
-      ]),
-    });
-
-    const recs = generateRecommendations(auditResult);
-
-    expect(recs[0].steps).toBeDefined();
-    expect(recs[0].codeExample).toContain("<table>");
-  });
-
-  it("includes steps and codeExample for Definition Patterns", () => {
-    const auditResult = makeAuditResult({
-      answerability: makeCategory("Answerability", "answerability", [
-        makeFactor("Definition Patterns", 0, 10),
-      ]),
-    });
-
-    const recs = generateRecommendations(auditResult);
-
-    expect(recs[0].steps).toBeDefined();
-    expect(recs[0].codeExample).toContain("is defined as");
-  });
-
-  it("includes steps and codeExample for Direct Answer Statements", () => {
-    const auditResult = makeAuditResult({
-      answerability: makeCategory("Answerability", "answerability", [
-        makeFactor("Direct Answer Statements", 0, 11),
-      ]),
-    });
-
-    const recs = generateRecommendations(auditResult);
-
-    expect(recs[0].steps).toBeDefined();
-    expect(recs[0].codeExample).toBeDefined();
-  });
-
-  it("includes steps and codeExample for Summary/Conclusion", () => {
-    const auditResult = makeAuditResult({
-      answerability: makeCategory("Answerability", "answerability", [
-        makeFactor("Summary/Conclusion", 0, 9),
-      ]),
-    });
-
-    const recs = generateRecommendations(auditResult);
-
-    expect(recs[0].steps).toBeDefined();
-    expect(recs[0].codeExample).toContain("<h2>");
-  });
-
-  it("includes steps and codeExample for Attribution Indicators", () => {
-    const auditResult = makeAuditResult({
-      grounding: makeCategory("Grounding Signals", "groundingSignals", [
-        makeFactor("Attribution Indicators", 0, 11),
-      ]),
-    });
-
-    const recs = generateRecommendations(auditResult);
-
-    expect(recs[0].steps).toBeDefined();
-    expect(recs[0].codeExample).toContain("According to");
-  });
-
-  it("includes steps and codeExample for Citation Patterns", () => {
-    const auditResult = makeAuditResult({
-      grounding: makeCategory("Grounding Signals", "groundingSignals", [
-        makeFactor("Citation Patterns", 0, 13),
-      ]),
-    });
-
-    const recs = generateRecommendations(auditResult);
-
-    expect(recs[0].steps).toBeDefined();
-    expect(recs[0].codeExample).toContain("<cite>");
-  });
-
-  it("includes steps and codeExample for Quoted Attribution", () => {
-    const auditResult = makeAuditResult({
-      grounding: makeCategory("Grounding Signals", "groundingSignals", [
-        makeFactor("Quoted Attribution", 0, 10),
-      ]),
-    });
-
-    const recs = generateRecommendations(auditResult);
-
-    expect(recs[0].steps).toBeDefined();
-    expect(recs[0].codeExample).toContain("<blockquote>");
-  });
-
-  it("includes steps and codeExample for Transition Usage", () => {
-    const auditResult = makeAuditResult({
-      readability: makeCategory(
-        "Readability for Compression",
-        "readabilityForCompression",
-        [makeFactor("Transition Usage", 0, 15)],
-      ),
-    });
-
-    const recs = generateRecommendations(auditResult);
-
-    expect(recs[0].steps).toBeDefined();
-    expect(recs[0].codeExample).toBeDefined();
-  });
-
-  it("includes steps and codeExample for Jargon Density", () => {
-    const auditResult = makeAuditResult({
-      readability: makeCategory(
-        "Readability for Compression",
-        "readabilityForCompression",
-        [makeFactor("Jargon Density", 0, 15)],
-      ),
-    });
-
-    const recs = generateRecommendations(auditResult);
-
-    expect(recs[0].steps).toBeDefined();
-    expect(recs[0].codeExample).toBeDefined();
-  });
+      expect(recs[0].steps).toBeDefined();
+      expect(recs[0].steps!.length).toBeGreaterThan(0);
+      expect(recs[0].codeExample).toBeDefined();
+      if (codeToken) {
+        expect(recs[0].codeExample).toContain(codeToken);
+      }
+    },
+  );
 
   it("includes steps and codeExample for Organization Identity", () => {
     const auditResult = makeAuditResult({

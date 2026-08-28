@@ -1,17 +1,12 @@
-import { CATEGORY_DISPLAY_NAMES } from "../audits/constants.js";
 import type {
   CategoryAuditOutputType,
   ExtractedEntitiesType,
   FactorResultType,
 } from "../audits/schema.js";
+import { buildCategoryOutput } from "../audits/category.js";
 import type { ExtractedPageType } from "../extractor/schema.js";
 import { countPatternMatches, extractEntities } from "../nlp/service.js";
-import {
-  makeFactor,
-  maxFactors,
-  sumFactors,
-  thresholdScore,
-} from "../scoring/service.js";
+import { makeFactor, thresholdScore } from "../scoring/service.js";
 import { detectAnswerCapsules } from "./capsules.js";
 import {
   DEFINITION_PATTERNS,
@@ -64,16 +59,7 @@ export function auditAnswerability(
   );
 
   const capsules = detectAnswerCapsules(page.$);
-  const capsuleRatio =
-    capsules.total > 0 ? capsules.withCapsule / capsules.total : 0;
-  const capsuleScore =
-    capsules.total === 0
-      ? 0
-      : thresholdScore(capsuleRatio, [
-          [0.7, 13],
-          [0.4, 9],
-          [0.01, 5],
-        ]);
+  const capsuleScore = scoreAnswerCapsules(capsules);
   factors.push(
     makeFactor(
       "Answer Capsules",
@@ -138,17 +124,26 @@ export function auditAnswerability(
     ),
   );
 
-  return {
-    category: {
-      name: CATEGORY_DISPLAY_NAMES.answerability,
-      key: "answerability",
-      score: sumFactors(factors),
-      maxScore: maxFactors(factors),
-      factors,
-    },
-    rawData: {
-      answerCapsules: capsules,
-      questionsFound: questionMatches.slice(0, 5),
-    },
-  };
+  return buildCategoryOutput("answerability", factors, {
+    answerCapsules: capsules,
+    questionsFound: questionMatches.slice(0, 5),
+  });
+}
+
+const POINTS_FOR_QUESTION_HEADINGS_WITHOUT_CAPSULES = 2;
+
+function scoreAnswerCapsules(capsules: {
+  total: number;
+  withCapsule: number;
+}): number {
+  if (capsules.total === 0) return 0;
+  if (capsules.withCapsule === 0) {
+    return POINTS_FOR_QUESTION_HEADINGS_WITHOUT_CAPSULES;
+  }
+  const capsuleRatio = capsules.withCapsule / capsules.total;
+  return thresholdScore(capsuleRatio, [
+    [0.7, 13],
+    [0.4, 9],
+    [0, 5],
+  ]);
 }

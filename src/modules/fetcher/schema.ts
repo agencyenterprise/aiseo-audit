@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { VERSION } from "../analyzer/constants.js";
+import { VERSION } from "../../version.js";
 
 export const FetchOptionsSchema = z.object({
   url: z.url(),
@@ -7,16 +7,13 @@ export const FetchOptionsSchema = z.object({
   userAgent: z.string().default(`AISEOAudit/${VERSION}`),
 });
 
-export const FetchResultSchema = z.object({
-  url: z.string(),
-  finalUrl: z.string(),
-  statusCode: z.number(),
-  contentType: z.string(),
-  html: z.string(),
-  byteLength: z.number(),
-  fetchTimeMs: z.number(),
-  redirected: z.boolean(),
-});
+export type FetchOptionsType = z.input<typeof FetchOptionsSchema>;
 
-export type FetchOptionsType = z.infer<typeof FetchOptionsSchema>;
-export type FetchResultType = z.infer<typeof FetchResultSchema>;
+export type FetchResultType = {
+  url: string;
+  finalUrl: string;
+  statusCode: number;
+  contentType: string | null;
+  html: string;
+  fetchTimeMs: number;
+};

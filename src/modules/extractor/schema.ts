@@ -1,45 +1,37 @@
 import type { CheerioAPI } from "cheerio";
-import { z } from "zod";
 
-export const PageStatsSchema = z.object({
-  wordCount: z.number(),
-  sentenceCount: z.number(),
-  paragraphCount: z.number(),
-  headingCount: z.number(),
-  h1Count: z.number(),
-  h2Count: z.number(),
-  h3Count: z.number(),
-  linkCount: z.number(),
-  externalLinkCount: z.number(),
-  imageCount: z.number(),
-  imagesWithAlt: z.number(),
-  listCount: z.number(),
-  listItemCount: z.number(),
-  tableCount: z.number(),
-  boilerplateRatio: z.number().min(0).max(1),
-  rawByteLength: z.number(),
-  cleanTextLength: z.number(),
-});
+export type PageStatsType = {
+  wordCount: number;
+  sentenceCount: number;
+  paragraphCount: number;
+  headingCount: number;
+  h1Count: number;
+  h2Count: number;
+  h3Count: number;
+  linkCount: number;
+  externalLinkCount: number;
+  imageCount: number;
+  imagesWithAlt: number;
+  listCount: number;
+  listItemCount: number;
+  tableCount: number;
+  boilerplateRatio: number;
+  rawByteLength: number;
+  cleanTextLength: number;
+};
 
-export const ExtractedPageDataSchema = z.object({
-  url: z.string(),
-  html: z.string(),
-  cleanText: z.string(),
-  title: z.string(),
-  metaDescription: z.string(),
-  stats: PageStatsSchema,
-});
+export type ExternalLinkType = {
+  url: string;
+  text: string;
+};
 
-export const ExternalLinkSchema = z.object({
-  url: z.string(),
-  text: z.string(),
-});
-
-export type PageStatsType = z.infer<typeof PageStatsSchema>;
-export type ExtractedPageDataType = z.infer<typeof ExtractedPageDataSchema>;
-export type ExternalLinkType = z.infer<typeof ExternalLinkSchema>;
-
-export interface ExtractedPageType extends ExtractedPageDataType {
+export type ExtractedPageType = {
+  url: string;
+  html: string;
+  cleanText: string;
+  title: string;
+  metaDescription: string;
+  stats: PageStatsType;
   $: CheerioAPI;
   externalLinks: ExternalLinkType[];
-}
+};

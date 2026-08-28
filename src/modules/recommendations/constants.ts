@@ -1,3 +1,4 @@
+import type { FactorNameType } from "../audits/factor-names.js";
 import type { AuditRawDataType } from "../audits/schema.js";
 import {
   answerCapsuleExample,
@@ -29,7 +30,10 @@ function constantRecommendation(text: string): RecommendationBuilder {
   return () => ({ text });
 }
 
-export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
+export const RECOMMENDATION_BUILDERS: Record<
+  FactorNameType,
+  RecommendationBuilder
+> = {
   "Fetch Success": constantRecommendation(
     "Ensure the page returns HTTP 200 without excessive redirect chains. AI engines cannot extract content from pages that fail to load.",
   ),
@@ -121,7 +125,7 @@ export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
     const isLlmsMissing = !llms?.llmsTxtExists;
     const codeExample = isLlmsMissing
       ? `# llms.txt\n\n# ${title}\n\n> ${description}\n\n## Docs\n\n- [About](/about): Learn more about ${title}\n- [Documentation](/docs): Technical documentation`
-      : `# llms-full.txt\n\n# ${title} — Full Documentation\n\n> ${description}\n\nThis file provides comprehensive documentation for AI systems to understand and accurately reference ${title}.`;
+      : `# llms-full.txt\n\n# ${title}: Full Documentation\n\n> ${description}\n\nThis file provides comprehensive documentation for AI systems to understand and accurately reference ${title}.`;
 
     const fileName = missingFiles[0];
 
@@ -234,7 +238,7 @@ export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
       "Identify prose that enumerates 3 or more items in a sentence",
       "Convert those sentences into <ul> or <ol> list elements",
       "Use <ol> for sequential steps and <ul> for unordered collections",
-      "Keep list items parallel — each starting with the same grammatical form",
+      "Keep list items parallel, each starting with the same grammatical form",
     ],
     codeExample: listsConversionExample,
   }),
@@ -329,7 +333,7 @@ export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
 
 <!-- After (answer capsule pattern) -->
 <h2>${detectedQuestion.endsWith("?") ? detectedQuestion : `${detectedQuestion}?`}</h2>
-<p>[Your direct, one-sentence answer here — under 200 characters.]</p>
+<p>[Your direct, one-sentence answer here, under 200 characters.]</p>
 <p>[Supporting detail and context follows...]</p>`
       : answerCapsuleExample;
 
@@ -369,7 +373,7 @@ export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
     steps: [
       "Add an H2 heading at the end of the page: 'Summary', 'Key Takeaways', or 'Conclusion'",
       "List 3 to 5 bullet points covering the most important points from the page",
-      "Keep each bullet to one sentence — conclusion bullets are the most-cited part of a page",
+      "Keep each bullet to one sentence; conclusion bullets are the most-cited part of a page",
       "Optionally follow the summary with a 'Next Steps' or 'Learn More' section",
     ],
     codeExample: summaryStructureExample,
@@ -440,7 +444,7 @@ export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
     const howToAddReferenceSteps = [
       "Identify factual claims that can be supported by an external source",
       "Find authoritative sources: research papers, industry reports, official documentation",
-      "Wrap the linked text in a meaningful anchor — describe what you are linking to, not 'click here'",
+      "Wrap the linked text in a meaningful anchor: describe what you are linking to, not 'click here'",
       `Aim for ${minimumRecommendedLinks} or more external links per page`,
     ];
 
@@ -506,7 +510,7 @@ export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
   }),
 
   "Quoted Attribution": () => ({
-    text: 'Add expert quotes with clear attribution. Use patterns like "Quote text" — Expert Name, or "Quote text," said Expert Name. Research shows quotation addition increased AI visibility by 30-40%.',
+    text: 'Add expert quotes with clear attribution. Use patterns like "Quote text" - Expert Name, or "Quote text," said Expert Name. Research shows quotation addition increased AI visibility by 30-40%.',
     steps: [
       "Find a relevant quote from an expert, publication, or research paper",
       "Wrap it in a <blockquote> with a <footer> containing a <cite> attribution",
@@ -577,7 +581,7 @@ export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
     steps: [
       "Add links to your About and Contact pages in the site navigation",
       "Include them in the footer of every page",
-      "Ensure the links are reachable via plain anchor tags — not JavaScript-only interactions",
+      "Ensure the links are reachable via plain anchor tags, not JavaScript-only interactions",
     ],
     codeExample: contactLinksExample,
   }),

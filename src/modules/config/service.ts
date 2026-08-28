@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileExists } from "../../utils/fs.js";
 import { CONFIG_FILENAMES } from "./constants.js";
@@ -7,6 +7,38 @@ import { AiseoConfigSchema, type AiseoConfigType } from "./schema.js";
 type AiseoConfigPatchType = Partial<
   Pick<AiseoConfigType, "diff" | "historyDir">
 >;
+
+export type LoadedConfigType = {
+  config: AiseoConfigType;
+  path: string | null;
+};
+
+export async function loadConfigWithPath(
+  configPath?: string,
+): Promise<LoadedConfigType> {
+  if (configPath) {
+    const resolvedPath = resolve(configPath);
+    if (!(await fileExists(resolvedPath))) {
+      throw new Error(
+        `Config file not found at "${resolvedPath}". Check the --config path.`,
+      );
+    }
+    return { config: await parseConfigFile(resolvedPath), path: resolvedPath };
+  }
+
+  const found = await findConfigFile(process.cwd());
+  if (found) {
+    return { config: await parseConfigFile(found), path: found };
+  }
+
+  return { config: AiseoConfigSchema.parse({}), path: null };
+}
+
+export async function loadConfig(
+  configPath?: string,
+): Promise<AiseoConfigType> {
+  return (await loadConfigWithPath(configPath)).config;
+}
 
 async function findConfigFile(startDir: string): Promise<string | null> {
   let dir = resolve(startDir);
@@ -23,34 +55,15 @@ async function findConfigFile(startDir: string): Promise<string | null> {
   }
 }
 
-export async function loadConfig(
-  configPath?: string,
-): Promise<AiseoConfigType> {
-  if (configPath) {
-    const resolvedPath = resolve(configPath);
-    const content = await readFile(resolvedPath, "utf-8");
-    try {
-      return AiseoConfigSchema.parse(JSON.parse(content));
-    } catch (err) {
-      throw new Error(
-        `Invalid config file "${resolvedPath}": ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
+async function parseConfigFile(path: string): Promise<AiseoConfigType> {
+  const content = await readFile(path, "utf-8");
+  try {
+    return AiseoConfigSchema.parse(JSON.parse(content));
+  } catch (err) {
+    throw new Error(
+      `Invalid config file "${path}": ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
-
-  const found = await findConfigFile(process.cwd());
-  if (found) {
-    const content = await readFile(found, "utf-8");
-    try {
-      return AiseoConfigSchema.parse(JSON.parse(content));
-    } catch (err) {
-      throw new Error(
-        `Invalid config file "${found}": ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
-  }
-
-  return AiseoConfigSchema.parse({});
 }
 
 export async function updateConfig(
@@ -60,14 +73,28 @@ export async function updateConfig(
   const resolvedPath = resolve(configPath);
   const existing = await readExistingConfig(resolvedPath);
   const merged = { ...existing, ...patch };
-  AiseoConfigSchema.parse(merged);
+  try {
+    AiseoConfigSchema.parse(merged);
+  } catch (err) {
+    throw new Error(
+      `Refusing to write invalid config to "${resolvedPath}": ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 
   await mkdir(dirname(resolvedPath), { recursive: true });
-  await writeFile(
+  await writeFileAtomically(
     resolvedPath,
     `${JSON.stringify(merged, null, 2)}\n`,
-    "utf-8",
   );
+}
+
+async function writeFileAtomically(
+  path: string,
+  contents: string,
+): Promise<void> {
+  const tempPath = `${path}.tmp-${process.pid}`;
+  await writeFile(tempPath, contents, "utf-8");
+  await rename(tempPath, path);
 }
 
 async function readExistingConfig(
