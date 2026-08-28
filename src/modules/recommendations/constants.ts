@@ -1,3 +1,4 @@
+import type { FactorNameType } from "../audits/factor-names.js";
 import type { AuditRawDataType } from "../audits/schema.js";
 import {
   answerCapsuleExample,
@@ -29,7 +30,10 @@ function constantRecommendation(text: string): RecommendationBuilder {
   return () => ({ text });
 }
 
-export const RECOMMENDATION_BUILDERS: Record<string, RecommendationBuilder> = {
+export const RECOMMENDATION_BUILDERS: Record<
+  FactorNameType,
+  RecommendationBuilder
+> = {
   "Fetch Success": constantRecommendation(
     "Ensure the page returns HTTP 200 without excessive redirect chains. AI engines cannot extract content from pages that fail to load.",
   ),

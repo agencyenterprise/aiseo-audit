@@ -4,9 +4,9 @@
 [![npm downloads](https://img.shields.io/npm/dw/aiseo-audit?color=F5B0A4)](https://www.npmjs.com/package/aiseo-audit)
 [![npm package size](https://img.shields.io/npm/unpacked-size/aiseo-audit?color=F5B0A4)](https://www.npmjs.com/package/aiseo-audit)
 [![License: MIT](https://img.shields.io/badge/License-MIT-7EB6D7.svg)](https://opensource.org/licenses/MIT)
-[![Node.js](https://img.shields.io/badge/node-%3E%3D20-7EB6D7.svg)](https://nodejs.org)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D20.19-7EB6D7.svg)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-7EB6D7?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-558%20passed-8FBC8F)](https://github.com/agencyenterprise/aiseo-audit)
+[![CI](https://github.com/agencyenterprise/aiseo-audit/actions/workflows/ci.yml/badge.svg)](https://github.com/agencyenterprise/aiseo-audit/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/codecov/c/github/agencyenterprise/aiseo-audit?color=8FBC8F&label=coverage)](https://codecov.io/gh/agencyenterprise/aiseo-audit)
 [![GitHub Stars](https://img.shields.io/github/stars/agencyenterprise/aiseo-audit?style=flat&color=8FBC8F)](https://github.com/agencyenterprise/aiseo-audit/stargazers)
 ![npm downloads](https://img.shields.io/npm/dt/aiseo-audit?label=Total%20Downloads)
@@ -53,7 +53,7 @@ aiseo-audit goes deeper:
 - **Research-grounded scoring.** Thresholds and weights are derived from published research on what generative engines actually cite. See [Audit Breakdown](docs/AUDIT_BREAKDOWN.md) for the full methodology and [Research](docs/RESEARCH.md) for where the data comes from.
 - **Configurable weights.** Prioritize the categories that matter to your content via `aiseo.config.json`. Zero vendor lock-in.
 - **Four output formats.** Pretty terminal, JSON, Markdown, and self-contained HTML reports.
-- **Zero external dependencies at runtime.** No API keys, no network calls beyond fetching the target URL. Fully deterministic.
+- **No external services at runtime.** No API keys, no AI calls, no network requests beyond fetching the target URL and its domain signal files. Fully deterministic.
 
 ## Quick Start
 
@@ -137,14 +137,14 @@ aiseo-audit https://example.com --tldr
     3.  +7 pts  Image Alt Text       (Content Extractability)
 ```
 
-`--tldr` works with every output format (`--json`, `--md`, `--html`) so you can pipe it into any integration. Combine with `--out` to write a slim summary to a file.
+`--tldr` works with every output format (`--json`, `--md`, `--html`) so you can pipe it into any integration. Combine with `--out` to write a slim summary to a file. It applies to single-URL audits; combining it with `--sitemap` is rejected with an error.
 
 ## Tracking AI SEO Over Time
 
 `--diff` records every audit and shows you what changed since the last run for the same URL.
 
 > [!IMPORTANT]
-> `--diff` is the only flag that writes files outside of `--out`. On first use it creates `./audits/` (or your configured `historyDir`) and an `aiseo.config.json` in the current directory if one doesn't exist. Both are announced on stderr the moment they're created — nothing is written silently. Add `./audits/` to `.gitignore` if you don't want the history tracked in version control, or commit it to keep a record of AI SEO over time.
+> `--diff` is the only flag that writes files outside of `--out`. It records history in whichever config file discovery finds (`aiseo.config.json`, `.aiseo.config.json`, or `aiseo-audit.config.json`, searched upward from the current directory); only when none exists does it create a fresh `aiseo.config.json`. History entries store paths relative to the config file, so a committed `./audits/` directory keeps working on other machines and in CI. Everything is announced on stderr the moment it is created, and config writes are atomic. Add `./audits/` to `.gitignore` if you don't want the history in version control, or commit it to keep a record of AI SEO over time.
 
 ```bash
 # First run — establishes a baseline
@@ -235,7 +235,7 @@ No install required — the server runs via `npx` from the published package.
   "mcpServers": {
     "aiseo-audit": {
       "command": "npx",
-      "args": ["-y", "aiseo-audit-mcp"]
+      "args": ["-y", "-p", "aiseo-audit", "aiseo-audit-mcp"]
     }
   }
 }
@@ -248,7 +248,7 @@ No install required — the server runs via `npx` from the published package.
   "mcpServers": {
     "aiseo-audit": {
       "command": "npx",
-      "args": ["-y", "aiseo-audit-mcp"]
+      "args": ["-y", "-p", "aiseo-audit", "aiseo-audit-mcp"]
     }
   }
 }
@@ -310,23 +310,23 @@ The `--fail-under` threshold sets the minimum acceptable score. Exit code `1` is
 
 ## CLI Options
 
-| Option                 | Description                                                                       | Default                                       |
-| ---------------------- | --------------------------------------------------------------------------------- | --------------------------------------------- |
-| `[url]`                | URL to audit                                                                      | -                                             |
-| `--sitemap <url>`      | Audit all URLs in a sitemap.xml                                                   | -                                             |
-| `--signals-base <url>` | Base URL to fetch domain signals from (robots.txt, llms.txt, llms-full.txt)       | Directory of the URL or sitemap being audited |
-| `--json`               | Output as JSON                                                                    | -                                             |
-| `--md`                 | Output as Markdown                                                                | -                                             |
-| `--html`               | Output as HTML                                                                    | -                                             |
-| `--out <path>`         | Write output to a file; format is inferred from `.html`, `.md`, `.json` extension | -                                             |
-| `--fail-under <n>`     | Exit with code 1 if score < threshold                                             | -                                             |
-| `--timeout <ms>`       | Request timeout in ms                                                             | `45000`                                       |
-| `--user-agent <ua>`    | Custom User-Agent string                                                          | `AISEOAudit/<version>`                        |
-| `--config <path>`      | Path to config file                                                               | -                                             |
-| `--tldr`               | Emit only the TL;DR summary (no detailed breakdown)                               | -                                             |
-| `--diff`               | Track score over time: record this run, diff against the previous recorded run    | -                                             |
-| `--all`                | With `--diff` and no URL, render audit history across all tracked URLs            | -                                             |
-| `--baseline <path>`    | Diff against a specific prior JSON result (bypasses history tracking)             | -                                             |
+| Option                 | Description                                                                       | Default                                    |
+| ---------------------- | --------------------------------------------------------------------------------- | ------------------------------------------ |
+| `[url]`                | URL to audit                                                                      | -                                          |
+| `--sitemap <url>`      | Audit all URLs in a sitemap.xml                                                   | -                                          |
+| `--signals-base <url>` | Base URL to fetch domain signals from (robots.txt, llms.txt, llms-full.txt)       | Origin of the URL or sitemap being audited |
+| `--json`               | Output as JSON                                                                    | -                                          |
+| `--md`                 | Output as Markdown                                                                | -                                          |
+| `--html`               | Output as HTML                                                                    | -                                          |
+| `--out <path>`         | Write output to a file; format is inferred from `.html`, `.md`, `.json` extension | -                                          |
+| `--fail-under <n>`     | Exit with code 1 if score < threshold                                             | -                                          |
+| `--timeout <ms>`       | Request timeout in ms                                                             | `45000`                                    |
+| `--user-agent <ua>`    | Custom User-Agent string                                                          | `AISEOAudit/<version>`                     |
+| `--config <path>`      | Path to config file                                                               | -                                          |
+| `--tldr`               | Emit only the TL;DR summary (no detailed breakdown)                               | -                                          |
+| `--diff`               | Track score over time: record this run, diff against the previous recorded run    | -                                          |
+| `--all`                | With `--diff` and no URL, render audit history across all tracked URLs            | -                                          |
+| `--baseline <path>`    | Diff against a specific prior JSON result (bypasses history tracking)             | -                                          |
 
 Either `[url]` or `--sitemap` must be provided (or `--diff --all` for the cross-URL timeline). If no output flag is given, the default is `pretty` (color-coded terminal output). The default format can also be set in the config file.
 
@@ -336,7 +336,7 @@ When `--out` is provided, the format is automatically inferred from the file ext
 
 Use `--sitemap` to audit every URL in a `sitemap.xml`. Domain signals (`robots.txt`, `llms.txt`, `llms-full.txt`) are fetched once and shared across all URL audits, not re-fetched per page.
 
-By default, domain signals are fetched from the directory that contains the sitemap file. For example, if your sitemap is at `https://example.com/projects/sitemap.xml`, signals are fetched from `https://example.com/projects/` so the tool checks `https://example.com/projects/robots.txt`, `https://example.com/projects/llms.txt`, and `https://example.com/projects/llms-full.txt`. If your signals live at the domain root instead, use `--signals-base` to specify the correct location explicitly.
+By default, domain signals are fetched from the origin of the URL or sitemap being audited, because `robots.txt` lives at the origin root per RFC 9309 and `llms.txt` follows the same convention. For a sitemap at `https://example.com/projects/sitemap.xml`, the tool checks `https://example.com/robots.txt`, `https://example.com/llms.txt`, and `https://example.com/llms-full.txt`. If your signals live somewhere else (for example a subdirectory deployment), use `--signals-base` to specify the location explicitly.
 
 ```bash
 # Audit all URLs in a sitemap
@@ -600,11 +600,11 @@ It is:
 
 ## Compatibility Notes
 
-**Node.js** - Requires Node 20 or later. The `engines` field in `package.json` enforces this. Earlier versions will produce runtime errors.
+**Node.js** - Requires Node 20.19 or later (the first Node 20 release with `require(esm)` support, which the CJS bin entries rely on). The `engines` field in `package.json` enforces this.
 
 **Zod** - Uses [Zod 4](https://zod.dev). If you consume the library API and also use Zod in your project, ensure you are on Zod 4+ to avoid type incompatibilities.
 
-**CJS bin entries** - Both `bin/aiseo-audit.js` (CLI) and `bin/aiseo-audit-mcp.js` (MCP server) use `require()` (CommonJS). This is compatible with all Node 20+ environments regardless of your project's module system. The library exports support both ESM (`import`) and CJS (`require`).
+**CJS bin entries** - Both `bin/aiseo-audit.js` (CLI) and `bin/aiseo-audit-mcp.js` (MCP server) use `require()` (CommonJS), which needs Node 20.19+ because some dependencies are ESM-only. The library exports support both ESM (`import`) and CJS (`require`).
 
 **Config discovery** - When using the programmatic API, `loadConfig()` searches for config files starting from `process.cwd()`. If your application's working directory differs from where your config file lives, pass an explicit path:
 

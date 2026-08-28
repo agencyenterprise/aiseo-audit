@@ -88,11 +88,8 @@ describe("renderDiffReport", () => {
         format: "pretty",
         tldrOnly: true,
       });
-      // Diff block still present
       expect(output).toContain("+8");
-      // TL;DR header present
       expect(output).toContain("AI SEO Audit");
-      // Full detailed report markers absent
       expect(output).not.toContain("Overall Score:");
       expect(output).not.toMatch(/\n\s*Recommendations:/);
     });

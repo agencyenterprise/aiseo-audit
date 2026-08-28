@@ -1,24 +1,28 @@
 import type { CheerioAPI } from "cheerio";
+import { thresholdScore } from "../scoring/service.js";
+import { parseJsonLdObjects, schemaTypesOf } from "./json-ld.js";
 
 export function resolveEntityName($: CheerioAPI): string | null {
   const ogSiteName = $('meta[property="og:site_name"]').attr("content")?.trim();
   if (ogSiteName) return ogSiteName;
 
-  const jsonLdScripts = $('script[type="application/ld+json"]');
   let orgName: string | null = null;
-  jsonLdScripts.each((_, el) => {
-    try {
-      const data = JSON.parse($(el).html() || "{}");
-      if (data["@type"] === "Organization" && data.name) {
-        orgName = String(data.name).trim();
-      }
-      if (data.publisher?.name) {
-        orgName = orgName || String(data.publisher.name).trim();
-      }
-    } catch {}
-  });
+  let publisherName: string | null = null;
+  for (const schema of parseJsonLdObjects($)) {
+    if (
+      !orgName &&
+      schemaTypesOf(schema).includes("Organization") &&
+      typeof schema.name === "string"
+    ) {
+      orgName = schema.name.trim();
+    }
+    const publisher = schema.publisher as { name?: unknown } | undefined;
+    if (!publisherName && typeof publisher?.name === "string") {
+      publisherName = publisher.name.trim();
+    }
+  }
 
-  return orgName || null;
+  return orgName || publisherName || null;
 }
 
 export function measureEntityConsistency(
@@ -47,16 +51,12 @@ export function measureEntityConsistency(
   if (copyrightText.includes(nameLower) || headerText.includes(nameLower))
     surfacesFound++;
 
-  const score =
-    surfacesFound >= 4
-      ? 10
-      : surfacesFound >= 3
-        ? 7
-        : surfacesFound >= 2
-          ? 4
-          : surfacesFound >= 1
-            ? 2
-            : 0;
+  const score = thresholdScore(surfacesFound, [
+    [4, 10],
+    [3, 7],
+    [2, 4],
+    [1, 2],
+  ]);
 
   return { score, surfacesFound, surfacesChecked };
 }

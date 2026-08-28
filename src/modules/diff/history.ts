@@ -1,18 +1,19 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileExists } from "../../utils/fs.js";
 import { slugifyUrl } from "../../utils/url.js";
-import type { AnalyzerResultType } from "../analyzer/schema.js";
+import {
+  AnalyzerResultSchema,
+  type AnalyzerResultType,
+} from "../analyzer/schema.js";
 import { type AiseoConfigType, type DiffEntryType } from "../config/schema.js";
 import { updateConfig } from "../config/service.js";
-
-export const DEFAULT_HISTORY_DIR = "./audits";
 
 export type RecordRunInputs = {
   result: AnalyzerResultType;
   configPath: string;
   existingDiff: AiseoConfigType["diff"];
-  historyDir?: string;
+  historyDir: string;
 };
 
 export type RecordRunOutcome = {
@@ -24,13 +25,15 @@ export type RecordRunOutcome = {
 export async function recordAuditRun(
   inputs: RecordRunInputs,
 ): Promise<RecordRunOutcome> {
-  const { result, configPath, existingDiff } = inputs;
-  const historyDir = inputs.historyDir ?? DEFAULT_HISTORY_DIR;
+  const { result, configPath, existingDiff, historyDir } = inputs;
 
-  const resolvedOutPath = resolve(defaultOutputPath(historyDir, result));
-  const historyDirExisted = await fileExists(historyDir);
+  const configDir = dirname(resolve(configPath));
+  const resolvedHistoryDir = resolveAgainst(configDir, historyDir);
+  const fileName = `${slugifyUrl(result.url)}-${timestampSlug(result.analyzedAt)}.json`;
+  const resolvedOutPath = join(resolvedHistoryDir, fileName);
+  const historyDirExisted = await fileExists(resolvedHistoryDir);
 
-  await mkdir(dirname(resolvedOutPath), { recursive: true });
+  await mkdir(resolvedHistoryDir, { recursive: true });
   await writeFile(resolvedOutPath, JSON.stringify(result, null, 2), "utf-8");
 
   const priorEntries = existingDiff?.[result.url] ?? [];
@@ -38,7 +41,7 @@ export async function recordAuditRun(
     priorEntries.length > 0 ? priorEntries[priorEntries.length - 1] : null;
 
   const newEntry: DiffEntryType = {
-    path: resolvedOutPath,
+    path: relative(configDir, resolvedOutPath),
     timestamp: result.analyzedAt,
     score: result.overallScore,
   };
@@ -57,11 +60,22 @@ export async function recordAuditRun(
       historyDir,
       historyDirExisted,
       configPath,
-      savedRelativePath: relativeTo(configPath, resolvedOutPath),
+      savedRelativePath: newEntry.path,
       url: result.url,
       totalEntries: mergedDiff[result.url].length,
     }),
   };
+}
+
+export function resolveHistoryPath(
+  entryPath: string,
+  configPath: string,
+): string {
+  return resolveAgainst(dirname(resolve(configPath)), entryPath);
+}
+
+function resolveAgainst(baseDir: string, path: string): string {
+  return isAbsolute(path) ? path : resolve(baseDir, path);
 }
 
 export async function loadBaselineResult(
@@ -73,24 +87,23 @@ export async function loadBaselineResult(
     );
   }
   const content = await readFile(path, "utf-8");
-  return JSON.parse(content) as AnalyzerResultType;
-}
-
-function defaultOutputPath(
-  historyDir: string,
-  result: AnalyzerResultType,
-): string {
-  const slug = slugifyUrl(result.url);
-  const stamp = timestampSlug(result.analyzedAt);
-  return `${historyDir.replace(/\/$/, "")}/${slug}-${stamp}.json`;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    throw new Error(`Baseline file "${path}" is not valid JSON.`);
+  }
+  const validated = AnalyzerResultSchema.safeParse(parsed);
+  if (!validated.success) {
+    throw new Error(
+      `Baseline file "${path}" is not an aiseo-audit result (expected the JSON written by --diff or --json). ${validated.error.issues[0]?.message ?? ""}`,
+    );
+  }
+  return validated.data;
 }
 
 function timestampSlug(iso: string): string {
-  return iso.replace(/[:.]/g, "-").replace(/Z$/, "Z");
-}
-
-function relativeTo(configPath: string, target: string): string {
-  return relative(dirname(resolve(configPath)), target) || target;
+  return iso.replace(/[:.]/g, "-");
 }
 
 function buildNotifications(inputs: {

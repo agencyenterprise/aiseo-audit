@@ -1,4 +1,5 @@
 import type { CheerioAPI } from "cheerio";
+import { countWords } from "../../utils/strings.js";
 import type { SectionLengthResultType } from "../audits/schema.js";
 
 export function measureSectionLengths($: CheerioAPI): SectionLengthResultType {
@@ -12,9 +13,12 @@ export function measureSectionLengths($: CheerioAPI): SectionLengthResultType {
     let words = 0;
     let sibling = $(el).next();
 
-    while (sibling.length && !sibling.is("h1, h2, h3, h4, h5, h6")) {
-      const text = sibling.text().trim();
-      words += text.split(/\s+/).filter((w) => w.length > 0).length;
+    while (
+      sibling.length &&
+      !sibling.is("h1, h2, h3, h4, h5, h6") &&
+      !containsAHeading(sibling)
+    ) {
+      words += countWords(sibling.text().trim());
       sibling = sibling.next();
     }
 
@@ -27,4 +31,8 @@ export function measureSectionLengths($: CheerioAPI): SectionLengthResultType {
       : 0;
 
   return { sectionCount: sections.length, avgWordsPerSection: avg, sections };
+}
+
+function containsAHeading(node: ReturnType<CheerioAPI>): boolean {
+  return node.find("h1, h2, h3, h4, h5, h6").length > 0;
 }

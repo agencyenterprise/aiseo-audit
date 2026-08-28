@@ -17,24 +17,14 @@ export type TldrType = {
   quickestWins: QuickWinType[];
 };
 
-const UNIFORM_WEIGHTS: CategoryWeightType = {
-  contentExtractability: 1,
-  contentStructure: 1,
-  answerability: 1,
-  entityClarity: 1,
-  groundingSignals: 1,
-  authorityContext: 1,
-  readabilityForCompression: 1,
-};
-
 const DEFAULT_MAX_WINS = 3;
 
 export function buildTldr(
   result: AnalyzerResultType,
-  weights: CategoryWeightType = UNIFORM_WEIGHTS,
   maxWins: number = DEFAULT_MAX_WINS,
 ): TldrType {
-  const quickestWins = selectQuickestWins(result, maxWins);
+  const weights = weightsTheResultWasScoredWith(result);
+  const quickestWins = selectQuickestWins(result, weights, maxWins);
   const baseline = computeScore(result.categories, weights);
   const projectedCategories = applyWinsToCategories(
     result.categories,
@@ -54,22 +44,59 @@ export function buildTldr(
   };
 }
 
+function weightsTheResultWasScoredWith(
+  result: AnalyzerResultType,
+): CategoryWeightType {
+  return result.meta.weights ?? uniformWeights(result);
+}
+
+function uniformWeights(result: AnalyzerResultType): CategoryWeightType {
+  return Object.fromEntries(
+    Object.keys(result.categories).map((key) => [key, 1]),
+  ) as CategoryWeightType;
+}
+
 function clampScore(score: number): number {
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
 function selectQuickestWins(
   result: AnalyzerResultType,
+  weights: CategoryWeightType,
   maxWins: number,
 ): QuickWinType[] {
+  const entries = Object.entries(result.categories);
+  const weightOf = (key: string) =>
+    weights[key as keyof CategoryWeightType] ?? 1;
+  const totalWeight = entries.reduce((sum, [key]) => sum + weightOf(key), 0);
+  const categoryByName = new Map(
+    entries.map(([key, cat]) => [cat.name, { key, cat }]),
+  );
+
   return result.recommendations
-    .filter((r) => (r.expectedGain ?? 0) > 0)
-    .sort((a, b) => (b.expectedGain ?? 0) - (a.expectedGain ?? 0))
+    .flatMap((r) => {
+      const found = categoryByName.get(r.category);
+      const gain = r.expectedGain ?? 0;
+      if (!found || gain <= 0 || found.cat.maxScore <= 0 || totalWeight <= 0) {
+        return [];
+      }
+      const overallImpact =
+        (gain / found.cat.maxScore) * (weightOf(found.key) / totalWeight) * 100;
+      return [
+        {
+          factor: r.factor,
+          category: r.category,
+          expectedGain: gain,
+          overallImpact,
+        },
+      ];
+    })
+    .sort((a, b) => b.overallImpact - a.overallImpact)
     .slice(0, maxWins)
-    .map((r) => ({
-      factor: r.factor,
-      category: r.category,
-      expectedGain: r.expectedGain ?? 0,
+    .map(({ factor, category, expectedGain }) => ({
+      factor,
+      category,
+      expectedGain,
     }));
 }
 

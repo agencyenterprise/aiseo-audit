@@ -8,13 +8,10 @@ import {
   mergeEntityLists,
   smartDedup,
 } from "./support/entities.js";
-import { extractTopicsByTfIdf } from "./support/topics.js";
+import { extractTopics } from "./support/topics.js";
 
 export { type ExtractedEntitiesType } from "./schema.js";
-export {
-  countPatternMatches,
-  countTransitionWords,
-} from "./support/patterns.js";
+export { countPatternMatches } from "./support/patterns.js";
 export {
   avgSentenceLength,
   computeFleschReadingEase,
@@ -50,16 +47,16 @@ export function extractEntities(text: string): ExtractedEntitiesType {
   unclassified.push(...acronyms);
 
   const people = mergeEntityLists(compromisePeople, supplementalPeople);
-  const organizations = mergeEntityLists(compromiseOrgs, [
-    ...supplementalOrgs,
-    ...unclassified,
-  ]);
   const places = smartDedup([...new Set(compromisePlaces)]);
+  const organizations = withoutNamesAlreadyClassified(
+    mergeEntityLists(compromiseOrgs, [...supplementalOrgs, ...unclassified]),
+    [...people, ...places],
+  );
 
-  const topics = extractTopicsByTfIdf(doc);
+  const topics = extractTopics(doc);
 
   const imperativeVerbCount = doc.verbs().isImperative().length;
-  const numberCount = doc.numbers().length;
+  const numberCount = countWrittenOutNumbers(doc);
 
   return {
     people,
@@ -69,4 +66,16 @@ export function extractEntities(text: string): ExtractedEntitiesType {
     imperativeVerbCount,
     numberCount,
   };
+}
+
+function withoutNamesAlreadyClassified(
+  organizations: string[],
+  alreadyClassified: string[],
+): string[] {
+  const claimed = new Set(alreadyClassified.map((name) => name.toLowerCase()));
+  return organizations.filter((org) => !claimed.has(org.toLowerCase()));
+}
+
+function countWrittenOutNumbers(doc: ReturnType<typeof compromise>): number {
+  return doc.numbers().filter((match) => match.has("#TextValue")).length;
 }

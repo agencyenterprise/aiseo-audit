@@ -37,7 +37,15 @@ This command does three things automatically:
 git push origin main --tags
 ```
 
-### 4. Create the GitHub Release
+### 4. Publish to npm
+
+```bash
+npm publish
+```
+
+`prepublishOnly` runs the full CI script (format check, typecheck, tests with coverage, build) before anything is uploaded, so a broken build cannot ship. Verify the publish with `npm view aiseo-audit version`.
+
+### 5. Create the GitHub Release
 
 1. Go to the repo on GitHub
 2. Click **Releases** (right sidebar)
@@ -137,18 +145,20 @@ Once a version is on npm, users wire it into any MCP client with a single config
   "mcpServers": {
     "aiseo-audit": {
       "command": "npx",
-      "args": ["-y", "aiseo-audit-mcp"]
+      "args": ["-y", "-p", "aiseo-audit", "aiseo-audit-mcp"]
     }
   }
 }
 ```
 
-`npx -y` pulls the latest `aiseo-audit` package (which contains the `aiseo-audit-mcp` bin) on first run. The MCP Registry is for discovery, not runtime resolution — users always get whatever's current on npm.
+npx resolves the token after `-y` as a PACKAGE name, so `-p aiseo-audit` is required to install the `aiseo-audit` package and run its `aiseo-audit-mcp` bin. The MCP Registry is for discovery, not runtime resolution: users always get whatever is current on npm.
+
+A companion launcher package lives in `packages/aiseo-audit-mcp/`. Publishing it (once, plus whenever its `aiseo-audit` dependency range needs a bump) makes the shorter `npx -y aiseo-audit-mcp` form work directly, keeps the name from being claimed by a third party, and is what the MCP Registry entry points at. Publish it only after the `aiseo-audit` version it depends on is live on npm (it requires `aiseo-audit/mcp`, available from v1.6.0). The full ordered flow is in "How to publish" below.
 
 ### Prerequisites (one-time setup)
 
-- `package.json` contains `"mcpName": "io.github.agencyenterprise/aiseo-audit"` (links the npm package to the registry entry).
-- `server.json` exists at the repo root and declares the server metadata. The MCP Registry validates that `server.json.name` matches `package.json.mcpName`.
+- `packages/aiseo-audit-mcp/package.json` contains `"mcpName": "io.github.agencyenterprise/aiseo-audit"` (links the npm package to the registry entry). The registry entry points at the `aiseo-audit-mcp` launcher package because its single bin matches its package name, so registry-driven clients can run `npx aiseo-audit-mcp` directly; pointing at `aiseo-audit` would make them launch the CLI bin instead.
+- `server.json` exists at the repo root and declares the server metadata. The MCP Registry validates that `server.json.name` matches the referenced npm package's `mcpName`.
 - `mcp-publisher` CLI installed locally: `brew install mcp-publisher` (or download a release binary from [github.com/modelcontextprotocol/registry/releases](https://github.com/modelcontextprotocol/registry/releases)).
 
 ### When to publish
@@ -161,26 +171,34 @@ Once a version is on npm, users wire it into any MCP client with a single config
 - Tool surface (new tool added, schema change)
 - Package identifier on npm (e.g., if we ever rename the package)
 
-Patch and minor npm releases that don't touch `server.json` can ship to npm alone. Users running `npx -y aiseo-audit-mcp` get the latest code regardless of what the registry says.
+Patch and minor npm releases that don't touch `server.json` can ship to npm alone. Users running the npx command get the latest code regardless of what the registry says.
 
 ### How to publish (when needed)
 
-Run from the repo root after the matching npm version is published:
+Publish order matters: `aiseo-audit` must be on npm first (the launcher depends on its `aiseo-audit/mcp` export), then the launcher, then the registry metadata (the registry validates that the referenced npm package exists and carries the matching `mcpName`).
 
 ```bash
-# First time only: authenticate (opens a GitHub device-code flow in your browser)
+# 1. Publish the main package (see the npm steps above)
+npm publish
+
+# 2. Publish the launcher the registry points at
+(cd packages/aiseo-audit-mcp && npm publish)
+
+# 3. First time only: authenticate (opens a GitHub device-code flow in your browser)
 mcp-publisher login github
 
-# Sync server.json version to the npm version we just published
+# 4. Sync server.json: its own version tracks the aiseo-audit release,
+#    packages[0].version tracks the launcher
 VERSION=$(node -p "require('./package.json').version")
-jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.tmp.json
+MCP_VERSION=$(node -p "require('./packages/aiseo-audit-mcp/package.json').version")
+jq --arg v "$VERSION" --arg mv "$MCP_VERSION" '.version = $v | .packages[0].version = $mv' server.json > server.tmp.json
 mv server.tmp.json server.json
 
-# Publish metadata to the registry
+# 5. Publish metadata to the registry
 mcp-publisher publish
 ```
 
-Commit the updated `server.json` on the same branch/release so the repo and registry agree.
+Commit the updated `server.json` on the same branch/release so the repo and registry agree. Steps 1-2 repeat on every release that should reach npm; steps 3-5 only when `server.json` metadata changes.
 
 ### Verify the listing
 

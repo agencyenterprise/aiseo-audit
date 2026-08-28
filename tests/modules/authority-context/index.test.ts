@@ -1,4 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+const CLOCK_PINNED_MID_MONTH = new Date("2026-06-15T12:00:00Z");
+
+beforeAll(() => {
+  vi.useFakeTimers({ now: CLOCK_PINNED_MID_MONTH });
+});
+
+afterAll(() => {
+  vi.useRealTimers();
+});
 import { auditAuthorityContext } from "../../../src/modules/authority-context/index.js";
 import { extractPage } from "../../../src/modules/extractor/service.js";
 
@@ -55,9 +65,7 @@ describe("auditAuthorityContext", () => {
   });
 
   it("scores freshness at 5 for content 13-24 months old", () => {
-    const date = new Date();
-    date.setMonth(date.getMonth() - 18);
-    const dateStr = date.toISOString().split("T")[0];
+    const dateStr = "2024-12-15";
 
     const page = buildPage(
       `<html><head><meta property="article:published_time" content="${dateStr}" /></head><body><time datetime="${dateStr}">Old</time></body></html>`,
@@ -68,17 +76,14 @@ describe("auditAuthorityContext", () => {
   });
 
   it("applies modified date bonus to freshness score", () => {
-    const publishDate = new Date();
-    publishDate.setMonth(publishDate.getMonth() - 18);
-    const modifiedDate = new Date();
-    modifiedDate.setMonth(modifiedDate.getMonth() - 18);
+    const dateStr = "2024-12-15";
 
     const page = buildPage(
       `<html><head>
-        <meta property="article:published_time" content="${publishDate.toISOString().split("T")[0]}" />
-        <meta property="article:modified_time" content="${modifiedDate.toISOString().split("T")[0]}" />
+        <meta property="article:published_time" content="${dateStr}" />
+        <meta property="article:modified_time" content="${dateStr}" />
       </head><body>
-        <time datetime="${publishDate.toISOString().split("T")[0]}">Old</time>
+        <time datetime="${dateStr}">Old</time>
       </body></html>`,
     );
     const factor = findFactor("Content Freshness", page);

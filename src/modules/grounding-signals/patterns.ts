@@ -1,7 +1,9 @@
+const NUMBERED_REFERENCE = /\[\d+\]/g;
+const AUTHOR_YEAR_CITATION = /\([A-Z][\w\s.&-]*,\s*\d{4}\)/g;
+
 export const CITATION_PATTERNS = [
-  /\[\d+\]/g,
-  /\([\w\s]+,?\s*\d{4}\)/g,
-  /according\s+to/gi,
+  NUMBERED_REFERENCE,
+  AUTHOR_YEAR_CITATION,
   /research\s+(?:shows|indicates|suggests)/gi,
   /studies?\s+(?:show|indicate|suggest|found)/gi,
   /data\s+from/gi,
@@ -32,4 +34,6 @@ export const QUOTED_ATTRIBUTION_PATTERNS = [
   /according\s+to\s+[A-Z][a-z]+[^,]*,\s*"[^"]{10,}"/g,
   /\u201c[^\u201d]{10,}\u201d\s*[-\u2013\u2014]\s*[A-Z][a-z]+/g,
   /\u201c[^\u201d]{10,}\u201d,?\s+said\s+[A-Z]/g,
+  /\u201c[^\u201d]{10,}\u201d,?\s+according\s+to\s+[A-Z]/g,
+  /according\s+to\s+[A-Z][a-z]+[^,]*,\s*\u201c[^\u201d]{10,}\u201d/g,
 ];

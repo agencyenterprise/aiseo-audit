@@ -78,9 +78,11 @@ If the fetch fails entirely (before an HTTP status is returned), the HTTP layer 
 
 **Text Extraction Quality** measures the ratio `cleanTextLength / rawByteLength`:
 
-- 5-15% = 12 (ideal for a normal web page)
-- 1-5% = 8
-- Above 15% = 10 (text-heavy, fine but less structured)
+Bands are contiguous (each band's upper bound is exclusive), so a continuous ratio can never fall between them:
+
+- 5% to <16% = 12 (ideal for a normal web page)
+- 16% and above = 10 (text-heavy, fine but less structured)
+- 1% to <5% = 8
 - Below 1% but some content = 2 (mostly binary or non-text content)
 - No extractable content = 0
 
@@ -88,9 +90,8 @@ If the fetch fails entirely (before an HTTP status is returned), the HTTP layer 
 
 - HTML elements: `<script>`, `<style>`, `<noscript>`, `<svg>`, `<iframe>`, `<nav>`, `<header>`, `<footer>`, `<aside>`
 - ARIA roles: `[role="navigation"]`, `[role="banner"]`, `[role="contentinfo"]`
-- Class/ID selectors: `.sidebar`, `#sidebar`, `.nav`, `.navbar`, `.footer`, `.header`, `.menu`, `.ad`, `.ads`, `.advertisement`
-- Cookie/consent patterns: `.cookie-banner`, `#cookie-consent`, `.cookie-notice`, `[class*="cookie"]`, `[class*="consent"]`
-- Overlay patterns: `[class*="popup"]`, `[class*="modal"]`
+- Class/ID selectors: `.sidebar`, `#sidebar`, `.nav`, `.navbar`, `.footer`, `.header`, `.menu`, `.ad`, `.ads`, `.advertisement`, `.cookie-banner`, `#cookie-consent`, `.cookie-notice`
+- Cookie/consent/overlay class names, matched at the whole-class-token level: an element is removed only when a class token consists entirely of boilerplate words (`cookie`, `cookies`, `consent`, `gdpr`, `popup`, `modal`, `overlay`) plus generic UI qualifiers (`banner`, `notice`, `backdrop`, `wrapper`, ...). `cookie-consent-banner` is removed; `cookie-recipe-card` is content and kept.
 
 Scoring:
 
@@ -107,16 +108,20 @@ Scoring:
 - 1-99 = 2 (too thin to be useful)
 - 0 words = 0
 
-**AI Crawler Access** fetches `robots.txt` relative to the URL being audited and checks whether 5 major AI crawlers are blocked. By default this is the URL of the page itself (e.g. auditing `https://example.com/projects/page` checks `https://example.com/projects/page/robots.txt`). Use `--signals-base` to override the base URL when your domain signals live elsewhere. Every report explicitly shows which URL domain signals were fetched from. For sitemap audits, domain signals are fetched once from the sitemap URL and shared across all URLs in the audit.
+**AI Crawler Access** fetches `robots.txt` from the origin of the URL being audited (where the file lives per RFC 9309; auditing `https://example.com/projects/page` checks `https://example.com/robots.txt`). Use `--signals-base` to override the base URL when your domain signals live elsewhere. Every report explicitly shows which URL domain signals were fetched from. For sitemap audits, domain signals are fetched once from the sitemap origin and shared across all URLs in the audit.
 
-- GPTBot, ChatGPT-User (OpenAI)
-- ClaudeBot (Anthropic)
-- PerplexityBot (Perplexity)
+The crawlers checked, using the user-agent tokens each vendor documents:
+
+- GPTBot, OAI-SearchBot, ChatGPT-User (OpenAI)
+- ClaudeBot, Claude-User, Claude-SearchBot (Anthropic)
+- PerplexityBot, Perplexity-User (Perplexity)
 - Google-Extended (Google AI training)
+- Applebot-Extended (Apple AI training)
+- CCBot (Common Crawl), Bytespider (ByteDance), meta-externalagent (Meta)
 
-The parser applies proper robots.txt rule evaluation: longest-path-wins specificity, `Allow` overrides `Disallow` at equal path length, and both crawler-specific blocks and `*` wildcard blocks are respected. A crawler is site-blocked only when `Disallow: /` applies without a more-specific `Allow` override. Path-level partial blocks (e.g. `Disallow: /blog/`) are surfaced separately in the audit output as `partiallyBlocked`. These do not count as a full site block but are visible for review.
+The parser applies proper robots.txt rule evaluation: `*` wildcards and `$` end anchors in paths (`Disallow: /*` blocks everything, same as `Disallow: /`), longest-path-wins specificity, `Allow` overrides `Disallow` at equal path length, blank lines inside groups tolerated, and both crawler-specific groups and `*` wildcard groups respected. A crawler is site-blocked only when a disallow rule matching `/` applies without an overriding `Allow`. Path-level partial blocks (e.g. `Disallow: /blog/`) are surfaced separately in the audit output as `partiallyBlocked`. These do not count as a full site block but are visible for review.
 
-Scoring: 0 blocked = 10, 1-2 blocked = 6, 3-4 blocked = 3, all blocked = 0
+Scoring: 0 blocked = 10, 1-2 blocked = 6, 3-4 blocked = 3, 5+ blocked = 0
 
 **LLMs.txt Presence** checks for an emerging standard [[8]](#sources) that is gaining traction alongside robots.txt. Unlike robots.txt (which controls access), llms.txt is a curated roadmap that helps AI systems understand your site's content, purpose, and key resources at inference time. OpenAI, Microsoft, and other major providers are actively crawling for these files. No major LLM has confirmed it as a ranking signal yet, but adoption is low-cost and forward-looking.
 
@@ -131,7 +136,7 @@ Scoring: both found = 6, one found = 4, neither = 0 (scored as `neutral`)
 
 Two sub-checks:
 
-1. Alt text coverage: what ratio of `<img>` elements have **meaningful** alt text? An alt value counts as meaningful only if it is more than one word, under 200 characters, and not a generic placeholder (`"image"`, `"photo"`, `"logo"`, `"icon"`, `"picture"`, `"img"`, `"graphic"`, `"thumbnail"`). Empty strings and single-word generics do not count.
+1. Alt text coverage: what ratio of `<img>` elements have **meaningful** alt text? An alt value counts as meaningful when it is non-empty, under 200 characters, and not a generic placeholder (`"image"`, `"photo"`, `"logo"`, `"icon"`, `"picture"`, `"img"`, `"graphic"`, `"thumbnail"`). A specific single word like a brand or product name counts.
 2. Semantic captions: are any images wrapped in `<figure>` with a `<figcaption>` child?
 
 Scoring:
@@ -194,8 +199,10 @@ This category is purely structural. It checks whether the right HTML elements ex
 **Scannability** is a composite of three sub-checks:
 
 - Bold text (`<strong>` or `<b>`) present = +4
-- Average paragraph length <= 150 words = +4
+- At most 150 words per visual break (headings, lists, tables, and images all count as breaks) = +4
 - Heading-to-paragraph ratio >= 0.1 = +3
+
+Paragraph length itself is scored by the separate Paragraph Structure factor; scannability measures how often ANY visual anchor interrupts the text.
 
 **Section Length** measures the average number of words between consecutive heading elements (H1-H6). Pages using 120-180 words between headings receive 70% more AI citations [[1]](#sources):
 
@@ -240,16 +247,18 @@ Scoring: 6+ matches = 10, 3-5 = 7, 1-2 = 4, none = 0
 
 **Direct Answer Statements** scans for:
 
-- Lines starting with `The [word] is...`
-- Lines starting with `It is...`, `This is...`, `They are...`
+- Sentences starting with `The [word] is...` (start of text or after end punctuation)
+- Sentences starting with `It is...`, `This is...`, `They are...`
 - Phrases: `simply put`, `in short`
+
+Detection is sentence-boundary based because the analyzed text is whitespace-normalized; line anchors would never match.
 
 Scoring: 5+ = 11, 2-4 = 8, 1 = 4, none = 0
 
 **Answer Capsules** detects the "answer capsule" pattern: 72% of AI-cited content has a concise answer (under 200 characters) placed immediately after a question-framed H2 [[1]](#sources). The check:
 
 1. Finds all H2 elements framed as questions (contains `?` or starts with what/how/why/when/where/which/who/can/do/does/is/are/should/will)
-2. Gets the first `<p>` element after each question H2
+2. Finds the answering paragraph: the first `<p>` among the heading's following siblings (looking inside wrapper `<div>`s, stopping at the next heading)
 3. Checks if the first sentence of that paragraph is <= 200 characters (a concise answer capsule)
 4. Scores based on the ratio of question H2s with proper capsules
 
@@ -260,7 +269,7 @@ Scoring: 70%+ have capsules = 13, 40-69% = 9, some = 5, question H2s but no caps
 Pattern matching scans for:
 
 - `step 1`, `step 2`, etc.
-- Lines starting with `1. `, `2. `, etc.
+- Literal numbered sequences like `1. Install the package 2. Configure ...` anywhere in the text
 - `firstly`, `secondly`, `finally`
 - `how to`
 - Presence of `<ol>` elements (adds +2 to count)
@@ -293,35 +302,35 @@ When someone asks ChatGPT "what is X?" or "how do I do Y?", the engine looks for
 
 **Question:** Does this content contain clear, recognizable entities that engines can use to understand what it's about?
 
-This category uses a hybrid NLP approach for entity extraction: [compromise](https://github.com/spencermountain/compromise) for base NER (people, organizations, places), supplemented by pattern-based extractors for acronym entities, title-case compound names, and organization/person classification via suffix and honorific matching. Topics are extracted using TF-IDF frequency analysis rather than compromise's built-in topic detection. All entity lists are deduplicated case-insensitively with substring containment (longer forms subsume shorter ones). No external APIs.
+This category uses a hybrid NLP approach for entity extraction: [compromise](https://github.com/spencermountain/compromise) for base NER (people, organizations, places), supplemented by pattern-based extractors for acronym entities, title-case compound names, and organization/person classification via suffix and honorific matching. A name recognized as a person or place is never double-counted as an organization. Topics are extracted by frequency analysis over noun terms (adjacent-word bigrams boosted, capped at 15 terms) and are reported separately from named entities. All entity lists are deduplicated case-insensitively with whole-word subphrase containment ("Smith" inside "John Smith" is subsumed; "ART" inside "Martha Stewart" is not). No external APIs.
 
 ### Factors
 
-| Factor            | Max | What It Measures                                               |
-| ----------------- | --- | -------------------------------------------------------------- |
-| Entity Richness   | 20  | Total unique entities extracted (people, orgs, places, topics) |
-| Topic Consistency | 25  | Do extracted topics align with the page title and H1?          |
-| Entity Density    | 15  | Entities per 100 words (sweet spot: 2-8)                       |
+| Factor            | Max | What It Measures                                             |
+| ----------------- | --- | ------------------------------------------------------------ |
+| Entity Richness   | 20  | Total unique NAMED entities extracted (people, orgs, places) |
+| Topic Consistency | 25  | Do extracted topics align with the page title and H1?        |
+| Entity Density    | 15  | Entities per 100 words (sweet spot: 2-8)                     |
 
 ### Scoring Details
 
-**Entity Richness** counts total unique entities across all types:
+**Entity Richness** counts unique named entities (people, organizations, places; frequency-derived topics are excluded so long articles cannot max this factor on word counts alone):
 
 - 9+ entities = 20
 - 4-8 = 14
 - 1-3 = 7
 - None = 0 (scored as `neutral`)
 
-**Topic Consistency** extracts keywords from the page `<title>` and `<h1>` (words > 3 characters), then checks how many of those keywords appear among the TF-IDF-extracted topics or are repeated frequently (3+ occurrences) in the body text:
+**Topic Consistency** extracts keywords from the page `<title>` and `<h1>` (words > 3 characters), then checks how many of those keywords appear among the extracted topics or are repeated frequently (3+ whole-word occurrences) in the body text:
 
 - 50%+ of title/H1 keywords found in topics = 25
 - Some overlap = 15
 - No overlap = 5
 
-**Entity Density** is `(totalEntities / wordCount) * 100`:
+**Entity Density** is `(namedEntities / wordCount) * 100`, with contiguous bands:
 
-- 2-8 per 100 words = 15 (ideal)
-- 1-2 or 8+ = 10
+- 2 to <8 per 100 words = 15 (ideal)
+- 1 to <2, or 8 and above = 10
 - Below 1 but some entities = 3
 - No entities = 0
 
@@ -356,8 +365,8 @@ Generative engines build knowledge graphs internally. When your page mentions sp
 
 **Citation Patterns** combines two counts:
 
-1. Text pattern matches: `[1]`, `(Author 2024)`, `according to`, `research shows`, `studies indicate`, `data from`, `as reported by`
-2. HTML elements: `<blockquote>`, `<cite>`, `<q>`
+1. Text pattern matches: `[1]`, author-year citations like `(Smith, 2024)` (a capitalized author and a comma are required, so `(founded in 1999)` does not count), `research shows`, `studies indicate`, `data from`, `as reported by`. `according to` is counted by the Attribution Indicators factor instead, so one phrase never feeds two factors.
+2. HTML elements: `<blockquote>`, `<q>`, and standalone `<cite>` (a `<cite>` inside a `<blockquote>` counts once, not twice)
 
 Sum scored: 6+ = 13, 3-5 = 9, 1-2 = 5, none = 0
 
@@ -370,7 +379,7 @@ Pattern matching scans for:
 - Currency: `$1,200`
 - Change indicators: `increased by`, `decreased by`, `grew by`
 
-NLP-based detection (via `compromise`) additionally counts all numeric values in the text, including written-out numbers like "five studies" or "three companies" that regex cannot reliably capture.
+NLP-based detection (via `compromise`) additionally counts written-out numbers like "five studies" or "three companies" that regex cannot reliably capture. Digit forms are counted only by the regexes, so `42%` is one signal, never two.
 
 Both counts are summed. Scoring: 9+ = 13, 4-8 = 9, 1-3 = 5, none = 0
 
@@ -428,22 +437,22 @@ Found = 10, not found = 0
 
 **Organization Identity** checks for:
 
-- `"@type": "Organization"` in JSON-LD
+- An `Organization` object in parsed JSON-LD (including inside `@graph` envelopes and `@type` arrays, as emitted by Yoast and most WordPress SEO plugins)
 - `<meta property="og:site_name">` with content
 
 Either found = 10, neither = 0
 
-**Contact/About Links** checks for `<a>` elements whose `href` contains `about`, `team`, `company`, or `contact`:
+**Contact/About Links** checks for `<a>` elements whose URL path contains `about`, `team`, `company`, or `contact` as a path segment (or whose link text is that word), plus `mailto:` links for contact. Plain substring matching would count `/blog/all-about-widgets` as an About page, so it is not used:
 
 - Both about-type AND contact found = 10
 - One of the two = 5
 - Neither = 0
 
-**Publication Date** checks these selectors in order (presence only):
+**Publication Date** checks these publish-date selectors in order (presence only; modified dates are evaluated by the separate Content Freshness factor):
 
-- `<time datetime>`, `[itemprop="datePublished"]`, `[itemprop="dateModified"]`
+- `<time datetime>`, `[itemprop="datePublished"]`
 - `.published`, `.post-date`, `.entry-date`
-- `meta[property="article:published_time"]`, `meta[property="article:modified_time"]`
+- `meta[property="article:published_time"]`
 
 Found = 8, not found = 0
 
@@ -482,7 +491,7 @@ Recognized types and their recommended properties:
 - `Product`: `name`
 - `WebPage`: `name`
 
-For each recognized schema, the check computes what percentage of recommended properties are present, then averages across all schemas on the page.
+For each recognized schema, the check computes what percentage of recommended properties are present, then averages across all schemas on the page. Multi-typed objects (`"@type": ["BlogPosting", "Article"]`) are graded against their first recognized type, and `@graph` envelopes are flattened before evaluation.
 
 Scoring:
 
@@ -543,11 +552,13 @@ FRE = 206.835 - (1.015 * avgWordsPerSentence) - (84.6 * avgSyllablesPerWord)
 
 Scoring:
 
-- FRE 60-70 = 15 (ideal for broad audiences)
-- FRE > 70 = 13 (very easy, good)
-- FRE 50-59 = 10
-- FRE 30-49 = 6
-- FRE < 30 = 0 (very difficult to read)
+FRE is a continuous value, so the bands are contiguous with exclusive upper bounds:
+
+- FRE 60 to <71 = 15 (ideal for broad audiences)
+- FRE 71 and above = 13 (very easy, good)
+- FRE 50 to <60 = 10
+- FRE 30 to <50 = 6
+- FRE below 30 = 0 (very difficult to read)
 
 Syllable counting uses a heuristic: count vowel groups, adjust for silent-e and common suffixes.
 
@@ -558,7 +569,7 @@ Syllable counting uses a heuristic: count vowel groups, adjust for silent-e and 
 - 5-10% = 8
 - Over 10% = 0
 
-**Transition Usage** counts how many distinct transition words from a list of 20 appear in the text:
+**Transition Usage** counts how many distinct transition words from a list of 20 appear in the text (whole-word matches, so "dissimilarly" does not count as "similarly"):
 
 - `however`, `therefore`, `moreover`, `furthermore`, `consequently`, `additionally`, `in contrast`, `similarly`, `as a result`, `for example`, `for instance`, `on the other hand`, `nevertheless`, `meanwhile`, `likewise`, `in addition`, `specifically`, `in particular`, `notably`, `importantly`
 
@@ -596,7 +607,7 @@ Generative engines don't quote your content verbatim - they compress, summarize,
 When you run `aiseo-audit https://example.com`, here's exactly what happens:
 
 ```
-cli.ts                          parses args with commander
+cli.ts -> cli/program.ts        parses args with commander, owns exit codes
   |
   v
 config/service.ts               loads aiseo.config.json (if present), merges defaults via Zod
@@ -644,15 +655,15 @@ Every module follows the same structure:
 
 ```
 module/
-  schema.ts       Zod schemas + inferred TypeScript types
+  schema.ts       Contract types; Zod schemas where data is actually parsed
   service.ts      Pure business logic (throws on failure)
   constants.ts    Thresholds, config defaults, display names
   support/        Private helpers only used inside this module
 ```
 
-**Schemas** define the contract. Types are always derived from Zod via `z.infer<>`, never hand-written interfaces (except when wrapping non-serializable objects like Cheerio's `$`).
+**Schemas** define the contract. Zod schemas exist where data crosses a trust boundary and is parsed at runtime (config files, fetch options, baseline audit JSON); purely internal shapes are plain TypeScript types so a reader can tell at a glance which validation is load-bearing.
 
-**Services** contain the actual logic. They take validated inputs, do work, and return typed results. They throw on failure (the HTTP layer throws typed `FetchError` instances with a `code` field for classified network errors). Error handling lives in the CLI entry point.
+**Services** contain the actual logic. They take validated inputs, do work, and return typed results. They throw on failure (the HTTP layer throws typed `FetchError` instances with a `code` field for classified network errors). Error handling lives in the CLI entry point (`cli/program.ts`), which maps outcomes to the documented exit codes: 0 success, 1 below `--fail-under`, 2 usage or runtime error.
 
 ### Audits Module in Detail
 
@@ -663,16 +674,14 @@ audits/
   schema.ts              CategoryResult, FactorResult, AuditResult, AuditRawData types
   service.ts             runAudits() orchestrator - imports and calls all 7 category audits
   constants.ts           CATEGORY_DISPLAY_NAMES
-  categories/
-    content-extractability.ts   auditContentExtractability()
-    content-structure.ts        auditContentStructure()
-    answerability.ts            auditAnswerability()
-    entity-clarity.ts           auditEntityClarity()
-    grounding-signals.ts        auditGroundingSignals()
-    authority-context.ts        auditAuthorityContext()
-    readability.ts              auditReadabilityForCompression()
-  support/
-    patterns.ts          All regex patterns (definitions, citations, steps, etc.)
+  category.ts            buildCategoryOutput() - shared category assembly
+  factor-names.ts        Canonical registry of all factor display names
+
+Each audit category is its own top-level module with the pattern:
+  <category>/index.ts    audit<Category>() entry point
+  <category>/*.ts        category-specific helpers (regex lists, selectors,
+                         parsers such as answerability/capsules.ts,
+                         authority-context/json-ld.ts, content-extractability/robots.ts)
 
 nlp/
   schema.ts              ExtractedEntitiesSchema and ExtractedEntitiesType
@@ -681,13 +690,20 @@ nlp/
   support/
     entities.ts          Acronym/title-case extractors, dedup, merge, classification
     readability.ts       computeFleschReadingEase, countComplexWords, avgSentenceLength
-    topics.ts            extractTopicsByTfIdf (TF-IDF topic modeling)
-    patterns.ts          countPatternMatches, countTransitionWords
+    topics.ts            extractTopics (frequency-based topic terms, capped at 15)
+    patterns.ts          countPatternMatches
 
 sitemap/
   schema.ts              SitemapOptions, SitemapResult, SitemapUrlResult types
   service.ts             analyzeSitemap() - fetches sitemap XML via xml-to-html-converter,
+                         recurses into sitemap indexes (cycle-safe, depth-capped),
+                         deduplicates URLs, records non-fatal problems as warnings,
                          runs analyzer pipeline per URL with shared domain signals
+
+report/support/
+  view-model.ts          Presentation decisions shared by all four renderers
+                         (percentages, quality bands, priority labels, grouping,
+                         HTML/markdown escaping)
 ```
 
 **`service.ts`** exports a single function `runAudits(page, fetchResult, domainSignals?)` that imports and calls the 7 category audit functions. It extracts entities once via `extractEntities(page.cleanText)` and passes the result to the three audits that need it, avoiding redundant NLP processing. Each audit returns a `CategoryAuditOutput` containing both its category result and its typed raw diagnostic data:
@@ -710,13 +726,13 @@ Each audit function follows the same pattern:
 
 1. Create an empty `factors[]` array
 2. Run each check, push a `FactorResult` via `makeFactor(name, score, maxScore, value)`
-3. Return a `CategoryAuditOutput` with the category result and any diagnostic raw data
+3. Return via `buildCategoryOutput(key, factors, rawData)` (audits/category.ts), which assembles the display name, key, and score totals identically for every category
 
-**`support/patterns.ts`** centralizes every regex pattern used across all audits. This means all detection logic lives in one place. If you want to add a new citation pattern or definition phrase, you edit one file.
+Factor display names live in **`audits/factor-names.ts`**. `makeFactor` only accepts registered names, and `RECOMMENDATION_BUILDERS` must cover exactly that set, so renaming or adding a factor is a compile error everywhere it matters. Detection regexes live next to the category that uses them (e.g. `answerability/patterns.ts`, `grounding-signals/patterns.ts`).
 
 **`scoring/service.ts`** provides all scoring utilities in one place:
 
-- `thresholdScore(value, brackets, type?)` - maps a numeric value to a score using threshold brackets. Supports three modes via the `type` parameter: `"higher"` (default, value >= threshold), `"lower"` (value <= threshold, for metrics where lower is better like jargon ratio), and `"range"` (value falls within [min, max], for sweet-spot metrics like sentence length 12-22)
+- `thresholdScore(value, brackets, type?)` - maps a numeric value to a score using threshold brackets. Supports three modes via the `type` parameter: `"higher"` (default, the score of the highest threshold the value meets), `"lower"` (mirror image, for metrics where lower is better like jargon ratio), and `"range"` (contiguous [min, max) bands, min inclusive and max exclusive, for sweet-spot metrics like sentence length; contiguity guarantees a continuous value can never fall into a gap between bands)
 - `makeFactor(name, score, max, value)` - builds a `FactorResult` and auto-assigns status (`good` >= 70%, `needs_improvement` >= 30%, `critical` < 30%)
 - `sumFactors(factors)` / `maxFactors(factors)` - add up scores/maxScores
 - `computeScore(categories, weights)` - weighted average of category percentages
@@ -724,22 +740,22 @@ Each audit function follows the same pattern:
 
 **`nlp/service.ts`** is the dedicated NLP module:
 
-- `extractEntities(text)` - hybrid entity extraction: compromise for base NER (people, orgs, places), supplemental pattern-based extractors for acronyms and title-case compounds, TF-IDF for topics, with smart deduplication
+- `extractEntities(text)` - hybrid entity extraction: compromise for base NER (people, orgs, places), supplemental pattern-based extractors for acronyms and title-case compounds, frequency-based topics (capped at 15), with word-bounded deduplication and cross-list person/org disambiguation
 - `computeFleschReadingEase(text)` - standard Flesch formula using heuristic syllable counting
 - `countComplexWords(text)` - words with 4+ syllables
 - `countPatternMatches(text, patterns)` - runs an array of regex patterns against text, sums all match counts
-- `countTransitionWords(text, words)` - counts how many distinct transition words appear
 
-**`audits/support/`** contains audit-specific helpers used by the category functions:
+(`countTransitionWords` lives with its word list in `readability/transition-words.ts`.)
 
-- `detectAnswerCapsules($)` - finds question-framed H2s and checks for concise answer paragraphs
-- `evaluateFreshness($)` - parses dateModified/datePublished and calculates content age in months
-- `measureSectionLengths($)` - walks DOM to count words between consecutive headings
-- `checkCrawlerAccess(robotsTxt)` - parses robots.txt for AI crawler allow/block status
-- `parseJsonLdObjects($)` - extracts all JSON-LD objects from the page (handles arrays)
-- `evaluateSchemaCompleteness(schemas)` - checks recommended properties for recognized schema types
-- `resolveEntityName($, html)` - finds the primary brand/org name from OG tags or JSON-LD
-- `measureEntityConsistency($, title, entityName)` - checks entity name presence across page surfaces
+Category-specific helpers live inside their category module:
+
+- `answerability/capsules.ts` - finds question-framed H2s and checks for concise answer paragraphs
+- `authority-context/freshness.ts` - parses dateModified/datePublished and calculates content age in months
+- `content-structure/sections.ts` - walks DOM to count words between consecutive headings
+- `content-extractability/robots.ts` - parses robots.txt (wildcards, `$` anchors) for AI crawler allow/block status
+- `authority-context/json-ld.ts` - extracts all JSON-LD objects (flattens arrays and `@graph`, normalizes `@type` arrays)
+- `authority-context/schema-analysis.ts` - checks recommended properties for recognized schema types
+- `authority-context/entity.ts` - finds the primary brand/org name and checks its presence across page surfaces
 
 ### Key Data Types
 
@@ -763,7 +779,7 @@ Before audits run, the extractor does two important things:
 
 ### Recommendations Engine
 
-`recommendations/service.ts` iterates every factor in every category. Any factor scoring below 70% of its max gets a recommendation. Priority is based on how low the score is:
+`recommendations/service.ts` iterates every factor in every category. Any factor scoring below 70% of its max gets a recommendation, except factors marked `neutral` (not applicable to the page, e.g. Tables Presence on a page with no tabular data), which are never recommended. Priority is based on how low the score is:
 
 | Factor Score | Priority |
 | ------------ | -------- |

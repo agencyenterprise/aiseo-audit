@@ -66,6 +66,14 @@ runs:
           exit 2
         fi
 
+        # Restrict the version input to a dist-tag or semver: npm specs after
+        # "@" also accept tarball URLs and git refs, which would execute
+        # arbitrary code if untrusted data ever reached this input.
+        if ! [[ "$INPUT_VERSION" =~ ^[A-Za-z0-9._-]+$ ]]; then
+          echo "::error::Invalid 'version' input: must be an npm dist-tag or version number."
+          exit 2
+        fi
+
         ARGS=()
         if [ -n "$INPUT_URL" ]; then ARGS+=("$INPUT_URL"); fi
         if [ -n "$INPUT_SITEMAP" ]; then ARGS+=("--sitemap" "$INPUT_SITEMAP"); fi
@@ -77,23 +85,35 @@ runs:
         REPORT_PATH="aiseo-result.json"
         ARGS+=("--json" "--out" "$REPORT_PATH")
 
-        npx --yes "aiseo-audit@${INPUT_VERSION}" "${ARGS[@]}"
+        # Capture the exit code instead of aborting: a failing --fail-under
+        # gate (exit 1) must still produce score/grade outputs and a PR
+        # comment; that is exactly when reviewers need them.
+        EXIT_CODE=0
+        npx --yes "aiseo-audit@${INPUT_VERSION}" "${ARGS[@]}" || EXIT_CODE=$?
 
-        SCORE=$(node -p "require('./${REPORT_PATH}').overallScore ?? require('./${REPORT_PATH}').averageScore ?? 0")
-        GRADE=$(node -p "require('./${REPORT_PATH}').grade ?? require('./${REPORT_PATH}').averageGrade ?? ''")
+        if [ -f "$REPORT_PATH" ]; then
+          SCORE=$(node -p "require('./${REPORT_PATH}').overallScore ?? require('./${REPORT_PATH}').averageScore ?? 0")
+          GRADE=$(node -p "require('./${REPORT_PATH}').grade ?? require('./${REPORT_PATH}').averageGrade ?? ''")
 
-        echo "score=$SCORE" >> "$GITHUB_OUTPUT"
-        echo "grade=$GRADE" >> "$GITHUB_OUTPUT"
-        echo "report-path=$REPORT_PATH" >> "$GITHUB_OUTPUT"
+          echo "score=$SCORE" >> "$GITHUB_OUTPUT"
+          echo "grade=$GRADE" >> "$GITHUB_OUTPUT"
+          echo "report-path=$REPORT_PATH" >> "$GITHUB_OUTPUT"
+        fi
+
+        exit "$EXIT_CODE"
 
     - name: Comment on PR
-      if: ${{ inputs.comment-on-pr == 'true' && github.event_name == 'pull_request' }}
+      if: ${{ !cancelled() && inputs.comment-on-pr == 'true' && github.event_name == 'pull_request' }}
       uses: actions/github-script@v7
       env:
         REPORT_PATH: ${{ steps.audit.outputs.report-path }}
       with:
         script: |
           const fs = require('fs');
+          if (!process.env.REPORT_PATH || !fs.existsSync(process.env.REPORT_PATH)) {
+            core.info('No audit report was produced (runtime error); skipping PR comment.');
+            return;
+          }
           const report = JSON.parse(fs.readFileSync(process.env.REPORT_PATH, 'utf-8'));
           const marker = '<!-- aiseo-audit-sticky-comment -->';
 
@@ -101,7 +121,7 @@ runs:
           const grade = report.grade ?? report.averageGrade ?? '';
           const tldr = report.tldr;
           const wins = (tldr?.quickestWins ?? [])
-            .map((w, i) => `${i + 1}. **+${w.expectedGain} pts** — ${w.factor} (${w.category})`)
+            .map((w, i) => `${i + 1}. **+${w.expectedGain} pts**: ${w.factor} (${w.category})`)
             .join('\n');
 
           const projection = tldr && tldr.projectedScore > tldr.score
@@ -110,7 +130,7 @@ runs:
 
           const body = [
             marker,
-            `## AI SEO Audit — ${score}/100 (${grade})${projection}`,
+            `## AI SEO Audit: ${score}/100 (${grade})${projection}`,
             '',
             wins ? 'Quickest wins:' : '_No quick wins identified — the page is already solid._',
             wins,

@@ -1,12 +1,7 @@
 import type { ExtractedPageType } from "../extractor/schema.js";
+import { buildCategoryOutput } from "../audits/category.js";
 import type { FetchResultType } from "../fetcher/schema.js";
-import {
-  makeFactor,
-  maxFactors,
-  sumFactors,
-  thresholdScore,
-} from "../scoring/service.js";
-import { CATEGORY_DISPLAY_NAMES } from "../audits/constants.js";
+import { makeFactor, thresholdScore } from "../scoring/service.js";
 import type {
   CategoryAuditOutputType,
   DomainSignalsType,
@@ -40,10 +35,10 @@ export function auditContentExtractability(
   const extractScore = thresholdScore(
     extractRatio,
     [
-      [0.05, 0.159, 12],
+      [0.05, 0.16, 12],
       [0.16, Infinity, 10],
-      [0.01, 0.049, 8],
-      [0.0001, 0.009, 2],
+      [0.01, 0.05, 8],
+      [0.0001, 0.01, 2],
     ],
     "range",
   );
@@ -76,10 +71,10 @@ export function auditContentExtractability(
   const wcScore = thresholdScore(
     wordCount,
     [
-      [300, 3000, 12],
+      [300, 3001, 12],
       [3001, Infinity, 10],
-      [100, 299, 8],
-      [1, 99, 2],
+      [100, 300, 8],
+      [1, 100, 2],
     ],
     "range",
   );
@@ -164,14 +159,5 @@ export function auditContentExtractability(
 
   rawData.imageAccessibility = { imageCount, imagesWithAlt, figcaptionCount };
 
-  return {
-    category: {
-      name: CATEGORY_DISPLAY_NAMES.contentExtractability,
-      key: "contentExtractability",
-      score: sumFactors(factors),
-      maxScore: maxFactors(factors),
-      factors,
-    },
-    rawData,
-  };
+  return buildCategoryOutput("contentExtractability", factors, rawData);
 }

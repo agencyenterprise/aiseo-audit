@@ -17,19 +17,12 @@ export async function fetchUrl(
     userAgent: opts.userAgent,
   });
 
-  const fetchTimeMs = Date.now() - start;
-  const html = response.data;
-  const finalUrl = response.finalUrl || opts.url;
-  const contentType = response.headers["content-type"] || "unknown";
-
   return {
     url: opts.url,
-    finalUrl,
+    finalUrl: response.finalUrl || opts.url,
     statusCode: response.status,
-    contentType,
-    html,
-    byteLength: Buffer.byteLength(html, "utf-8"),
-    fetchTimeMs,
-    redirected: finalUrl !== opts.url,
+    contentType: response.headers["content-type"] ?? null,
+    html: response.data,
+    fetchTimeMs: Date.now() - start,
   };
 }

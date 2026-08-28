@@ -2,6 +2,10 @@ export function countWords(text: string): number {
   return text.split(/\s+/).filter((w) => w.length > 0).length;
 }
 
+export function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 export function countSentences(text: string): number {
   return text.split(/[.!?]+/).filter((s) => s.trim().length > 5).length;
 }

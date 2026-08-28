@@ -1,3 +1,4 @@
+import type { FactorNameType } from "../audits/factor-names.js";
 import type {
   CategoryResultType,
   FactorResultType,
@@ -19,7 +20,10 @@ export function thresholdScore(
   type: ThresholdType = "higher",
 ): number {
   if (type === "range") {
-    return scoreByRange(value, brackets as RangeBracketType[]);
+    return scoreByFirstMatchingHalfOpenRange(
+      value,
+      brackets as RangeBracketType[],
+    );
   }
 
   if (type === "lower") {
@@ -30,38 +34,50 @@ export function thresholdScore(
 }
 
 function scoreByHigher(value: number, brackets: BracketType[]): number {
-  for (const [threshold, score] of brackets) {
-    if (value >= threshold) return score;
+  let best: BracketType | null = null;
+  for (const bracket of brackets) {
+    if (value >= bracket[0] && (best === null || bracket[0] > best[0])) {
+      best = bracket;
+    }
   }
-  return 0;
+  return best?.[1] ?? 0;
 }
 
 function scoreByLower(value: number, brackets: BracketType[]): number {
-  for (const [threshold, score] of brackets) {
-    if (value <= threshold) return score;
+  let best: BracketType | null = null;
+  for (const bracket of brackets) {
+    if (value <= bracket[0] && (best === null || bracket[0] < best[0])) {
+      best = bracket;
+    }
+  }
+  return best?.[1] ?? 0;
+}
+
+function scoreByFirstMatchingHalfOpenRange(
+  value: number,
+  brackets: RangeBracketType[],
+): number {
+  for (const [minInclusive, maxExclusive, score] of brackets) {
+    if (value >= minInclusive && value < maxExclusive) return score;
   }
   return 0;
 }
 
-function scoreByRange(value: number, brackets: RangeBracketType[]): number {
-  for (const [min, max, score] of brackets) {
-    if (value >= min && value <= max) return score;
-  }
-  return 0;
-}
+export const GOOD_FACTOR_PCT = 0.7;
+export const CRITICAL_FACTOR_PCT = 0.3;
 
 export function statusFromScore(
   score: number,
   maxScore: number,
 ): FactorStatusType {
   const pct = maxScore > 0 ? score / maxScore : 0;
-  if (pct >= 0.7) return "good";
-  if (pct >= 0.3) return "needs_improvement";
+  if (pct >= GOOD_FACTOR_PCT) return "good";
+  if (pct >= CRITICAL_FACTOR_PCT) return "needs_improvement";
   return "critical";
 }
 
 export function makeFactor(
-  name: string,
+  name: FactorNameType,
   score: number,
   maxScore: number,
   value: string,
@@ -69,7 +85,7 @@ export function makeFactor(
 ): FactorResultType {
   return {
     name,
-    score: Math.round(Math.min(score, maxScore)),
+    score: Math.max(0, Math.round(Math.min(score, maxScore))),
     maxScore,
     value,
     status: statusOverride ?? statusFromScore(score, maxScore),
@@ -88,27 +104,26 @@ export function computeScore(
   categories: Record<string, CategoryResultType>,
   weights: CategoryWeightType,
 ): ScoreSummaryType {
-  const weightMap: Record<string, number> = {
-    contentExtractability: weights.contentExtractability,
-    contentStructure: weights.contentStructure,
-    answerability: weights.answerability,
-    entityClarity: weights.entityClarity,
-    groundingSignals: weights.groundingSignals,
-    authorityContext: weights.authorityContext,
-    readabilityForCompression: weights.readabilityForCompression,
-  };
+  const entries = Object.entries(categories);
+  const weightOf = (key: string) =>
+    weights[key as keyof CategoryWeightType] ?? 1;
+  const totalWeightOfPresentCategories = entries.reduce(
+    (sum, [key]) => sum + weightOf(key),
+    0,
+  );
 
-  const totalWeight = Object.values(weightMap).reduce((sum, w) => sum + w, 0);
   let totalPoints = 0;
   let maxPoints = 0;
   let weightedScore = 0;
 
-  for (const [key, category] of Object.entries(categories)) {
+  for (const [key, category] of entries) {
     totalPoints += category.score;
     maxPoints += category.maxScore;
 
-    const w = weightMap[key] ?? 1;
-    const normalizedWeight = totalWeight > 0 ? w / totalWeight : 1 / 7;
+    const normalizedWeight =
+      totalWeightOfPresentCategories > 0
+        ? weightOf(key) / totalWeightOfPresentCategories
+        : 1 / entries.length;
     const categoryPct =
       category.maxScore > 0 ? (category.score / category.maxScore) * 100 : 0;
     weightedScore += categoryPct * normalizedWeight;

@@ -1,5 +1,11 @@
 export { analyzeUrl } from "./modules/analyzer/service.js";
-export { loadConfig } from "./modules/config/service.js";
+export { loadConfig, loadConfigWithPath } from "./modules/config/service.js";
+export { loadBaselineResult } from "./modules/diff/history.js";
+export { orchestrateDiff } from "./modules/diff/orchestrate.js";
+export type {
+  OrchestrateDiffInputs,
+  OrchestrateDiffOutcome,
+} from "./modules/diff/orchestrate.js";
 export { computeDiff } from "./modules/diff/service.js";
 export {
   renderDiffReport,

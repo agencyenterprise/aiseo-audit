@@ -1,4 +1,6 @@
-import type { AuditResultType } from "../audits/schema.js";
+import type { FactorNameType } from "../audits/factor-names.js";
+import type { AuditResultType, FactorResultType } from "../audits/schema.js";
+import { CRITICAL_FACTOR_PCT, GOOD_FACTOR_PCT } from "../scoring/service.js";
 import { RECOMMENDATION_BUILDERS } from "./constants.js";
 import type { RecommendationType } from "./schema.js";
 
@@ -9,14 +11,16 @@ export function generateRecommendations(
 
   for (const category of Object.values(auditResult.categories)) {
     for (const factor of category.factors) {
+      if (isNotApplicableToThisPage(factor)) continue;
+
       const pct = factor.maxScore > 0 ? factor.score / factor.maxScore : 1;
 
-      if (pct >= 0.7) continue;
+      if (pct >= GOOD_FACTOR_PCT) continue;
 
       const priority: "high" | "medium" | "low" =
-        pct < 0.3 ? "high" : pct < 0.5 ? "medium" : "low";
+        pct < CRITICAL_FACTOR_PCT ? "high" : pct < 0.5 ? "medium" : "low";
 
-      const builder = RECOMMENDATION_BUILDERS[factor.name];
+      const builder = RECOMMENDATION_BUILDERS[factor.name as FactorNameType];
       const output = builder
         ? builder(auditResult.rawData)
         : {
@@ -47,4 +51,8 @@ export function generateRecommendations(
   });
 
   return recommendations;
+}
+
+function isNotApplicableToThisPage(factor: FactorResultType): boolean {
+  return factor.status === "neutral";
 }

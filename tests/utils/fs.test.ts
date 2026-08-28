@@ -2,7 +2,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  assertOutputPathIsNotDirectory,
+  assertWritableOutputPath,
   fileExists,
   writeOutputFile,
 } from "../../src/utils/fs.js";
@@ -51,7 +51,7 @@ describe("writeOutputFile", () => {
   });
 });
 
-describe("assertOutputPathIsNotDirectory", () => {
+describe("assertWritableOutputPath", () => {
   const testDir = join(import.meta.dirname, "tmp-assert-dir-test");
 
   beforeEach(async () => {
@@ -63,13 +63,13 @@ describe("assertOutputPathIsNotDirectory", () => {
   });
 
   it("throws a descriptive error when the path is an existing directory", async () => {
-    await expect(assertOutputPathIsNotDirectory(testDir)).rejects.toThrow(
+    await expect(assertWritableOutputPath(testDir)).rejects.toThrow(
       /directory/i,
     );
   });
 
   it("includes the offending path in the error message", async () => {
-    await expect(assertOutputPathIsNotDirectory(testDir)).rejects.toThrow(
+    await expect(assertWritableOutputPath(testDir)).rejects.toThrow(
       new RegExp(testDir.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&")),
     );
   });
@@ -77,15 +77,18 @@ describe("assertOutputPathIsNotDirectory", () => {
   it("resolves cleanly when the path points at an existing file", async () => {
     const filePath = join(testDir, "report.html");
     await writeFile(filePath, "<html></html>");
-    await expect(
-      assertOutputPathIsNotDirectory(filePath),
-    ).resolves.toBeUndefined();
+    await expect(assertWritableOutputPath(filePath)).resolves.toBeUndefined();
   });
 
   it("resolves cleanly when the path does not exist yet", async () => {
     const filePath = join(testDir, "not-yet-created.html");
-    await expect(
-      assertOutputPathIsNotDirectory(filePath),
-    ).resolves.toBeUndefined();
+    await expect(assertWritableOutputPath(filePath)).resolves.toBeUndefined();
+  });
+
+  it("throws when the parent directory does not exist", async () => {
+    const filePath = join(testDir, "missing-dir", "report.html");
+    await expect(assertWritableOutputPath(filePath)).rejects.toThrow(
+      /does not exist/i,
+    );
   });
 });

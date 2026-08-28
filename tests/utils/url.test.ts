@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   getDomain,
+  isSameSite,
   isValidUrl,
   normalizeUrl,
+  originOf,
   slugifyUrl,
 } from "../../src/utils/url.js";
 
@@ -60,8 +62,53 @@ describe("getDomain", () => {
     );
   });
 
-  it("returns input for invalid URL", () => {
-    expect(getDomain("not-a-url")).toBe("not-a-url");
+  it("returns null for invalid URL", () => {
+    expect(getDomain("not-a-url")).toBe(null);
+    expect(getDomain("http://")).toBe(null);
+  });
+});
+
+describe("normalizeUrl query/fragment safety", () => {
+  it("preserves query strings ending in a slash", () => {
+    expect(normalizeUrl("https://example.com/search?next=/foo/")).toBe(
+      "https://example.com/search?next=/foo/",
+    );
+  });
+
+  it("strips trailing slashes from the path but keeps the query", () => {
+    expect(normalizeUrl("https://example.com/blog/?page=2")).toBe(
+      "https://example.com/blog?page=2",
+    );
+  });
+});
+
+describe("originOf", () => {
+  it("returns scheme + host for a deep page URL", () => {
+    expect(originOf("https://example.com/blog/post?x=1")).toBe(
+      "https://example.com",
+    );
+  });
+
+  it("preserves non-default ports", () => {
+    expect(originOf("http://localhost:3000/page.html")).toBe(
+      "http://localhost:3000",
+    );
+  });
+
+  it("normalizes protocol-less input", () => {
+    expect(originOf("example.com/path")).toBe("https://example.com");
+  });
+});
+
+describe("isSameSite", () => {
+  it("treats a subdomain and its parent as the same site", () => {
+    expect(isSameSite("www.example.com", "example.com")).toBe(true);
+    expect(isSameSite("example.com", "blog.example.com")).toBe(true);
+  });
+
+  it("treats unrelated hosts as different sites", () => {
+    expect(isSameSite("example.com", "notexample.com")).toBe(false);
+    expect(isSameSite("example.com", "example.org")).toBe(false);
   });
 });
 

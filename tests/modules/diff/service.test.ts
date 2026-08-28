@@ -118,7 +118,6 @@ describe("computeDiff", () => {
   it("handles categories that exist in one result but not the other", () => {
     const current = makeResult(70);
     const baseline = makeResult(70);
-    // Remove one category from baseline
     delete (baseline as { categories: Record<string, unknown> }).categories
       .authorityContext;
 

@@ -63,8 +63,7 @@ describe("countSyllables", () => {
     expect(countSyllables("methodology")).toBeGreaterThanOrEqual(4);
   });
 
-  it("returns 1 for words with no vowels (null match fallback)", () => {
-    // "brrr" has no a/e/i/o/u/y vowels → matches is null → fallback to 1
+  it("falls back to 1 syllable for vowelless words like brrr", () => {
     expect(countSyllables("brrr")).toBe(1);
   });
 });

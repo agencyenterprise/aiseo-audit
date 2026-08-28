@@ -126,9 +126,10 @@ describe("orchestrateDiff", () => {
       baselinePath: explicitBaseline,
     });
 
-    // No config was created because no --diff history recording occurred.
-    const configExists = await readFile(configPath, "utf-8").catch(() => null);
-    expect(configExists).toBeNull();
+    const configFileContents = await readFile(configPath, "utf-8").catch(
+      () => null,
+    );
+    expect(configFileContents).toBeNull();
   });
 
   it("honors historyDir from config when set", async () => {
@@ -145,9 +146,7 @@ describe("orchestrateDiff", () => {
 
   it("loads a legacy v1.4.x baseline whose recommendations have no expectedGain", async () => {
     const legacyBaseline = join(testDir, "legacy-baseline.json");
-    // This is the shape aiseo-audit@1.4.x wrote to disk: recommendations
-    // without the expectedGain field that we introduced in 1.5.0.
-    const legacyResult = {
+    const resultShapeWrittenByV14 = {
       ...makeResult(40),
       recommendations: [
         {
@@ -159,7 +158,7 @@ describe("orchestrateDiff", () => {
         },
       ],
     };
-    await writeFile(legacyBaseline, JSON.stringify(legacyResult));
+    await writeFile(legacyBaseline, JSON.stringify(resultShapeWrittenByV14));
 
     const outcome = await orchestrateDiff({
       result: makeResult(70),

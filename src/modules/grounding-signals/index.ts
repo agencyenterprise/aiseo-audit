@@ -1,12 +1,7 @@
 import type { ExtractedPageType } from "../extractor/schema.js";
+import { buildCategoryOutput } from "../audits/category.js";
 import { countPatternMatches, extractEntities } from "../nlp/service.js";
-import {
-  makeFactor,
-  maxFactors,
-  sumFactors,
-  thresholdScore,
-} from "../scoring/service.js";
-import { CATEGORY_DISPLAY_NAMES } from "../audits/constants.js";
+import { makeFactor, thresholdScore } from "../scoring/service.js";
 import type {
   CategoryAuditOutputType,
   ExtractedEntitiesType,
@@ -26,7 +21,8 @@ export function auditGroundingSignals(
   const $ = page.$;
   const text = page.cleanText;
   const factors: FactorResultType[] = [];
-  const { numberCount = 0 } = preExtracted ?? extractEntities(text);
+  const { numberCount: writtenOutNumberCount = 0 } =
+    preExtracted ?? extractEntities(text);
 
   const externalLinks = page.externalLinks;
 
@@ -46,8 +42,9 @@ export function auditGroundingSignals(
   );
 
   const citationCount = countPatternMatches(text, CITATION_PATTERNS);
-  const blockquotes = $("blockquote, cite, q").length;
-  const totalCitations = citationCount + blockquotes;
+  const quoteElements =
+    $("blockquote, q").length + countCitesOutsideBlockquotes($);
+  const totalCitations = citationCount + quoteElements;
   const citScore = thresholdScore(totalCitations, [
     [6, 13],
     [3, 9],
@@ -59,12 +56,12 @@ export function auditGroundingSignals(
       "Citation Patterns",
       citScore,
       13,
-      `${citationCount} citation indicators, ${blockquotes} quote elements`,
+      `${citationCount} citation indicators, ${quoteElements} quote elements`,
     ),
   );
 
   const numericCount = countPatternMatches(text, NUMERIC_CLAIM_PATTERNS);
-  const totalNumericSignals = numericCount + numberCount;
+  const totalNumericSignals = numericCount + writtenOutNumberCount;
   const numScore = thresholdScore(totalNumericSignals, [
     [9, 13],
     [4, 9],
@@ -76,7 +73,7 @@ export function auditGroundingSignals(
       "Numeric Claims",
       numScore,
       13,
-      `${numericCount} statistical references, ${numberCount} numeric values`,
+      `${numericCount} statistical references, ${writtenOutNumberCount} written-out numbers`,
     ),
   );
 
@@ -120,16 +117,12 @@ export function auditGroundingSignals(
     ),
   );
 
-  return {
-    category: {
-      name: CATEGORY_DISPLAY_NAMES.groundingSignals,
-      key: "groundingSignals",
-      score: sumFactors(factors),
-      maxScore: maxFactors(factors),
-      factors,
-    },
-    rawData: {
-      externalLinks: externalLinks.slice(0, 10),
-    },
-  };
+  return buildCategoryOutput("groundingSignals", factors, {
+    externalLinks: externalLinks.slice(0, 10),
+  });
+}
+
+function countCitesOutsideBlockquotes($: ExtractedPageType["$"]): number {
+  return $("cite").filter((_, el) => $(el).parents("blockquote").length === 0)
+    .length;
 }

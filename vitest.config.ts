@@ -8,12 +8,10 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["src/**/*.ts"],
-      exclude: [
-        "src/cli.ts",
-        "src/index.ts",
-        "src/utils/http.ts",
-        "src/**/schema.ts",
-      ],
+      // Only pure entry shims (process.exit bootstraps) and type-only schema
+      // files are excluded; all logic files count, including the CLI and the
+      // HTTP layer.
+      exclude: ["src/cli.ts", "src/mcp.ts", "src/index.ts", "src/**/schema.ts"],
       thresholds: {
         lines: 70,
         functions: 70,

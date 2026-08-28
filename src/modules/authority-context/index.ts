@@ -1,20 +1,48 @@
 import type { ExtractedPageType } from "../extractor/schema.js";
-import {
-  makeFactor,
-  maxFactors,
-  sumFactors,
-  thresholdScore,
-} from "../scoring/service.js";
-import { CATEGORY_DISPLAY_NAMES } from "../audits/constants.js";
+import { buildCategoryOutput } from "../audits/category.js";
+import { makeFactor, thresholdScore } from "../scoring/service.js";
 import type {
   CategoryAuditOutputType,
   FactorResultType,
 } from "../audits/schema.js";
-import { parseJsonLdObjects } from "./json-ld.js";
+import { parseJsonLdObjects, schemaTypesOf } from "./json-ld.js";
 import { measureEntityConsistency, resolveEntityName } from "./entity.js";
 import { evaluateFreshness } from "./freshness.js";
-import { AUTHOR_SELECTORS, DATE_SELECTORS } from "./patterns.js";
+import {
+  AUTHOR_SELECTORS,
+  firstSelectorValue,
+  PUBLISH_DATE_SELECTORS,
+} from "./selectors.js";
 import { evaluateSchemaCompleteness } from "./schema-analysis.js";
+
+const MAX_AUTHOR_NAME_LENGTH = 80;
+
+function hasNavLink(
+  $: ExtractedPageType["$"],
+  words: string[],
+  extraSelector?: string,
+): boolean {
+  if (extraSelector && $(extraSelector).length > 0) return true;
+  let found = false;
+  $("a[href]").each((_, el) => {
+    if (found) return;
+    const href = ($(el).attr("href") ?? "").toLowerCase();
+    const linkText = $(el).text().trim().toLowerCase();
+    found =
+      pathSegmentsOf(href).some((segment) =>
+        words.some((word) => segment.startsWith(word)),
+      ) ||
+      words.some(
+        (word) => linkText === word || linkText.startsWith(`${word} `),
+      );
+  });
+  return found;
+}
+
+function pathSegmentsOf(href: string): string[] {
+  const path = href.replace(/^https?:\/\/[^/]+/, "").split(/[?#]/)[0];
+  return path.split("/").filter(Boolean);
+}
 
 export function auditAuthorityContext(
   page: ExtractedPageType,
@@ -22,29 +50,21 @@ export function auditAuthorityContext(
   const $ = page.$;
   const factors: FactorResultType[] = [];
   const rawData: CategoryAuditOutputType["rawData"] = {};
+  const schemaObjects = parseJsonLdObjects($);
 
-  let authorFound = false;
-  let authorName = "";
-  for (const selector of AUTHOR_SELECTORS) {
-    const elem = $(selector).first();
-    if (elem.length) {
-      authorFound = true;
-      authorName = elem.text().trim() || elem.attr("content") || "Found";
-      break;
-    }
-  }
+  const authorName = firstSelectorValue($, AUTHOR_SELECTORS);
   factors.push(
     makeFactor(
       "Author Attribution",
-      authorFound ? 10 : 0,
+      authorName ? 10 : 0,
       10,
-      authorFound ? authorName : "Not found",
+      authorName ? authorName.slice(0, MAX_AUTHOR_NAME_LENGTH) : "Not found",
     ),
   );
 
-  const hasOrgSchema =
-    page.html.includes('"@type":"Organization"') ||
-    page.html.includes('"@type": "Organization"');
+  const hasOrgSchema = schemaObjects.some((schema) =>
+    schemaTypesOf(schema).includes("Organization"),
+  );
   const ogSiteName = $('meta[property="og:site_name"]').attr("content") || "";
   const orgFound = hasOrgSchema || ogSiteName.length > 0;
   factors.push(
@@ -56,9 +76,8 @@ export function auditAuthorityContext(
     ),
   );
 
-  const aboutLink =
-    $('a[href*="about"], a[href*="team"], a[href*="company"]').length > 0;
-  const contactLink = $('a[href*="contact"]').length > 0;
+  const aboutLink = hasNavLink($, ["about", "team", "company"]);
+  const contactLink = hasNavLink($, ["contact"], 'a[href^="mailto:"]');
   const contactScore =
     aboutLink && contactLink ? 10 : aboutLink || contactLink ? 5 : 0;
   factors.push(
@@ -70,23 +89,13 @@ export function auditAuthorityContext(
     ),
   );
 
-  let dateFound = false;
-  let dateValue = "";
-  for (const selector of DATE_SELECTORS) {
-    const elem = $(selector).first();
-    if (elem.length) {
-      dateFound = true;
-      dateValue =
-        elem.attr("datetime") || elem.attr("content") || elem.text().trim();
-      break;
-    }
-  }
+  const publishDateValue = firstSelectorValue($, PUBLISH_DATE_SELECTORS);
   factors.push(
     makeFactor(
       "Publication Date",
-      dateFound ? 8 : 0,
+      publishDateValue ? 8 : 0,
       8,
-      dateFound ? dateValue : "Not found",
+      publishDateValue ?? "Not found",
     ),
   );
 
@@ -118,10 +127,7 @@ export function auditAuthorityContext(
 
   rawData.freshness = freshness;
 
-  const schemaObjects = parseJsonLdObjects(page.$);
-  const structuredDataTypes = schemaObjects
-    .map((d) => d["@type"] as string)
-    .filter(Boolean);
+  const structuredDataTypes = schemaObjects.flatMap(schemaTypesOf);
 
   const ogTags = ["og:title", "og:description", "og:image", "og:type"];
   const foundOgTags = ogTags.filter(
@@ -189,14 +195,5 @@ export function auditAuthorityContext(
     surfacesChecked: consistency.surfacesChecked,
   };
 
-  return {
-    category: {
-      name: CATEGORY_DISPLAY_NAMES.authorityContext,
-      key: "authorityContext",
-      score: sumFactors(factors),
-      maxScore: maxFactors(factors),
-      factors,
-    },
-    rawData,
-  };
+  return buildCategoryOutput("authorityContext", factors, rawData);
 }

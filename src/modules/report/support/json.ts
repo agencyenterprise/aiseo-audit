@@ -1,9 +1,11 @@
 import type { AnalyzerResultType } from "../../analyzer/schema.js";
-import type {
-  SitemapResultType,
-  SitemapUrlResultType,
-} from "../../sitemap/schema.js";
+import type { SitemapResultType } from "../../sitemap/schema.js";
 import { buildTldr } from "./tldr.js";
+import {
+  hasHttpUrls,
+  HTTP_AUDIT_NOTE,
+  SITEMAP_HTTP_AUDIT_NOTE,
+} from "./view-model.js";
 
 export function renderJsonTldr(result: AnalyzerResultType): string {
   const tldr = buildTldr(result);
@@ -22,9 +24,7 @@ export function renderJsonTldr(result: AnalyzerResultType): string {
 export function renderJson(result: AnalyzerResultType): string {
   const notes: string[] = [];
   if (result.url.startsWith("http://")) {
-    notes.push(
-      "Audited over HTTP. Domain signals (robots.txt, llms.txt) may differ in production.",
-    );
+    notes.push(HTTP_AUDIT_NOTE);
   }
 
   const tldr = buildTldr(result);
@@ -35,17 +35,8 @@ export function renderJson(result: AnalyzerResultType): string {
 
 export function renderSitemapJson(result: SitemapResultType): string {
   const notes: string[] = [];
-  const hasHttpUrls = result.urlResults.some(
-    (r) =>
-      r.status === "success" &&
-      (
-        r as Extract<SitemapUrlResultType, { status: "success" }>
-      ).result.url.startsWith("http://"),
-  );
-  if (hasHttpUrls) {
-    notes.push(
-      "Some URLs were audited over HTTP. Domain signals (robots.txt, llms.txt) may differ in production.",
-    );
+  if (hasHttpUrls(result.urlResults)) {
+    notes.push(SITEMAP_HTTP_AUDIT_NOTE);
   }
 
   const output = notes.length > 0 ? { ...result, notes } : result;

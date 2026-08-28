@@ -29,7 +29,7 @@ describe("auditContentStructure", () => {
       expect(findFactor("Heading Hierarchy", result)?.score).toBe(2);
     });
 
-    it("scores 2 for exactly one H2 (not two or more)", () => {
+    it("scores 6 when an H1 is present but only one H2", () => {
       const html = `<body><h1>Title</h1><h2>Single Section</h2>${paragraph(50)}</body>`;
       const result = auditContentStructure(buildPage(html));
       const score = findFactor("Heading Hierarchy", result)?.score;

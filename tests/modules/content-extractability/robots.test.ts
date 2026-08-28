@@ -113,4 +113,66 @@ Allow: /
 
     expect(result.blocked).not.toContain("GPTBot");
   });
+
+  it("treats 'Disallow: /*' and 'Disallow: *' as full blocks", () => {
+    for (const path of ["/*", "*"]) {
+      const result = checkCrawlerAccess(
+        `User-agent: GPTBot\nDisallow: ${path}\n`,
+      );
+      expect(result.blocked).toContain("GPTBot");
+    }
+  });
+
+  it("supports mid-path wildcards and end anchors", () => {
+    const robotsTxt = `
+User-agent: GPTBot
+Disallow: /private/*/drafts
+Disallow: /tmp$
+`;
+    const result = checkCrawlerAccess(robotsTxt);
+
+    expect(result.allowed).toContain("GPTBot");
+    expect(
+      result.partiallyBlocked?.some((e) => e.includes("/private/*/drafts")),
+    ).toBe(true);
+  });
+
+  it("tolerates blank lines inside a group", () => {
+    const robotsTxt = `
+User-agent: GPTBot
+
+Disallow: /
+`;
+    const result = checkCrawlerAccess(robotsTxt);
+
+    expect(result.blocked).toContain("GPTBot");
+    expect(result.unknown).not.toContain("GPTBot");
+  });
+
+  it("starts a new group when user-agent follows rules", () => {
+    const robotsTxt = `
+User-agent: GPTBot
+Disallow: /
+User-agent: ClaudeBot
+Allow: /
+`;
+    const result = checkCrawlerAccess(robotsTxt);
+
+    expect(result.blocked).toContain("GPTBot");
+    expect(result.allowed).toContain("ClaudeBot");
+  });
+
+  it("does not report a disallow cancelled by an identical allow as a partial block", () => {
+    const robotsTxt = `
+User-agent: GPTBot
+Disallow: /private
+Allow: /private
+`;
+    const result = checkCrawlerAccess(robotsTxt);
+
+    expect(result.allowed).toContain("GPTBot");
+    expect(
+      result.partiallyBlocked?.some((e) => e.includes("/private")) ?? false,
+    ).toBe(false);
+  });
 });

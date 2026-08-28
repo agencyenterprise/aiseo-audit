@@ -1,4 +1,6 @@
-const SCHEMA_REQUIRED_PROPERTIES: Record<string, string[]> = {
+import { schemaTypesOf } from "./json-ld.js";
+
+const PROPERTIES_ENGINES_EXPECT_PER_TYPE: Record<string, string[]> = {
   Article: ["headline", "author", "datePublished"],
   NewsArticle: ["headline", "author", "datePublished"],
   BlogPosting: ["headline", "author", "datePublished"],
@@ -24,9 +26,9 @@ export function evaluateSchemaCompleteness(
   }> = [];
 
   for (const schema of schemas) {
-    const type = String(schema["@type"] || "");
-    const requiredProps = SCHEMA_REQUIRED_PROPERTIES[type];
-    if (!requiredProps) continue;
+    const type = firstRecognizedTypeOf(schema);
+    if (!type) continue;
+    const requiredProps = PROPERTIES_ENGINES_EXPECT_PER_TYPE[type];
 
     const present = requiredProps.filter((prop) => schema[prop] != null);
     const missing = requiredProps.filter((prop) => schema[prop] == null);
@@ -43,4 +45,12 @@ export function evaluateSchemaCompleteness(
       : 0;
 
   return { totalTypes: details.length, avgCompleteness, details };
+}
+
+function firstRecognizedTypeOf(
+  schema: Record<string, unknown>,
+): string | undefined {
+  return schemaTypesOf(schema).find(
+    (type) => PROPERTIES_ENGINES_EXPECT_PER_TYPE[type],
+  );
 }

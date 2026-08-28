@@ -1,7 +1,6 @@
 {
   "name": "aiseo-audit",
   "version": "1.5.0",
-  "mcpName": "io.github.agencyenterprise/aiseo-audit",
   "description": "Lighthouse for AI SEO. Audit any webpage for AI search readiness. 7 categories, 30+ factors, research-backed scoring. Deterministic, engine-agnostic, zero API keys.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -11,6 +10,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp.d.ts",
+      "import": "./dist/mcp.mjs",
+      "require": "./dist/mcp.js"
     }
   },
   "bin": {
@@ -33,7 +37,7 @@
     "lint": "tsc --noEmit",
     "format:check": "prettier --check .",
     "ci": "npm run format:check && npm run lint && npm run test:coverage && npm run build",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run ci"
   },
   "repository": {
     "type": "git",
@@ -46,7 +50,7 @@
   "author": "Agency Enterprise",
   "license": "MIT",
   "engines": {
-    "node": ">=20",
+    "node": ">=20.19",
     "npm": ">=10"
   },
   "keywords": [
@@ -83,7 +87,7 @@
     "answer-engine-optimization"
   ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "chalk": "^5.6.2",
     "cheerio": "^1.2.0",
     "commander": "^14.0.3",
@@ -98,5 +102,8 @@
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
+  },
+  "overrides": {
+    "esbuild": "^0.28.1"
   }
 }

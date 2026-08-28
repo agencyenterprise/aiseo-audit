@@ -1,11 +1,6 @@
 import type { ExtractedPageType } from "../extractor/schema.js";
-import {
-  makeFactor,
-  maxFactors,
-  sumFactors,
-  thresholdScore,
-} from "../scoring/service.js";
-import { CATEGORY_DISPLAY_NAMES } from "../audits/constants.js";
+import { buildCategoryOutput } from "../audits/category.js";
+import { makeFactor, thresholdScore } from "../scoring/service.js";
 import type {
   CategoryAuditOutputType,
   FactorResultType,
@@ -68,8 +63,8 @@ export function auditContentStructure(
   const paragraphScore = thresholdScore(
     avgParagraphWords,
     [
-      [30, 150, 11],
-      [1, 199, 7],
+      [30, 151, 11],
+      [1, 200, 7],
       [200, Infinity, 2],
     ],
     "range",
@@ -87,7 +82,7 @@ export function auditContentStructure(
   const headingRatio = pCount > 0 ? page.stats.headingCount / pCount : 0;
   let scanScore = 0;
   if (hasBold) scanScore += 4;
-  if (avgParagraphWords <= 150) scanScore += 4;
+  if (hasFrequentVisualBreaks(page.stats)) scanScore += 4;
   if (headingRatio >= 0.1) scanScore += 3;
   factors.push(
     makeFactor(
@@ -105,8 +100,8 @@ export function auditContentStructure(
       : thresholdScore(
           sectionData.avgWordsPerSection,
           [
-            [120, 180, 12],
-            [80, 250, 8],
+            [120, 181, 12],
+            [80, 251, 8],
             [1, Infinity, 4],
           ],
           "range",
@@ -123,16 +118,16 @@ export function auditContentStructure(
     ),
   );
 
-  return {
-    category: {
-      name: CATEGORY_DISPLAY_NAMES.contentStructure,
-      key: "contentStructure",
-      score: sumFactors(factors),
-      maxScore: maxFactors(factors),
-      factors,
-    },
-    rawData: {
-      sectionLengths: sectionData,
-    },
-  };
+  return buildCategoryOutput("contentStructure", factors, {
+    sectionLengths: sectionData,
+  });
+}
+
+const MAX_WORDS_PER_VISUAL_BREAK = 150;
+
+function hasFrequentVisualBreaks(stats: ExtractedPageType["stats"]): boolean {
+  const visualBreaks =
+    stats.headingCount + stats.listCount + stats.tableCount + stats.imageCount;
+  if (visualBreaks === 0) return false;
+  return stats.wordCount / visualBreaks <= MAX_WORDS_PER_VISUAL_BREAK;
 }

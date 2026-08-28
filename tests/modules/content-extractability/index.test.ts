@@ -13,9 +13,7 @@ const baseFetchResult: FetchResultType = {
   statusCode: 200,
   contentType: "text/html",
   html: "",
-  byteLength: 0,
   fetchTimeMs: 100,
-  redirected: false,
 };
 
 function findFactor(
@@ -25,9 +23,10 @@ function findFactor(
   return result.category.factors.find((f) => f.name === name);
 }
 
-// Meta tags in <head> contribute to rawByteLength but not cleanTextLength,
-// allowing precise control over extractRatio without affecting word count.
-function buildHtmlWithMetaPadding(metaCount: number, bodyText: string): string {
+function padHeadToShrinkExtractRatio(
+  metaCount: number,
+  bodyText: string,
+): string {
   const metas = Array.from(
     { length: metaCount },
     (_, i) =>
@@ -41,8 +40,7 @@ describe("auditContentExtractability", () => {
     const bodyText = "word ".repeat(50).trim();
 
     it("scores 12 for extract ratio in optimal range (5-15%)", () => {
-      // n=40 meta tags -> rawByteLength ~ 2805, ratio ~ 0.089
-      const html = buildHtmlWithMetaPadding(40, bodyText);
+      const html = padHeadToShrinkExtractRatio(40, bodyText);
       const page = buildPage(html);
       const ratio = page.stats.cleanTextLength / page.stats.rawByteLength;
 
@@ -54,8 +52,7 @@ describe("auditContentExtractability", () => {
     });
 
     it("scores 10 for extract ratio above 15%", () => {
-      // No padding -> minimal markup, ratio ~ 0.84
-      const html = buildHtmlWithMetaPadding(0, bodyText);
+      const html = padHeadToShrinkExtractRatio(0, bodyText);
       const page = buildPage(html);
       const ratio = page.stats.cleanTextLength / page.stats.rawByteLength;
 
@@ -66,8 +63,7 @@ describe("auditContentExtractability", () => {
     });
 
     it("scores 8 for extract ratio in minimal range (1-5%)", () => {
-      // n=80 meta tags -> rawByteLength ~ 5325, ratio ~ 0.047
-      const html = buildHtmlWithMetaPadding(80, bodyText);
+      const html = padHeadToShrinkExtractRatio(80, bodyText);
       const page = buildPage(html);
       const ratio = page.stats.cleanTextLength / page.stats.rawByteLength;
 
@@ -79,8 +75,7 @@ describe("auditContentExtractability", () => {
     });
 
     it("scores 2 for extract ratio below 1%", () => {
-      // n=250 meta tags + tiny body -> rawByteLength ~ 15938, ratio ~ 0.00013
-      const html = buildHtmlWithMetaPadding(250, "hi");
+      const html = padHeadToShrinkExtractRatio(250, "hi");
       const page = buildPage(html);
       const ratio = page.stats.cleanTextLength / page.stats.rawByteLength;
 
@@ -93,7 +88,7 @@ describe("auditContentExtractability", () => {
 
   describe("Word Count Adequacy", () => {
     it("scores 12 for word count in optimal range (300-3000)", () => {
-      const html = buildHtmlWithMetaPadding(0, "word ".repeat(500).trim());
+      const html = padHeadToShrinkExtractRatio(0, "word ".repeat(500).trim());
       const page = buildPage(html);
 
       expect(page.stats.wordCount).toBeGreaterThanOrEqual(300);
@@ -104,7 +99,7 @@ describe("auditContentExtractability", () => {
     });
 
     it("scores 10 for word count above 3000", () => {
-      const html = buildHtmlWithMetaPadding(0, "word ".repeat(3100).trim());
+      const html = padHeadToShrinkExtractRatio(0, "word ".repeat(3100).trim());
       const page = buildPage(html);
 
       expect(page.stats.wordCount).toBeGreaterThan(3000);
@@ -114,7 +109,7 @@ describe("auditContentExtractability", () => {
     });
 
     it("scores 8 for word count in minimal range (100-299)", () => {
-      const html = buildHtmlWithMetaPadding(0, "word ".repeat(150).trim());
+      const html = padHeadToShrinkExtractRatio(0, "word ".repeat(150).trim());
       const page = buildPage(html);
 
       expect(page.stats.wordCount).toBeGreaterThanOrEqual(100);
@@ -125,7 +120,7 @@ describe("auditContentExtractability", () => {
     });
 
     it("scores 2 for word count below 100", () => {
-      const html = buildHtmlWithMetaPadding(0, "word ".repeat(10).trim());
+      const html = padHeadToShrinkExtractRatio(0, "word ".repeat(10).trim());
       const page = buildPage(html);
 
       expect(page.stats.wordCount).toBeLessThan(100);
@@ -136,7 +131,7 @@ describe("auditContentExtractability", () => {
   });
 
   describe("Image Accessibility", () => {
-    it("scores 5 for 50-89% alt text coverage", () => {
+    it("scores 3 for 50-89% alt text coverage (no figcaptions)", () => {
       const images = [
         `<img src="a.png" alt="Description of image A">`,
         `<img src="b.png" alt="Description of image B">`,
@@ -150,7 +145,7 @@ describe("auditContentExtractability", () => {
       expect(factor?.score).toBe(3);
     });
 
-    it("scores 5 for 90%+ alt text coverage", () => {
+    it("scores 5 for 90%+ alt text coverage (no figcaptions)", () => {
       const images = [
         `<img src="a.png" alt="Description of image A">`,
         `<img src="b.png" alt="Description of image B">`,

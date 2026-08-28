@@ -1,28 +1,14 @@
 import type { CheerioAPI } from "cheerio";
 import type { FreshnessResultType } from "../audits/schema.js";
-import { MODIFIED_DATE_SELECTORS, PUBLISH_DATE_SELECTORS } from "./patterns.js";
+import {
+  firstSelectorValue,
+  MODIFIED_DATE_SELECTORS,
+  PUBLISH_DATE_SELECTORS,
+} from "./selectors.js";
 
 export function evaluateFreshness($: CheerioAPI): FreshnessResultType {
-  let modifiedDate: string | null = null;
-  let publishDate: string | null = null;
-
-  for (const sel of MODIFIED_DATE_SELECTORS) {
-    const el = $(sel).first();
-    if (el.length) {
-      modifiedDate =
-        el.attr("datetime") || el.attr("content") || el.text().trim();
-      break;
-    }
-  }
-
-  for (const sel of PUBLISH_DATE_SELECTORS) {
-    const el = $(sel).first();
-    if (el.length) {
-      publishDate =
-        el.attr("datetime") || el.attr("content") || el.text().trim();
-      break;
-    }
-  }
+  const modifiedDate = firstSelectorValue($, MODIFIED_DATE_SELECTORS);
+  const publishDate = firstSelectorValue($, PUBLISH_DATE_SELECTORS);
 
   const mostRecent = modifiedDate || publishDate;
   let ageInMonths: number | null = null;
