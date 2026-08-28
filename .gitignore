@@ -8,6 +8,5 @@ coverage/
 .env.*
 !.env.example
 
-# Written by aiseo-audit --diff when dogfooding in this repo
-audits/
-aiseo.config.json
+/audits/
+/aiseo.config.json

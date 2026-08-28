@@ -3,9 +3,9 @@ export const listsConversionExample = `<!-- Before: prose enumeration -->
 
 <!-- After: unordered list -->
 <ul>
-  <li>Design — UI/UX and brand identity</li>
-  <li>Development — web and mobile engineering</li>
-  <li>Strategy — AI readiness and growth planning</li>
+  <li>Design: UI/UX and brand identity</li>
+  <li>Development: web and mobile engineering</li>
+  <li>Strategy: AI readiness and growth planning</li>
 </ul>
 
 <!-- Ordered list for sequential steps -->
@@ -55,7 +55,7 @@ export const summaryStructureExample = `<h2>Key Takeaways</h2>
 <ul>
   <li>AI SEO focuses on being cited in generated answers, not ranked in link lists.</li>
   <li>Structured data, answer capsules, and clear entity attribution are the highest-impact factors.</li>
-  <li>Content freshness acts as a hard gate — AI engines strongly prefer content under 12 months old.</li>
+  <li>Content freshness acts as a hard gate: AI engines strongly prefer content under 12 months old.</li>
 </ul>
 
 <h2>Next Steps</h2>
@@ -80,7 +80,7 @@ export const citationMarkupExample = `<!-- In-text citation with marker -->
   <ol>
     <li id="ref-1">
       <cite><a href="https://arxiv.org/abs/2311.09735">Generative Engine Optimization (GEO)</a></cite>
-      — Aggarwal et al., Princeton University, 2023
+      - Aggarwal et al., Princeton University, 2023
     </li>
   </ol>
 </section>`;
@@ -89,7 +89,7 @@ export const blockquoteAttributionExample = `<blockquote>
   <p>"Structured content with clear attribution is 3x more likely to be cited
   by generative AI engines than unstructured prose."</p>
   <footer>
-    — <cite>Dr. Jane Smith, AI Research Lead,
+    - <cite>Dr. Jane Smith, AI Research Lead,
     <a href="https://example.edu">Princeton University</a></cite>
   </footer>
 </blockquote>`;
@@ -109,8 +109,8 @@ export const jargonReductionExample = `<!-- Before: jargon-heavy -->
 to optimize retrieval latency for enterprise-scale deployments.</p>
 
 <!-- After: jargon defined on first use -->
-<p>Our AI pipeline uses Retrieval-Augmented Generation (RAG) — a technique that
-combines a language model with a searchable knowledge base — to deliver fast,
+<p>Our AI pipeline uses Retrieval-Augmented Generation (RAG), a technique that
+combines a language model with a searchable knowledge base, to deliver fast,
 accurate answers at enterprise scale.</p>`;
 
 export const contactLinksExample = `<!-- In site navigation or footer -->
@@ -135,7 +135,7 @@ export const imageAltTextExample = `<!-- Informational image with alt text -->
   <figcaption>AI engines cite structured content 3x more often than unstructured prose.</figcaption>
 </figure>
 
-<!-- Decorative image — empty alt tells screen readers to skip it -->
+<!-- Decorative image: empty alt tells screen readers to skip it -->
 <img src="divider.png" alt="">`;
 
 export const answerCapsuleExample = `<!-- Before -->

@@ -13,9 +13,6 @@ export default defineConfig({
   dts: true,
   splitting: true,
   sourcemap: true,
-  // Unminified on purpose: the published tarball excludes sourcemaps, so
-  // user-reported stack traces must be readable as-is. A CLI gains nothing
-  // from minification.
   minify: false,
   clean: true,
   target: "node20",

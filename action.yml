@@ -61,46 +61,55 @@ runs:
       run: |
         set -e
 
-        if [ -z "$INPUT_URL" ] && [ -z "$INPUT_SITEMAP" ]; then
-          echo "::error::Either 'url' or 'sitemap' input is required."
-          exit 2
-        fi
+        require_url_or_sitemap() {
+          if [ -z "$INPUT_URL" ] && [ -z "$INPUT_SITEMAP" ]; then
+            echo "::error::Either 'url' or 'sitemap' input is required."
+            exit 2
+          fi
+        }
 
-        # Restrict the version input to a dist-tag or semver: npm specs after
-        # "@" also accept tarball URLs and git refs, which would execute
-        # arbitrary code if untrusted data ever reached this input.
-        if ! [[ "$INPUT_VERSION" =~ ^[A-Za-z0-9._-]+$ ]]; then
-          echo "::error::Invalid 'version' input: must be an npm dist-tag or version number."
-          exit 2
-        fi
+        reject_version_specs_that_execute_arbitrary_packages() {
+          if ! [[ "$INPUT_VERSION" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::Invalid 'version' input: must be an npm dist-tag or version number."
+            exit 2
+          fi
+        }
 
-        ARGS=()
-        if [ -n "$INPUT_URL" ]; then ARGS+=("$INPUT_URL"); fi
-        if [ -n "$INPUT_SITEMAP" ]; then ARGS+=("--sitemap" "$INPUT_SITEMAP"); fi
-        if [ -n "$INPUT_FAIL_UNDER" ]; then ARGS+=("--fail-under" "$INPUT_FAIL_UNDER"); fi
-        if [ -n "$INPUT_CONFIG" ]; then ARGS+=("--config" "$INPUT_CONFIG"); fi
-        if [ -n "$INPUT_USER_AGENT" ]; then ARGS+=("--user-agent" "$INPUT_USER_AGENT"); fi
-        if [ -n "$INPUT_TIMEOUT" ]; then ARGS+=("--timeout" "$INPUT_TIMEOUT"); fi
+        build_audit_args() {
+          ARGS=()
+          if [ -n "$INPUT_URL" ]; then ARGS+=("$INPUT_URL"); fi
+          if [ -n "$INPUT_SITEMAP" ]; then ARGS+=("--sitemap" "$INPUT_SITEMAP"); fi
+          if [ -n "$INPUT_FAIL_UNDER" ]; then ARGS+=("--fail-under" "$INPUT_FAIL_UNDER"); fi
+          if [ -n "$INPUT_CONFIG" ]; then ARGS+=("--config" "$INPUT_CONFIG"); fi
+          if [ -n "$INPUT_USER_AGENT" ]; then ARGS+=("--user-agent" "$INPUT_USER_AGENT"); fi
+          if [ -n "$INPUT_TIMEOUT" ]; then ARGS+=("--timeout" "$INPUT_TIMEOUT"); fi
+          ARGS+=("--json" "--out" "$REPORT_PATH")
+        }
+
+        run_audit_capturing_exit_code() {
+          AUDIT_EXIT_CODE=0
+          npx --yes "aiseo-audit@${INPUT_VERSION}" "${ARGS[@]}" || AUDIT_EXIT_CODE=$?
+        }
+
+        write_outputs_even_when_the_gate_failed() {
+          if [ -f "$REPORT_PATH" ]; then
+            SCORE=$(node -p "require('./${REPORT_PATH}').overallScore ?? require('./${REPORT_PATH}').averageScore ?? 0")
+            GRADE=$(node -p "require('./${REPORT_PATH}').grade ?? require('./${REPORT_PATH}').averageGrade ?? ''")
+
+            echo "score=$SCORE" >> "$GITHUB_OUTPUT"
+            echo "grade=$GRADE" >> "$GITHUB_OUTPUT"
+            echo "report-path=$REPORT_PATH" >> "$GITHUB_OUTPUT"
+          fi
+        }
 
         REPORT_PATH="aiseo-result.json"
-        ARGS+=("--json" "--out" "$REPORT_PATH")
 
-        # Capture the exit code instead of aborting: a failing --fail-under
-        # gate (exit 1) must still produce score/grade outputs and a PR
-        # comment; that is exactly when reviewers need them.
-        EXIT_CODE=0
-        npx --yes "aiseo-audit@${INPUT_VERSION}" "${ARGS[@]}" || EXIT_CODE=$?
-
-        if [ -f "$REPORT_PATH" ]; then
-          SCORE=$(node -p "require('./${REPORT_PATH}').overallScore ?? require('./${REPORT_PATH}').averageScore ?? 0")
-          GRADE=$(node -p "require('./${REPORT_PATH}').grade ?? require('./${REPORT_PATH}').averageGrade ?? ''")
-
-          echo "score=$SCORE" >> "$GITHUB_OUTPUT"
-          echo "grade=$GRADE" >> "$GITHUB_OUTPUT"
-          echo "report-path=$REPORT_PATH" >> "$GITHUB_OUTPUT"
-        fi
-
-        exit "$EXIT_CODE"
+        require_url_or_sitemap
+        reject_version_specs_that_execute_arbitrary_packages
+        build_audit_args
+        run_audit_capturing_exit_code
+        write_outputs_even_when_the_gate_failed
+        exit "$AUDIT_EXIT_CODE"
 
     - name: Comment on PR
       if: ${{ !cancelled() && inputs.comment-on-pr == 'true' && github.event_name == 'pull_request' }}
@@ -132,7 +141,7 @@ runs:
             marker,
             `## AI SEO Audit: ${score}/100 (${grade})${projection}`,
             '',
-            wins ? 'Quickest wins:' : '_No quick wins identified — the page is already solid._',
+            wins ? 'Quickest wins:' : '_No quick wins identified. The page is already solid._',
             wins,
             '',
             `<sub>Posted by [aiseo-audit](https://github.com/agencyenterprise/aiseo-audit)</sub>`,

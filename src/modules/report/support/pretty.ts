@@ -144,7 +144,7 @@ export function renderPrettyTldr(result: AnalyzerResultType): string {
       `  Score: ${overallScoreColor(`${tldr.score}/100`)}  Grade: ${gradeColor(tldr.grade)(tldr.grade)}`,
     );
     lines.push(
-      chalk.dim("  No quick wins identified — everything is already solid."),
+      chalk.dim("  No quick wins identified. Everything is already solid."),
     );
   }
 

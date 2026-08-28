@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { extractEntities } from "../../../src/modules/nlp/service.js";
 
-describe("extractEntities — enhanced extraction", () => {
+describe("extractEntities enhanced extraction", () => {
   describe("Phase 1a: Acronym entity extraction", () => {
     it("detects uppercase acronym entities that compromise misses", () => {
       const text =

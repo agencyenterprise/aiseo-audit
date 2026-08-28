@@ -128,7 +128,7 @@ export function renderMarkdownTldr(result: AnalyzerResultType): string {
     renderTldrSection(lines, tldr);
   } else {
     lines.push(
-      `**${tldr.score}/100 (${tldr.grade})** — no quick wins identified.`,
+      `**${tldr.score}/100 (${tldr.grade})**. No quick wins identified.`,
     );
     lines.push("");
   }
@@ -234,7 +234,7 @@ function renderTldrSection(lines: string[], tldr: TldrType): void {
   lines.push("Quickest wins:");
   tldr.quickestWins.forEach((win, i) => {
     lines.push(
-      `${i + 1}. **+${win.expectedGain} pts** — ${win.factor} (${win.category})`,
+      `${i + 1}. **+${win.expectedGain} pts**: ${win.factor} (${win.category})`,
     );
   });
   lines.push("");

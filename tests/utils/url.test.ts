@@ -141,7 +141,7 @@ describe("slugifyUrl", () => {
     expect(slugifyUrl("example.com/path")).toBe("example-com-path");
   });
 
-  it("is idempotent — re-slugifying a slug returns the same slug", () => {
+  it("is idempotent: re-slugifying a slug returns the same slug", () => {
     const slug = slugifyUrl("https://example.com/path");
     expect(slugifyUrl(slug)).toBe(slug);
   });
