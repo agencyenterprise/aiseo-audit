@@ -1,6 +1,6 @@
 {
   "name": "aiseo-audit",
-  "version": "1.6.2",
+  "version": "2.0.0",
   "description": "Lighthouse-style AI SEO audit. Research-informed heuristic scoring with evidence-tiered factors and pipeline-stage scores (eligibility, retrieval alignment, citation fitness, provenance). Deterministic, engine-agnostic, zero API keys.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
