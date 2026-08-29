@@ -1,17 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { auditAnswerability } from "../../../src/modules/answerability/index.js";
-import { extractPage } from "../../../src/modules/extractor/service.js";
-
-function buildPage(html: string) {
-  return extractPage(html, "https://example.com/test");
-}
-
-function findFactor(
-  name: string,
-  result: ReturnType<typeof auditAnswerability>,
-) {
-  return result.category.factors.find((f) => f.name === name);
-}
+import { findFactor } from "../../helpers/factors.js";
+import { buildPage } from "../../helpers/page.js";
 
 describe("auditAnswerability", () => {
   describe("Step-by-Step Content", () => {
@@ -22,7 +12,7 @@ describe("auditAnswerability", () => {
       </body></html>`;
       const page = buildPage(html);
       const result = auditAnswerability(page);
-      const factor = findFactor("Step-by-Step Content", result);
+      const factor = findFactor(result, "Step-by-Step Content");
 
       expect(factor?.score).toBeGreaterThan(0);
     });
@@ -37,7 +27,7 @@ describe("auditAnswerability", () => {
       </body></html>`;
       const page = buildPage(html);
       const result = auditAnswerability(page);
-      const factor = findFactor("Step-by-Step Content", result);
+      const factor = findFactor(result, "Step-by-Step Content");
 
       expect(factor?.score).toBeGreaterThan(0);
     });
@@ -48,7 +38,7 @@ describe("auditAnswerability", () => {
       </body></html>`;
       const page = buildPage(html);
       const result = auditAnswerability(page);
-      const factor = findFactor("Step-by-Step Content", result);
+      const factor = findFactor(result, "Step-by-Step Content");
 
       expect(factor?.score).toBe(0);
     });
@@ -59,7 +49,7 @@ describe("auditAnswerability", () => {
       </body></html>`;
       const page = buildPage(html);
       const result = auditAnswerability(page);
-      const factor = findFactor("Step-by-Step Content", result);
+      const factor = findFactor(result, "Step-by-Step Content");
 
       expect(factor?.value).toContain("instruction verbs");
     });
@@ -74,61 +64,134 @@ describe("auditAnswerability", () => {
       </body></html>`;
       const page = buildPage(html);
       const result = auditAnswerability(page);
-      const factor = findFactor("Definition Patterns", result);
+      const factor = findFactor(result, "Definition Patterns");
 
       expect(factor?.score).toBeGreaterThan(0);
     });
   });
 
-  describe("Q/A Patterns", () => {
-    it("scores for questions in content", () => {
+  describe("Q/A Patterns diagnostic", () => {
+    it("reports question counts as an unscored info diagnostic", () => {
       const html = `<html><body>
         <h2>What is SEO?</h2><p>SEO is search engine optimization.</p>
         <h2>How do you optimize content?</h2><p>You write clearly.</p>
-        <h2>Why is AI search different?</h2><p>It uses language models.</p>
       </body></html>`;
       const page = buildPage(html);
       const result = auditAnswerability(page);
-      const factor = findFactor("Q/A Patterns", result);
+      const factor = findFactor(result, "Q/A Patterns");
 
-      expect(factor?.score).toBeGreaterThan(0);
+      expect(factor?.status).toBe("info");
+      expect(factor?.score).toBe(0);
+      expect(factor?.maxScore).toBe(0);
+      expect(factor?.value).toContain("query patterns");
     });
   });
 
-  describe("Answer Capsules", () => {
-    it("scores 13 when all question headings have answer capsules (ratio >= 0.7)", () => {
+  describe("Answer Capsules diagnostic", () => {
+    it("reports the capsule ratio without scoring it", () => {
       const html = `<html><body>
         <h2>What is SEO?</h2><p>SEO is search engine optimization for websites.</p>
-        <h2>How does AI work?</h2><p>AI uses neural networks and machine learning models.</p>
-        <h2>Why is content important?</h2><p>Content helps users find information they need.</p>
+        <h2>How does AI work?</h2><h3>Next heading immediately</h3>
       </body></html>`;
       const page = buildPage(html);
       const result = auditAnswerability(page);
-      const factor = findFactor("Answer Capsules", result);
-      expect(factor?.score).toBe(13);
+      const factor = findFactor(result, "Answer Capsules");
+
+      expect(factor?.status).toBe("info");
+      expect(factor?.maxScore).toBe(0);
+      expect(factor?.value).toBe("1/2 question headings have answer capsules");
     });
 
-    it("scores at least 5 when some question headings have capsules", () => {
+    it("notes when no question-framed H2s exist", () => {
+      const html = `<html><body><h2>Overview</h2><p>Plain prose.</p></body></html>`;
+      const page = buildPage(html);
+      const result = auditAnswerability(page);
+      const factor = findFactor(result, "Answer Capsules");
+
+      expect(factor?.status).toBe("info");
+      expect(factor?.value).toBe("No question-framed H2s found");
+    });
+  });
+
+  describe("Lead Summary", () => {
+    it("scores 0 when the page buries its conclusion", () => {
       const html = `<html><body>
-        <h2>What is SEO?</h2><p>SEO is search engine optimization for websites.</p>
-        <h2>How does AI work?</h2><p>AI uses neural networks and machine learning models.</p>
-        <h2>Why matters?</h2><h3>Next section</h3>
+        <h1>Widgets</h1>
+        <h2>Background</h2>
+        <p>Short opener.</p>
       </body></html>`;
       const page = buildPage(html);
       const result = auditAnswerability(page);
-      const factor = findFactor("Answer Capsules", result);
-      expect(factor?.score).toBeGreaterThanOrEqual(5);
+      const factor = findFactor(result, "Lead Summary");
+
+      expect(factor?.score).toBe(0);
+      expect(factor?.maxScore).toBe(13);
     });
 
-    it("scores exactly 2 when question headings have no capsule answers", () => {
+    it("credits an explicit TL;DR marker in the lead", () => {
+      const intro = "word ".repeat(40).trim();
       const html = `<html><body>
-        <h2>What is SEO?</h2><h3>Next heading immediately</h3>
-        <h2>How does AI work?</h2><h3>Another heading</h3>
+        <h1>Widgets</h1>
+        <p>TL;DR: ${intro}</p>
       </body></html>`;
       const page = buildPage(html);
       const result = auditAnswerability(page);
-      const factor = findFactor("Answer Capsules", result);
-      expect(factor?.score).toBe(2);
+      const factor = findFactor(result, "Lead Summary");
+
+      expect(factor?.score).toBeGreaterThanOrEqual(10);
+      expect(factor?.value).toContain("explicit summary marker");
+    });
+  });
+
+  describe("Explanatory Depth", () => {
+    it("scores 10 for six or more explanatory signals", () => {
+      const html = `<html><body>
+        <p>This happens because of rain. We stayed because of wind.
+        He left because of snow. She smiled because of luck.
+        It failed because of rust. It grew because of light.</p>
+      </body></html>`;
+      const page = buildPage(html);
+      const result = auditAnswerability(page);
+      const factor = findFactor(result, "Explanatory Depth");
+
+      expect(factor?.score).toBe(10);
+      expect(factor?.maxScore).toBe(10);
+    });
+
+    it("scores 7 for three explanatory signals", () => {
+      const html = `<html><body>
+        <p>This happens because of rain. We stayed because of wind.
+        He left because of snow.</p>
+      </body></html>`;
+      const page = buildPage(html);
+      const result = auditAnswerability(page);
+      expect(findFactor(result, "Explanatory Depth")?.score).toBe(7);
+    });
+
+    it("scores 3 when a single how-framed heading is the only signal", () => {
+      const html = `<html><body>
+        <h2>How widgets are made</h2>
+        <p>Plain prose with no causal language at all.</p>
+      </body></html>`;
+      const page = buildPage(html);
+      const result = auditAnswerability(page);
+      expect(findFactor(result, "Explanatory Depth")?.score).toBe(3);
+    });
+
+    it("scores 0 for prose with no causal language or how/why headings", () => {
+      const html = `<html><body><p>The sky is blue. The grass is green.</p></body></html>`;
+      const page = buildPage(html);
+      const result = auditAnswerability(page);
+      expect(findFactor(result, "Explanatory Depth")?.score).toBe(0);
+    });
+
+    it("goes neutral for product pages where depth is not expected", () => {
+      const html = `<html><body>
+        <p>This happens because of rain. We stayed because of wind.</p>
+      </body></html>`;
+      const page = buildPage(html);
+      const result = auditAnswerability(page, undefined, { domain: "product" });
+      expect(findFactor(result, "Explanatory Depth")?.status).toBe("neutral");
     });
   });
 
@@ -139,7 +202,7 @@ describe("auditAnswerability", () => {
       </body></html>`;
       const page = buildPage(html);
       const result = auditAnswerability(page);
-      const factor = findFactor("Summary/Conclusion", result);
+      const factor = findFactor(result, "Summary/Conclusion");
       expect(factor?.score).toBe(9);
     });
 
@@ -149,7 +212,7 @@ describe("auditAnswerability", () => {
       </body></html>`;
       const page = buildPage(html);
       const result = auditAnswerability(page);
-      const factor = findFactor("Summary/Conclusion", result);
+      const factor = findFactor(result, "Summary/Conclusion");
       expect(factor?.score).toBe(5);
     });
   });
@@ -161,12 +224,22 @@ describe("auditAnswerability", () => {
       const result = auditAnswerability(page);
 
       const factorNames = result.category.factors.map((f) => f.name);
+      expect(factorNames).toContain("Lead Summary");
       expect(factorNames).toContain("Definition Patterns");
       expect(factorNames).toContain("Direct Answer Statements");
       expect(factorNames).toContain("Answer Capsules");
       expect(factorNames).toContain("Step-by-Step Content");
       expect(factorNames).toContain("Q/A Patterns");
       expect(factorNames).toContain("Summary/Conclusion");
+      expect(factorNames).toContain("Explanatory Depth");
+    });
+
+    it("excludes the two diagnostics from the category maxScore", () => {
+      const html = `<html><body><p>Some content here.</p></body></html>`;
+      const page = buildPage(html);
+      const result = auditAnswerability(page);
+
+      expect(result.category.maxScore).toBe(63);
     });
 
     it("returns answerability as category key", () => {

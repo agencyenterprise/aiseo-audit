@@ -1,53 +1,20 @@
 import { describe, expect, it } from "vitest";
 import type { AnalyzerResultType } from "../../../src/modules/analyzer/schema.js";
 import { computeDiff } from "../../../src/modules/diff/service.js";
+import { makeResult as makeAnalyzerResult } from "../../helpers/results.js";
 
 function makeResult(
   overallScore: number,
   categoryOverrides: Record<string, { score: number; maxScore: number }> = {},
 ): AnalyzerResultType {
-  const defaultCategories = {
-    contentExtractability: {
-      name: "Content Extractability",
-      key: "contentExtractability" as const,
-      score: 50,
-      maxScore: 60,
-      factors: [],
-    },
-    authorityContext: {
-      name: "Authority Context",
-      key: "authorityContext" as const,
-      score: 20,
-      maxScore: 40,
-      factors: [],
-    },
-  };
-
+  const base = makeAnalyzerResult({ overallScore });
   const categories = Object.fromEntries(
-    Object.entries(defaultCategories).map(([key, cat]) => {
-      const override = categoryOverrides[key];
-      return [
-        key,
-        override
-          ? { ...cat, score: override.score, maxScore: override.maxScore }
-          : cat,
-      ];
-    }),
+    Object.entries(base.categories).map(([key, category]) => [
+      key,
+      { ...category, ...categoryOverrides[key] },
+    ]),
   );
-
-  return {
-    url: "https://example.com",
-    signalsBase: "https://example.com",
-    analyzedAt: "2026-04-17T00:00:00Z",
-    overallScore,
-    grade: overallScore >= 90 ? "A" : overallScore >= 70 ? "B" : "D",
-    totalPoints: 0,
-    maxPoints: 100,
-    categories,
-    recommendations: [],
-    rawData: { title: "", metaDescription: "", wordCount: 0 },
-    meta: { version: "1.5.0", analysisDurationMs: 0 },
-  };
+  return { ...base, categories };
 }
 
 describe("computeDiff", () => {

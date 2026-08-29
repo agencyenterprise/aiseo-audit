@@ -1,6 +1,6 @@
 import type { CheerioAPI } from "cheerio";
 import { thresholdScore } from "../scoring/service.js";
-import { parseJsonLdObjects, schemaTypesOf } from "./json-ld.js";
+import { parseJsonLdObjects, schemaTypesOf } from "../extractor/json-ld.js";
 
 export function resolveEntityName($: CheerioAPI): string | null {
   const ogSiteName = $('meta[property="og:site_name"]').attr("content")?.trim();

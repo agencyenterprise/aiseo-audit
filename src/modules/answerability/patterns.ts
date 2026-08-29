@@ -53,3 +53,14 @@ export const SUMMARY_MARKERS = [
 
 export const QUESTION_HEADING_PATTERN =
   /^(?:what|how|why|when|where|which|who|can|do|does|is|are|should|will)\b/i;
+
+export const EXPLANATORY_DEPTH_PATTERNS = [
+  /\bbecause\b/gi,
+  /\bthis\s+means\b/gi,
+  /\bthe\s+reason\b/gi,
+  /\bwhich\s+is\s+why\b/gi,
+  /\bhow\s+it\s+works\b/gi,
+  /\bworks\s+by\b/gi,
+  /\bas\s+a\s+consequence\b/gi,
+  /\bleads?\s+to\b/gi,
+];

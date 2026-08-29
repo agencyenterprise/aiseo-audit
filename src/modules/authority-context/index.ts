@@ -1,11 +1,17 @@
 import type { ExtractedPageType } from "../extractor/schema.js";
 import { buildCategoryOutput } from "../audits/category.js";
-import { makeFactor, thresholdScore } from "../scoring/service.js";
+import {
+  makeDiagnostic,
+  makeFactor,
+  thresholdScore,
+} from "../scoring/service.js";
 import type {
   CategoryAuditOutputType,
   FactorResultType,
+  FreshnessResultType,
 } from "../audits/schema.js";
-import { parseJsonLdObjects, schemaTypesOf } from "./json-ld.js";
+import { parseJsonLdObjects, schemaTypesOf } from "../extractor/json-ld.js";
+import { measureCommercialSignals } from "./commercial.js";
 import { measureEntityConsistency, resolveEntityName } from "./entity.js";
 import { evaluateFreshness } from "./freshness.js";
 import {
@@ -14,6 +20,11 @@ import {
   PUBLISH_DATE_SELECTORS,
 } from "./selectors.js";
 import { evaluateSchemaCompleteness } from "./schema-analysis.js";
+import { detectSiteType } from "./site-type.js";
+import {
+  detectTimeSensitivity,
+  type TimeSensitivityResultType,
+} from "./time-sensitivity.js";
 
 const MAX_AUTHOR_NAME_LENGTH = 80;
 
@@ -89,45 +100,37 @@ export function auditAuthorityContext(
     ),
   );
 
+  const structuredDataTypes = schemaObjects.flatMap(schemaTypesOf);
+
   const publishDateValue = firstSelectorValue($, PUBLISH_DATE_SELECTORS);
   factors.push(
-    makeFactor(
-      "Publication Date",
-      publishDateValue ? 8 : 0,
-      8,
-      publishDateValue ?? "Not found",
+    makeDiagnostic(
+      "Date Markup",
+      publishDateValue
+        ? `Machine-readable date found: ${publishDateValue}`
+        : "No machine-readable date markup",
+    ),
+  );
+
+  const timeSensitivity = detectTimeSensitivity(
+    page.$,
+    page.url,
+    page.title,
+    page.metaDescription,
+    structuredDataTypes,
+  );
+  factors.push(
+    makeDiagnostic(
+      "Topic Time Sensitivity",
+      timeSensitivity.timeSensitive
+        ? `Time-sensitive topic (${timeSensitivity.signals.join(", ")})`
+        : "Evergreen topic, freshness not scored",
     ),
   );
 
   const freshness = evaluateFreshness(page.$);
-  let freshScore = 0;
-  if (freshness.ageInMonths !== null) {
-    freshScore = thresholdScore(
-      freshness.ageInMonths,
-      [
-        [6, 12],
-        [12, 9],
-        [24, 5],
-      ],
-      "lower",
-    );
-    if (freshness.hasModifiedDate && freshScore < 12)
-      freshScore = Math.min(freshScore + 2, 12);
-  }
-  factors.push(
-    makeFactor(
-      "Content Freshness",
-      freshScore,
-      12,
-      freshness.ageInMonths !== null
-        ? `${freshness.ageInMonths} months old${freshness.hasModifiedDate ? ", modified date present" : ""}`
-        : "No parseable date found",
-    ),
-  );
-
+  factors.push(contentFreshnessFactor(freshness, timeSensitivity));
   rawData.freshness = freshness;
-
-  const structuredDataTypes = schemaObjects.flatMap(schemaTypesOf);
 
   const ogTags = ["og:title", "og:description", "og:image", "og:type"];
   const foundOgTags = ogTags.filter(
@@ -195,5 +198,77 @@ export function auditAuthorityContext(
     surfacesChecked: consistency.surfacesChecked,
   };
 
+  const commercial = measureCommercialSignals(page);
+  factors.push(
+    makeDiagnostic(
+      "Promotional Language",
+      `${commercial.promotionalPhrasesPerThousandWords} promotional phrases and ${commercial.exclamationsPerThousandWords} exclamations per 1,000 words`,
+    ),
+  );
+  factors.push(
+    makeDiagnostic(
+      "Affiliate Link Density",
+      page.externalLinks.length > 0
+        ? `${Math.round(commercial.affiliateLinkShare * 100)}% of external links carry affiliate markers`
+        : "No external links",
+    ),
+  );
+  factors.push(
+    makeDiagnostic(
+      "Ad Slot Markers",
+      `${commercial.adSlotCount} ad slot elements in the DOM`,
+    ),
+  );
+
+  const siteType = detectSiteType(page.$, page.url, structuredDataTypes);
+  factors.push(
+    makeDiagnostic(
+      "Site Type",
+      siteType.forumLike
+        ? `Forum or user-generated content signals (${siteType.signals.join(", ")}); GPT-family engines cite such sources measurably less than classic search surfaces them`
+        : "No forum or user-generated content signals",
+    ),
+  );
+
   return buildCategoryOutput("authorityContext", factors, rawData);
+}
+
+const RECENT_AGE_IN_MONTHS = 24;
+
+function contentFreshnessFactor(
+  freshness: FreshnessResultType,
+  timeSensitivity: TimeSensitivityResultType,
+): FactorResultType {
+  if (!timeSensitivity.timeSensitive) {
+    return makeFactor(
+      "Content Freshness",
+      0,
+      12,
+      "Evergreen topic, freshness not applicable",
+      "neutral",
+    );
+  }
+  if (freshness.ageInMonths === null) {
+    return makeFactor(
+      "Content Freshness",
+      0,
+      12,
+      "No parseable date; an absent date measurably outperforms a visibly stale one",
+      "neutral",
+    );
+  }
+  if (freshness.ageInMonths <= RECENT_AGE_IN_MONTHS) {
+    return makeFactor(
+      "Content Freshness",
+      12,
+      12,
+      `${freshness.ageInMonths} months old${freshness.hasModifiedDate ? ", modified date present" : ""}`,
+    );
+  }
+  return makeFactor(
+    "Content Freshness",
+    0,
+    12,
+    `Visibly stale: ${freshness.ageInMonths} months old; stale visible dates measurably reduce citation odds`,
+  );
 }

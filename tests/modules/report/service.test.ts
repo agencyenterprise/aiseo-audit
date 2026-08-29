@@ -5,94 +5,19 @@ import {
   renderSitemapReport,
 } from "../../../src/modules/report/service.js";
 import type { SitemapResultType } from "../../../src/modules/sitemap/schema.js";
-
-function makeMinimalResult(): AnalyzerResultType {
-  return {
-    url: "https://example.com",
-    signalsBase: "https://example.com",
-    analyzedAt: "2026-02-11T12:00:00.000Z",
-    overallScore: 72,
-    grade: "B-",
-    totalPoints: 302,
-    maxPoints: 420,
-    categories: {
-      contentExtractability: {
-        name: "Content Extractability",
-        key: "contentExtractability",
-        score: 50,
-        maxScore: 60,
-        factors: [
-          {
-            name: "Fetch Success",
-            score: 15,
-            maxScore: 15,
-            value: "HTTP 200 in 100ms",
-            status: "good",
-          },
-          {
-            name: "Word Count",
-            score: 35,
-            maxScore: 45,
-            value: "500 words",
-            status: "needs_improvement",
-          },
-        ],
-      },
-      authorityContext: {
-        name: "Authority Context",
-        key: "authorityContext",
-        score: 20,
-        maxScore: 40,
-        factors: [
-          {
-            name: "Author Attribution",
-            score: 0,
-            maxScore: 10,
-            value: "Not found",
-            status: "critical",
-          },
-          {
-            name: "Publication Date",
-            score: 10,
-            maxScore: 10,
-            value: "Found",
-            status: "good",
-          },
-        ],
-      },
-    },
-    recommendations: [
-      {
-        category: "Authority Context",
-        factor: "Author Attribution",
-        currentValue: "Not found",
-        priority: "high",
-        recommendation: "Add visible author information.",
-      },
-      {
-        category: "Content Extractability",
-        factor: "Word Count",
-        currentValue: "500 words",
-        priority: "low",
-        recommendation: "Add more content.",
-      },
-    ],
-    rawData: {
-      title: "Test Page",
-      metaDescription: "",
-      wordCount: 500,
-    },
-    meta: {
-      version: "0.1.0",
-      analysisDurationMs: 150,
-    },
-  };
-}
+import {
+  makeCategory,
+  makeFactor,
+  makeGate,
+  makeRecommendation,
+  makeResult,
+  makeStages,
+} from "../../helpers/results.js";
 
 describe("renderReport", () => {
   describe("pretty format", () => {
     it("renders without errors", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const output = renderReport(result, { format: "pretty" });
 
       expect(typeof output).toBe("string");
@@ -100,21 +25,21 @@ describe("renderReport", () => {
     });
 
     it("includes URL", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const output = renderReport(result, { format: "pretty" });
 
       expect(output).toContain("example.com");
     });
 
     it("includes score", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const output = renderReport(result, { format: "pretty" });
 
       expect(output).toContain("72");
     });
 
     it("includes categories", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const output = renderReport(result, { format: "pretty" });
 
       expect(output).toContain("Content Extractability");
@@ -124,14 +49,14 @@ describe("renderReport", () => {
 
   describe("json format", () => {
     it("renders valid JSON", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const output = renderReport(result, { format: "json" });
 
       expect(() => JSON.parse(output)).not.toThrow();
     });
 
     it("preserves all fields", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const output = renderReport(result, { format: "json" });
       const parsed = JSON.parse(output);
 
@@ -146,7 +71,7 @@ describe("renderReport", () => {
 
   describe("md format", () => {
     it("renders without errors", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const output = renderReport(result, { format: "md" });
 
       expect(typeof output).toBe("string");
@@ -154,7 +79,7 @@ describe("renderReport", () => {
     });
 
     it("includes markdown headers", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const output = renderReport(result, { format: "md" });
 
       expect(output).toContain("# AI SEO Audit");
@@ -162,7 +87,7 @@ describe("renderReport", () => {
     });
 
     it("includes tables", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const output = renderReport(result, { format: "md" });
 
       expect(output).toContain("|");
@@ -170,21 +95,21 @@ describe("renderReport", () => {
     });
 
     it("includes URL", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const output = renderReport(result, { format: "md" });
 
       expect(output).toContain("https://example.com");
     });
 
     it("includes categories", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const output = renderReport(result, { format: "md" });
 
       expect(output).toContain("Content Extractability");
     });
 
     it("includes recommendations", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const output = renderReport(result, { format: "md" });
 
       expect(output).toContain("Recommendation");
@@ -193,7 +118,7 @@ describe("renderReport", () => {
 
     it("renders neutral and critical factor status in markdown", () => {
       const result: AnalyzerResultType = {
-        ...makeMinimalResult(),
+        ...makeResult(),
         categories: {
           contentExtractability: {
             name: "Content Extractability",
@@ -226,7 +151,7 @@ describe("renderReport", () => {
 
     it("renders medium priority recommendation in markdown", () => {
       const result: AnalyzerResultType = {
-        ...makeMinimalResult(),
+        ...makeResult(),
         recommendations: [
           {
             category: "Content Extractability",
@@ -243,7 +168,7 @@ describe("renderReport", () => {
 
     it("skips recommendations section when no recommendations", () => {
       const result: AnalyzerResultType = {
-        ...makeMinimalResult(),
+        ...makeResult(),
         recommendations: [],
       };
       const output = renderReport(result, { format: "md" });
@@ -253,7 +178,7 @@ describe("renderReport", () => {
 
     it("renders zero maxScore category in markdown", () => {
       const result: AnalyzerResultType = {
-        ...makeMinimalResult(),
+        ...makeResult(),
         categories: {
           contentExtractability: {
             name: "Content Extractability",
@@ -272,7 +197,7 @@ describe("renderReport", () => {
 
   describe("html format", () => {
     it("renders valid HTML", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const output = renderReport(result, { format: "html" });
 
       expect(output).toContain("<!DOCTYPE html>");
@@ -281,7 +206,7 @@ describe("renderReport", () => {
     });
 
     it("is self-contained with inline CSS", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const output = renderReport(result, { format: "html" });
 
       expect(output).toContain("<style>");
@@ -289,21 +214,21 @@ describe("renderReport", () => {
     });
 
     it("includes URL", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const output = renderReport(result, { format: "html" });
 
       expect(output).toContain("example.com");
     });
 
     it("includes score", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const output = renderReport(result, { format: "html" });
 
       expect(output).toContain("72");
     });
 
     it("includes categories", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const output = renderReport(result, { format: "html" });
 
       expect(output).toContain("Content Extractability");
@@ -311,7 +236,7 @@ describe("renderReport", () => {
     });
 
     it("includes SVG gauges", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const output = renderReport(result, { format: "html" });
 
       expect(output).toContain("<svg");
@@ -319,7 +244,7 @@ describe("renderReport", () => {
     });
 
     it("includes recommendations grouped by category", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const output = renderReport(result, { format: "html" });
 
       expect(output).toContain("Author Attribution");
@@ -329,7 +254,7 @@ describe("renderReport", () => {
 
   describe("default format", () => {
     it("defaults to pretty when format is omitted at runtime", () => {
-      const result = makeMinimalResult();
+      const result = makeResult();
       const prettyOutput = renderReport(result, { format: "pretty" });
       const defaultOutput = renderReport(
         result,
@@ -342,25 +267,25 @@ describe("renderReport", () => {
 
   describe("signalsBase display", () => {
     it("shows signals base in pretty format", () => {
-      const output = renderReport(makeMinimalResult(), { format: "pretty" });
+      const output = renderReport(makeResult(), { format: "pretty" });
       expect(output).toContain("Domain signals checked at");
       expect(output).toContain("example.com");
     });
 
     it("includes signalsBase in json output", () => {
-      const output = renderReport(makeMinimalResult(), { format: "json" });
+      const output = renderReport(makeResult(), { format: "json" });
       const parsed = JSON.parse(output);
       expect(parsed.signalsBase).toBe("https://example.com");
     });
 
     it("shows signals base in md format", () => {
-      const output = renderReport(makeMinimalResult(), { format: "md" });
+      const output = renderReport(makeResult(), { format: "md" });
       expect(output).toContain("Domain signals checked at");
       expect(output).toContain("example.com");
     });
 
     it("shows signals base in html format", () => {
-      const output = renderReport(makeMinimalResult(), { format: "html" });
+      const output = renderReport(makeResult(), { format: "html" });
       expect(output).toContain("Domain signals checked at");
       expect(output).toContain("example.com");
     });
@@ -368,7 +293,7 @@ describe("renderReport", () => {
 });
 
 function makeMinimalSitemapResult(): SitemapResultType {
-  const urlResult = makeMinimalResult();
+  const urlResult = makeResult();
   return {
     sitemapUrl: "https://example.com/sitemap.xml",
     signalsBase: "https://example.com/sitemap.xml",
@@ -399,7 +324,7 @@ function makeMinimalSitemapResult(): SitemapResultType {
 
 describe("rendering actionable recommendation fields", () => {
   function makeResultWithRichRec(): AnalyzerResultType {
-    const base = makeMinimalResult();
+    const base = makeResult();
     return {
       ...base,
       recommendations: [
@@ -510,7 +435,7 @@ describe("rendering actionable recommendation fields", () => {
 
 describe("http URL notes", () => {
   function makeHttpResult(): AnalyzerResultType {
-    return { ...makeMinimalResult(), url: "http://example.com" };
+    return { ...makeResult(), url: "http://example.com" };
   }
 
   function makeHttpSitemapResult(): SitemapResultType {
@@ -520,7 +445,7 @@ describe("http URL notes", () => {
       urlResults: [
         {
           status: "success",
-          result: { ...makeMinimalResult(), url: "http://example.com/page" },
+          result: { ...makeResult(), url: "http://example.com/page" },
         },
       ],
     };
@@ -534,7 +459,7 @@ describe("http URL notes", () => {
   });
 
   it("json format does not include notes for https URL", () => {
-    const output = renderReport(makeMinimalResult(), { format: "json" });
+    const output = renderReport(makeResult(), { format: "json" });
     const parsed = JSON.parse(output);
     expect(parsed.notes).toBeUndefined();
   });
@@ -721,7 +646,7 @@ describe("renderSitemapReport", () => {
   describe("html neutral status in sitemap URL sections", () => {
     it("renders neutral status for a factor with status neutral in html", () => {
       const resultWithNeutral: AnalyzerResultType = {
-        ...makeMinimalResult(),
+        ...makeResult(),
         categories: {
           contentExtractability: {
             name: "Content Extractability",
@@ -753,7 +678,7 @@ describe("renderSitemapReport", () => {
 
     it("renders html report with neutral factor status", () => {
       const result: AnalyzerResultType = {
-        ...makeMinimalResult(),
+        ...makeResult(),
         categories: {
           contentExtractability: {
             name: "Content Extractability",
@@ -779,7 +704,7 @@ describe("renderSitemapReport", () => {
 
     it("renders sitemap URL result with category maxScore zero", () => {
       const resultWithZeroMax: AnalyzerResultType = {
-        ...makeMinimalResult(),
+        ...makeResult(),
         categories: {
           contentExtractability: {
             name: "Content Extractability",
@@ -833,7 +758,7 @@ describe("renderSitemapReport", () => {
     it("omits top recommendation div when URL result has no recommendations", () => {
       const sitemap = makeMinimalSitemapResult();
       const noRec: AnalyzerResultType = {
-        ...makeMinimalResult(),
+        ...makeResult(),
         recommendations: [],
       };
       const output = renderSitemapReport(
@@ -852,7 +777,7 @@ describe("renderSitemapReport", () => {
 describe("html recommendation detail branches", () => {
   it("renders recommendation with only codeExample (no steps, no learnMoreUrl)", () => {
     const result: AnalyzerResultType = {
-      ...makeMinimalResult(),
+      ...makeResult(),
       recommendations: [
         {
           category: "Content Extractability",
@@ -866,12 +791,12 @@ describe("html recommendation detail branches", () => {
     };
     const output = renderReport(result, { format: "html" });
     expect(output).toContain("<pre");
-    expect(output).not.toContain("<ol");
+    expect(output).not.toContain('<ol class="rec-steps">');
   });
 
   it("renders medium priority recommendation with MED label", () => {
     const result: AnalyzerResultType = {
-      ...makeMinimalResult(),
+      ...makeResult(),
       recommendations: [
         {
           category: "Content Extractability",
@@ -889,7 +814,7 @@ describe("html recommendation detail branches", () => {
 
   it("renders steps and learnMoreUrl without codeExample", () => {
     const result: AnalyzerResultType = {
-      ...makeMinimalResult(),
+      ...makeResult(),
       recommendations: [
         {
           category: "Content Extractability",
@@ -910,7 +835,7 @@ describe("html recommendation detail branches", () => {
 
   it("renders without recommendations section when recommendations list is empty", () => {
     const result: AnalyzerResultType = {
-      ...makeMinimalResult(),
+      ...makeResult(),
       recommendations: [],
       categories: {
         contentExtractability: {
@@ -931,7 +856,7 @@ describe("html recommendation detail branches", () => {
 describe("html score color branches for single URL report", () => {
   it("uses red colors for overall score below 50", () => {
     const result: AnalyzerResultType = {
-      ...makeMinimalResult(),
+      ...makeResult(),
       overallScore: 30,
       grade: "F",
       categories: {
@@ -951,7 +876,7 @@ describe("html score color branches for single URL report", () => {
 
   it("skips gauge arc segments with zero score (catDeg < 0.1 branch)", () => {
     const result: AnalyzerResultType = {
-      ...makeMinimalResult(),
+      ...makeResult(),
       overallScore: 50,
       grade: "C-",
       totalPoints: 60,
@@ -979,7 +904,7 @@ describe("html score color branches for single URL report", () => {
 
   it("renders gauge with maxPoints zero (falls back to catDeg=0 branch)", () => {
     const result: AnalyzerResultType = {
-      ...makeMinimalResult(),
+      ...makeResult(),
       overallScore: 0,
       grade: "F",
       totalPoints: 0,
@@ -1000,7 +925,7 @@ describe("html score color branches for single URL report", () => {
 
   it("handles category with maxScore zero but positive score", () => {
     const result: AnalyzerResultType = {
-      ...makeMinimalResult(),
+      ...makeResult(),
       overallScore: 50,
       grade: "C-",
       totalPoints: 10,
@@ -1041,7 +966,7 @@ describe("markdown sitemap coverage branches", () => {
 
   it("renders URL result with zero maxScore category in markdown", () => {
     const zeroMaxResult: AnalyzerResultType = {
-      ...makeMinimalResult(),
+      ...makeResult(),
       categories: {
         contentExtractability: {
           name: "Content Extractability",
@@ -1065,7 +990,7 @@ describe("markdown sitemap coverage branches", () => {
 
   it("skips recommendations section when URL result has no recommendations", () => {
     const noRecResult: AnalyzerResultType = {
-      ...makeMinimalResult(),
+      ...makeResult(),
       recommendations: [],
     };
     const sitemap = makeMinimalSitemapResult();
@@ -1079,7 +1004,7 @@ describe("markdown sitemap coverage branches", () => {
 
   it("renders medium priority recommendation as MED in markdown", () => {
     const medRecResult: AnalyzerResultType = {
-      ...makeMinimalResult(),
+      ...makeResult(),
       recommendations: [
         {
           category: "Content Extractability",
@@ -1102,7 +1027,7 @@ describe("markdown sitemap coverage branches", () => {
 describe("pretty format grade color branches", () => {
   it("uses red color for grade C (not A or B)", () => {
     const result: AnalyzerResultType = {
-      ...makeMinimalResult(),
+      ...makeResult(),
       overallScore: 73,
       grade: "C",
     };
@@ -1137,7 +1062,7 @@ describe("pretty format grade color branches", () => {
 
   it("sitemap pretty: skips top-rec line when URL has no recommendations", () => {
     const noRecResult: AnalyzerResultType = {
-      ...makeMinimalResult(),
+      ...makeResult(),
       grade: "C",
       recommendations: [],
     };
@@ -1153,10 +1078,10 @@ describe("pretty format grade color branches", () => {
 
   it("pretty: shows found status for robots.txt and llms.txt when present", () => {
     const result: AnalyzerResultType = {
-      ...makeMinimalResult(),
+      ...makeResult(),
       grade: "A",
       rawData: {
-        ...makeMinimalResult().rawData,
+        ...makeResult().rawData,
         crawlerAccess: { allowed: [], blocked: [], unknown: [] },
         llmsTxt: { llmsTxtExists: true, llmsFullTxtExists: true },
       },
@@ -1167,7 +1092,7 @@ describe("pretty format grade color branches", () => {
 
   it("pretty: renders zero maxScore category without NaN", () => {
     const result: AnalyzerResultType = {
-      ...makeMinimalResult(),
+      ...makeResult(),
       recommendations: [],
       categories: {
         contentExtractability: {
@@ -1185,7 +1110,7 @@ describe("pretty format grade color branches", () => {
 
   it("pretty: renders medium priority recommendation", () => {
     const result: AnalyzerResultType = {
-      ...makeMinimalResult(),
+      ...makeResult(),
       recommendations: [
         {
           category: "Content Extractability",
@@ -1202,8 +1127,8 @@ describe("pretty format grade color branches", () => {
 });
 
 describe("TL;DR block", () => {
-  function makeResultWithWins(): AnalyzerResultType {
-    const base = makeMinimalResult();
+  function makeResultWithFixes(): AnalyzerResultType {
+    const base = makeResult();
     return {
       ...base,
       categories: {
@@ -1238,7 +1163,7 @@ describe("TL;DR block", () => {
           currentValue: "0",
           priority: "high",
           recommendation: "Add answer capsules",
-          expectedGain: 13,
+          auditPoints: 13,
         },
         {
           category: "Authority Context",
@@ -1246,7 +1171,7 @@ describe("TL;DR block", () => {
           currentValue: "Not found",
           priority: "high",
           recommendation: "Add author",
-          expectedGain: 10,
+          auditPoints: 10,
         },
         {
           category: "Content Extractability",
@@ -1254,93 +1179,92 @@ describe("TL;DR block", () => {
           currentValue: "1/8",
           priority: "high",
           recommendation: "Add alt text",
-          expectedGain: 7,
+          auditPoints: 7,
         },
       ],
     };
   }
 
   describe("pretty format", () => {
-    it("includes the top 3 quickest wins with expected gains", () => {
-      const output = renderReport(makeResultWithWins(), { format: "pretty" });
-      expect(output).toContain("Quickest wins");
+    it("includes the top 3 fixes with audit points", () => {
+      const output = renderReport(makeResultWithFixes(), { format: "pretty" });
+      expect(output).toContain("Top fixes");
       expect(output).toContain("Answer Capsules");
       expect(output).toContain("Author Attribution");
       expect(output).toContain("Image Alt Text");
-      expect(output).toContain("+13");
-      expect(output).toContain("+10");
-      expect(output).toContain("+7");
+      expect(output).toContain("13 audit pts");
     });
 
-    it("includes the projected score after the top fixes", () => {
-      const output = renderReport(makeResultWithWins(), { format: "pretty" });
-      expect(output).toContain("Top 3 fixes:");
-      expect(output).toContain("/100");
+    it("includes the non-additive audit points note", () => {
+      const output = renderReport(makeResultWithFixes(), { format: "pretty" });
+      expect(output).toContain(
+        "Audit points are internal audit weights, not additive citation-probability gains.",
+      );
     });
 
     it("omits the TL;DR block when there are no recommendations", () => {
-      const result = { ...makeMinimalResult(), recommendations: [] };
+      const result = { ...makeResult(), recommendations: [] };
       const output = renderReport(result, { format: "pretty" });
-      expect(output).not.toContain("Quickest wins");
+      expect(output).not.toContain("Top fixes");
     });
   });
 
   describe("markdown format", () => {
-    it("includes a Quick Summary section with ranked wins", () => {
-      const output = renderReport(makeResultWithWins(), { format: "md" });
+    it("includes a Quick Summary section with ranked fixes", () => {
+      const output = renderReport(makeResultWithFixes(), { format: "md" });
       expect(output).toContain("## Quick Summary");
       expect(output).toContain("Answer Capsules");
-      expect(output).toContain("+13");
+      expect(output).toContain("13 audit pts");
     });
 
     it("omits the Quick Summary section when there are no recommendations", () => {
-      const result = { ...makeMinimalResult(), recommendations: [] };
+      const result = { ...makeResult(), recommendations: [] };
       const output = renderReport(result, { format: "md" });
       expect(output).not.toContain("## Quick Summary");
     });
   });
 
   describe("html format", () => {
-    it("includes a quick-summary section with the top wins", () => {
-      const output = renderReport(makeResultWithWins(), { format: "html" });
-      expect(output).toContain("Quickest wins");
+    it("includes a quick-summary card with the top fixes", () => {
+      const output = renderReport(makeResultWithFixes(), { format: "html" });
+      expect(output).toContain("Top fixes");
       expect(output).toContain("Answer Capsules");
-      expect(output).toContain("+13");
+      expect(output).toContain("13 audit pts");
     });
 
-    it("omits the quick-summary section when there are no recommendations", () => {
-      const result = { ...makeMinimalResult(), recommendations: [] };
+    it("omits the quick-summary card when there are no recommendations", () => {
+      const result = { ...makeResult(), recommendations: [] };
       const output = renderReport(result, { format: "html" });
-      expect(output).not.toContain("Quickest wins");
+      expect(output).not.toContain("Top fixes");
     });
   });
 
   describe("json format", () => {
-    it("exposes a tldr field with score, projectedScore, and quickestWins", () => {
-      const output = renderReport(makeResultWithWins(), { format: "json" });
+    it("exposes a tldr field with score, topFixes, and the note", () => {
+      const output = renderReport(makeResultWithFixes(), { format: "json" });
       const parsed = JSON.parse(output);
       expect(parsed.tldr).toBeDefined();
       expect(parsed.tldr.score).toBe(72);
-      expect(parsed.tldr.projectedScore).toBeGreaterThanOrEqual(
-        parsed.tldr.score,
-      );
-      expect(parsed.tldr.quickestWins).toHaveLength(3);
-      expect(parsed.tldr.quickestWins[0].factor).toBe("Answer Capsules");
-      expect(parsed.tldr.quickestWins[0].expectedGain).toBe(13);
+      expect(parsed.tldr.topFixes).toHaveLength(3);
+      expect(parsed.tldr.topFixes[0].factor).toBe("Answer Capsules");
+      expect(parsed.tldr.topFixes[0].auditPoints).toBe(13);
+      expect(parsed.tldr.note).toContain("not additive");
+      expect(output).not.toContain("projectedScore");
+      expect(output).not.toContain("expectedGain");
     });
 
-    it("omits quickestWins when there are no recommendations but still exposes tldr", () => {
-      const result = { ...makeMinimalResult(), recommendations: [] };
+    it("omits topFixes when there are no recommendations but still exposes tldr", () => {
+      const result = { ...makeResult(), recommendations: [] };
       const output = renderReport(result, { format: "json" });
       const parsed = JSON.parse(output);
-      expect(parsed.tldr.quickestWins).toHaveLength(0);
+      expect(parsed.tldr.topFixes).toHaveLength(0);
     });
   });
 });
 
 describe("tldrOnly mode", () => {
-  function makeResultWithWins(): AnalyzerResultType {
-    const base = makeMinimalResult();
+  function makeResultWithFixes(): AnalyzerResultType {
+    const base = makeResult();
     return {
       ...base,
       categories: {
@@ -1368,7 +1292,7 @@ describe("tldrOnly mode", () => {
           currentValue: "0",
           priority: "high",
           recommendation: "Add answer capsules",
-          expectedGain: 13,
+          auditPoints: 13,
         },
       ],
     };
@@ -1376,16 +1300,16 @@ describe("tldrOnly mode", () => {
 
   describe("pretty format", () => {
     it("includes the TL;DR block", () => {
-      const output = renderReport(makeResultWithWins(), {
+      const output = renderReport(makeResultWithFixes(), {
         format: "pretty",
         tldrOnly: true,
       });
-      expect(output).toContain("Quickest wins");
+      expect(output).toContain("Top fixes");
       expect(output).toContain("Answer Capsules");
     });
 
     it("excludes the detailed category breakdown", () => {
-      const output = renderReport(makeResultWithWins(), {
+      const output = renderReport(makeResultWithFixes(), {
         format: "pretty",
         tldrOnly: true,
       });
@@ -1394,7 +1318,7 @@ describe("tldrOnly mode", () => {
     });
 
     it("excludes the recommendations detail section", () => {
-      const output = renderReport(makeResultWithWins(), {
+      const output = renderReport(makeResultWithFixes(), {
         format: "pretty",
         tldrOnly: true,
       });
@@ -1404,7 +1328,7 @@ describe("tldrOnly mode", () => {
 
   describe("markdown format", () => {
     it("emits only the Quick Summary section", () => {
-      const output = renderReport(makeResultWithWins(), {
+      const output = renderReport(makeResultWithFixes(), {
         format: "md",
         tldrOnly: true,
       });
@@ -1416,17 +1340,17 @@ describe("tldrOnly mode", () => {
 
   describe("html format", () => {
     it("renders only the TL;DR card, no gauges or sections", () => {
-      const output = renderReport(makeResultWithWins(), {
+      const output = renderReport(makeResultWithFixes(), {
         format: "html",
         tldrOnly: true,
       });
-      expect(output).toContain("Quickest wins");
+      expect(output).toContain("Top fixes");
       expect(output).not.toContain("gauges-row");
       expect(output).not.toContain("category-section");
     });
 
     it("is still a valid standalone HTML document", () => {
-      const output = renderReport(makeResultWithWins(), {
+      const output = renderReport(makeResultWithFixes(), {
         format: "html",
         tldrOnly: true,
       });
@@ -1437,7 +1361,7 @@ describe("tldrOnly mode", () => {
 
   describe("json format", () => {
     it("emits only the tldr field plus top-level url", () => {
-      const output = renderReport(makeResultWithWins(), {
+      const output = renderReport(makeResultWithFixes(), {
         format: "json",
         tldrOnly: true,
       });
@@ -1447,5 +1371,309 @@ describe("tldrOnly mode", () => {
       expect(parsed.categories).toBeUndefined();
       expect(parsed.recommendations).toBeUndefined();
     });
+  });
+});
+
+describe("pipeline stages section", () => {
+  const formats = ["pretty", "md", "html"] as const;
+
+  it.each(formats)("renders per-stage percentages in %s format", (format) => {
+    const output = renderReport(makeResult({ stages: makeStages() }), {
+      format,
+    });
+    expect(output).toContain("Pipeline Stages");
+    expect(output).toContain("Technical Eligibility");
+    expect(output).toContain("Retrieval Alignment");
+    expect(output).toContain("Citation Fitness");
+    expect(output).toContain("Provenance");
+    expect(output).toContain("75%");
+  });
+
+  it.each(formats)(
+    "omits the stages section when stages are absent in %s format",
+    (format) => {
+      const output = renderReport(makeResult({ stages: undefined }), {
+        format,
+      });
+      expect(output).not.toContain("Pipeline Stages");
+    },
+  );
+
+  it.each(formats)(
+    "shows a PASS banner when eligibility passes in %s format",
+    (format) => {
+      const output = renderReport(makeResult({ stages: makeStages() }), {
+        format,
+      });
+      expect(output).toContain("PASS");
+    },
+  );
+
+  function makeFailedEligibilityStages() {
+    const stages = makeStages();
+    return {
+      ...stages,
+      technicalEligibility: {
+        ...stages.technicalEligibility,
+        status: "fail" as const,
+        blockers: ["Fetch Success", "Text Extraction Quality"],
+      },
+      retrievalAlignment: {
+        score: 0,
+        maxScore: 80,
+        pct: null,
+        suppressed: true,
+      },
+      citationFitness: {
+        ...stages.citationFitness,
+        pct: null,
+        uncappedPct: null,
+        suppressed: true,
+      },
+      provenance: { score: 0, maxScore: 30, pct: null, suppressed: true },
+    };
+  }
+
+  it.each(formats)(
+    "shows a FAIL banner with blockers in %s format",
+    (format) => {
+      const output = renderReport(
+        makeResult({ stages: makeFailedEligibilityStages() }),
+        { format },
+      );
+      expect(output).toContain("FAIL");
+      expect(output).toContain("Fetch Success");
+      expect(output).toContain("Text Extraction Quality");
+    },
+  );
+
+  it.each(formats)(
+    "marks downstream stages as suppressed in %s format",
+    (format) => {
+      const output = renderReport(
+        makeResult({ stages: makeFailedEligibilityStages() }),
+        { format },
+      );
+      expect(output).toContain("suppressed (eligibility failed)");
+    },
+  );
+
+  function makeCappedStages() {
+    const stages = makeStages();
+    return {
+      ...stages,
+      citationFitness: {
+        ...stages.citationFitness,
+        pct: 50,
+        uncappedPct: 82,
+        gates: [makeGate({ status: "tripped" })],
+      },
+    };
+  }
+
+  it.each(formats)(
+    "lists tripped gates with label and cap in %s format",
+    (format) => {
+      const output = renderReport(makeResult({ stages: makeCappedStages() }), {
+        format,
+      });
+      expect(output).toContain("capped at 50: Visible date is stale");
+      expect(output).toContain("uncapped 82%");
+    },
+  );
+
+  it.each(formats)("hides passing gates in %s format", (format) => {
+    const output = renderReport(makeResult({ stages: makeStages() }), {
+      format,
+    });
+    expect(output).not.toContain("capped at 50");
+  });
+});
+
+describe("info status factors", () => {
+  function makeResultWithDiagnostic(): AnalyzerResultType {
+    return makeResult({
+      categories: {
+        contentExtractability: makeCategory({
+          factors: [
+            makeFactor({
+              name: "Lists Presence",
+              score: 0,
+              maxScore: 0,
+              value: "3 lists found",
+              status: "info",
+              evidence: "diagnostic",
+            }),
+            makeFactor({ name: "Fetch Success" }),
+          ],
+        }),
+      },
+    });
+  }
+
+  it.each(["pretty", "md", "html"] as const)(
+    "labels info factors as unscored diagnostics in %s format",
+    (format) => {
+      const output = renderReport(makeResultWithDiagnostic(), { format });
+      expect(output).toContain("unscored diagnostic");
+    },
+  );
+
+  it.each(["pretty", "md", "html"] as const)(
+    "groups info factors after scored factors in %s format",
+    (format) => {
+      const output = renderReport(makeResultWithDiagnostic(), { format });
+      expect(output.indexOf("Fetch Success")).toBeLessThan(
+        output.indexOf("Lists Presence"),
+      );
+    },
+  );
+
+  it("never styles info factors as failures in html", () => {
+    const output = renderReport(makeResultWithDiagnostic(), {
+      format: "html",
+    });
+    expect(output).toContain('class="audit-icon info"');
+    expect(output).not.toContain('class="audit-icon fail">i<');
+  });
+
+  it("renders an unknown factor status without fail styling in html", () => {
+    const result = makeResultWithDiagnostic();
+    result.categories.contentExtractability.factors[0].status =
+      "surprise" as never;
+    const output = renderReport(result, { format: "html" });
+    expect(output).toContain('class="audit-icon neutral"');
+  });
+});
+
+describe("evidence tier badges", () => {
+  function makeResultWithTieredFactor(): AnalyzerResultType {
+    return makeResult({
+      categories: {
+        contentExtractability: makeCategory({
+          factors: [
+            makeFactor({
+              name: "Boilerplate Ratio",
+              evidence: "conditional",
+            }),
+          ],
+        }),
+      },
+    });
+  }
+
+  it.each(["pretty", "md", "html"] as const)(
+    "shows the factor evidence tier in %s format",
+    (format) => {
+      const output = renderReport(makeResultWithTieredFactor(), { format });
+      expect(output).toContain("conditional");
+    },
+  );
+
+  it("renders the tier as a badge element in html", () => {
+    const output = renderReport(makeResultWithTieredFactor(), {
+      format: "html",
+    });
+    expect(output).toContain('<span class="evidence-badge">conditional</span>');
+  });
+});
+
+describe("report banners", () => {
+  it.each(["pretty", "md", "html"] as const)(
+    "renders the experimental engine preset banner in %s format",
+    (format) => {
+      const result = makeResult();
+      result.meta.engine = "gpt";
+      const output = renderReport(result, { format });
+      expect(output).toContain("Experimental engine preset: gpt");
+    },
+  );
+
+  it.each(["pretty", "md", "html"] as const)(
+    "omits the engine banner for the generic engine in %s format",
+    (format) => {
+      const result = makeResult();
+      result.meta.engine = "generic";
+      const output = renderReport(result, { format });
+      expect(output).not.toContain("Experimental engine preset");
+    },
+  );
+
+  it.each(["pretty", "md", "html"] as const)(
+    "warns about product pages when meta.domain is product in %s format",
+    (format) => {
+      const result = makeResult();
+      result.meta.domain = "product";
+      const output = renderReport(result, { format });
+      expect(output).toContain(
+        "prioritize price, specs, and comparisons over rewriting",
+      );
+    },
+  );
+
+  it("warns about product pages when rawData detects a product domain", () => {
+    const result = makeResult();
+    result.rawData.domainDetected = "product";
+    const output = renderReport(result, { format: "pretty" });
+    expect(output).toContain(
+      "prioritize price, specs, and comparisons over rewriting",
+    );
+  });
+
+  it("omits the product warning for informational pages", () => {
+    const result = makeResult();
+    result.meta.domain = "informational";
+    const output = renderReport(result, { format: "pretty" });
+    expect(output).not.toContain("hurt product pages");
+  });
+});
+
+describe("recommendation truncation", () => {
+  function makeResultWithFiveRecs(): AnalyzerResultType {
+    return makeResult({
+      recommendations: [1, 2, 3, 4, 5].map((n) =>
+        makeRecommendation({
+          category: "Authority Context",
+          factor: `Factor ${n}`,
+          recommendation: `Fix number ${n}`,
+          auditPoints: n,
+        }),
+      ),
+    });
+  }
+
+  it.each(["pretty", "md", "html"] as const)(
+    "shows only the top 3 recommendations with a note about the rest in %s format",
+    (format) => {
+      const output = renderReport(makeResultWithFiveRecs(), { format });
+      expect(output).toContain("Fix number 1");
+      expect(output).toContain("Fix number 3");
+      expect(output).not.toContain("Fix number 4");
+      expect(output).toContain("2 more in JSON output");
+    },
+  );
+
+  it.each(["pretty", "md", "html"] as const)(
+    "omits the more-in-json note when 3 or fewer recommendations exist in %s format",
+    (format) => {
+      const output = renderReport(makeResult(), { format });
+      expect(output).not.toContain("more in JSON output");
+    },
+  );
+
+  it.each(["pretty", "md", "html"] as const)(
+    "appends the non-additive footer under recommendations in %s format",
+    (format) => {
+      const output = renderReport(makeResultWithFiveRecs(), { format });
+      expect(output).toContain(
+        "gains do not stack additively, and each addition competes for the same content budget",
+      );
+    },
+  );
+
+  it("keeps every recommendation in json output", () => {
+    const output = renderReport(makeResultWithFiveRecs(), { format: "json" });
+    const parsed = JSON.parse(output);
+    expect(parsed.recommendations).toHaveLength(5);
   });
 });

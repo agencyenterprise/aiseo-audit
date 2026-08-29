@@ -1,16 +1,19 @@
 import type { FactorNameType } from "../audits/factor-names.js";
 import type {
   CategoryResultType,
+  EvidenceTierType,
   FactorResultType,
   FactorStatusType,
 } from "../audits/schema.js";
-import type { CategoryWeightType } from "../config/schema.js";
-import { GRADE_THRESHOLDS } from "./constants.js";
+import { DEFAULT_EVIDENCE_TIER, FACTOR_REGISTRY } from "../audits/stage.js";
+import type { CategoryWeightType, StageWeightType } from "../config/schema.js";
+import { ELIGIBILITY_FAIL_CAP, GRADE_THRESHOLDS } from "./constants.js";
 import type {
   BracketType,
   GradeType,
   RangeBracketType,
   ScoreSummaryType,
+  StageScoresType,
   ThresholdType,
 } from "./schema.js";
 
@@ -83,56 +86,129 @@ export function makeFactor(
   value: string,
   statusOverride?: FactorStatusType,
 ): FactorResultType {
+  const meta = FACTOR_REGISTRY[name];
   return {
     name,
     score: Math.max(0, Math.round(Math.min(score, maxScore))),
     maxScore,
     value,
     status: statusOverride ?? statusFromScore(score, maxScore),
+    evidence: meta?.evidence ?? DEFAULT_EVIDENCE_TIER,
+    citations: meta?.citations ?? [],
   };
 }
 
+export function makeDiagnostic(
+  name: FactorNameType,
+  value: string,
+): FactorResultType {
+  const meta = FACTOR_REGISTRY[name];
+  return {
+    name,
+    score: 0,
+    maxScore: 0,
+    value,
+    status: "info",
+    evidence: meta?.evidence ?? "diagnostic",
+    citations: meta?.citations ?? [],
+  };
+}
+
+export function evidenceTierOf(factor: FactorResultType): EvidenceTierType {
+  return (
+    factor.evidence ??
+    FACTOR_REGISTRY[factor.name as FactorNameType]?.evidence ??
+    DEFAULT_EVIDENCE_TIER
+  );
+}
+
+export function isScorable(factor: FactorResultType): boolean {
+  if (factor.status === "neutral" || factor.status === "info") return false;
+  return evidenceTierOf(factor) !== "diagnostic";
+}
+
 export function sumFactors(factors: FactorResultType[]): number {
-  return factors.reduce((sum, f) => sum + f.score, 0);
+  return factors.filter(isScorable).reduce((sum, f) => sum + f.score, 0);
 }
 
 export function maxFactors(factors: FactorResultType[]): number {
-  return factors.reduce((sum, f) => sum + f.maxScore, 0);
+  return factors.filter(isScorable).reduce((sum, f) => sum + f.maxScore, 0);
 }
+
+export type ComputeScoreOptionsType = {
+  stages?: StageScoresType;
+  stageWeights?: StageWeightType;
+};
 
 export function computeScore(
   categories: Record<string, CategoryResultType>,
   weights: CategoryWeightType,
+  options: ComputeScoreOptionsType = {},
 ): ScoreSummaryType {
   const entries = Object.entries(categories);
+  const scorableEntries = entries.filter(
+    ([, category]) => category.maxScore > 0,
+  );
   const weightOf = (key: string) =>
     weights[key as keyof CategoryWeightType] ?? 1;
-  const totalWeightOfPresentCategories = entries.reduce(
+  const totalWeightOfScorableCategories = scorableEntries.reduce(
     (sum, [key]) => sum + weightOf(key),
     0,
   );
 
-  let totalPoints = 0;
-  let maxPoints = 0;
+  const totalPoints = entries.reduce(
+    (sum, [, category]) => sum + category.score,
+    0,
+  );
+  const maxPoints = entries.reduce(
+    (sum, [, category]) => sum + category.maxScore,
+    0,
+  );
+
   let weightedScore = 0;
-
-  for (const [key, category] of entries) {
-    totalPoints += category.score;
-    maxPoints += category.maxScore;
-
+  for (const [key, category] of scorableEntries) {
     const normalizedWeight =
-      totalWeightOfPresentCategories > 0
-        ? weightOf(key) / totalWeightOfPresentCategories
-        : 1 / entries.length;
-    const categoryPct =
-      category.maxScore > 0 ? (category.score / category.maxScore) * 100 : 0;
+      totalWeightOfScorableCategories > 0
+        ? weightOf(key) / totalWeightOfScorableCategories
+        : 1 / scorableEntries.length;
+    const categoryPct = (category.score / category.maxScore) * 100;
     weightedScore += categoryPct * normalizedWeight;
   }
 
-  const overallScore = Math.round(weightedScore);
+  const { stages, stageWeights } = options;
+  if (stages && stageWeights) {
+    weightedScore = stageWeightedScore(stages, stageWeights) ?? weightedScore;
+  }
+
+  const eligibilityFailed = stages?.technicalEligibility.status === "fail";
+  const overallScore = eligibilityFailed
+    ? Math.min(Math.round(weightedScore), ELIGIBILITY_FAIL_CAP)
+    : Math.round(weightedScore);
   const grade = computeGrade(overallScore);
 
   return { overallScore, grade, totalPoints, maxPoints };
+}
+
+function stageWeightedScore(
+  stages: StageScoresType,
+  stageWeights: StageWeightType,
+): number | null {
+  const scoredStages = Object.entries(stages).filter(
+    ([, stage]) => stage.pct !== null,
+  );
+  const totalWeight = scoredStages.reduce(
+    (sum, [name]) => sum + (stageWeights[name as keyof StageWeightType] ?? 1),
+    0,
+  );
+  if (totalWeight === 0 || scoredStages.length === 0) return null;
+
+  return scoredStages.reduce(
+    (sum, [name, stage]) =>
+      sum +
+      (stage.pct as number) *
+        ((stageWeights[name as keyof StageWeightType] ?? 1) / totalWeight),
+    0,
+  );
 }
 
 export function computeGrade(score: number): GradeType {

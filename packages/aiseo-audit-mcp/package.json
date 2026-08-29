@@ -1,6 +1,6 @@
 {
   "name": "aiseo-audit-mcp",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "mcpName": "io.github.agencyenterprise/aiseo-audit",
   "description": "Launcher for the aiseo-audit MCP server. Lets `npx -y aiseo-audit-mcp` work directly; all functionality lives in the aiseo-audit package.",
   "bin": {
@@ -28,6 +28,6 @@
     "ai-seo"
   ],
   "dependencies": {
-    "aiseo-audit": "^1.6.0"
+    "aiseo-audit": "^2.0.0"
   }
 }

@@ -13,6 +13,8 @@ export {
   renderReport,
   renderSitemapReport,
 } from "./modules/report/service.js";
+export { makeDiagnostic } from "./modules/scoring/service.js";
+export { computeStages } from "./modules/scoring/stages.js";
 export { analyzeSitemap } from "./modules/sitemap/service.js";
 
 export type {
@@ -24,12 +26,17 @@ export type {
   CategoryNameType,
   CategoryResultType,
   DomainSignalsType,
+  EvidenceTierType,
   FactorResultType,
 } from "./modules/audits/schema.js";
+export type { StageNameType } from "./modules/audits/stage.js";
 export type {
   AiseoConfigType,
   CategoryWeightType,
   DiffEntryType,
+  DomainOptionType,
+  EngineProfileType,
+  StageWeightType,
 } from "./modules/config/schema.js";
 export type {
   CategoryDeltaType,
@@ -46,7 +53,13 @@ export type {
   RenderOptionsType,
   ReportFormatType,
 } from "./modules/report/schema.js";
-export type { GradeType, ScoreSummaryType } from "./modules/scoring/schema.js";
+export type {
+  GateResultType,
+  GradeType,
+  ScoreSummaryType,
+  StageScoresType,
+  StageScoreType,
+} from "./modules/scoring/schema.js";
 export type {
   SitemapOptionsType,
   SitemapResultType,

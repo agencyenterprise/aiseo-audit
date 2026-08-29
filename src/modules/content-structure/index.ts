@@ -1,6 +1,6 @@
 import type { ExtractedPageType } from "../extractor/schema.js";
 import { buildCategoryOutput } from "../audits/category.js";
-import { makeFactor, thresholdScore } from "../scoring/service.js";
+import { makeDiagnostic, makeFactor } from "../scoring/service.js";
 import type {
   CategoryAuditOutputType,
   FactorResultType,
@@ -31,103 +31,44 @@ export function auditContentStructure(
     ),
   );
 
-  const listItems = page.stats.listItemCount;
-  const listScore = thresholdScore(listItems, [
-    [10, 11],
-    [5, 8],
-    [1, 4],
-    [0, 0],
-  ]);
   factors.push(
-    makeFactor("Lists Presence", listScore, 11, `${listItems} list items`),
+    makeDiagnostic("Lists Presence", `${page.stats.listItemCount} list items`),
   );
 
-  const tables = page.stats.tableCount;
-  const tableScore = thresholdScore(tables, [
-    [2, 8],
-    [1, 5],
-  ]);
   factors.push(
-    makeFactor(
-      "Tables Presence",
-      tableScore,
-      8,
-      `${tables} table(s)`,
-      tables === 0 ? "neutral" : undefined,
-    ),
+    makeDiagnostic("Tables Presence", `${page.stats.tableCount} table(s)`),
   );
 
   const pCount = page.stats.paragraphCount;
   const avgParagraphWords =
     pCount > 0 ? Math.round(page.stats.wordCount / pCount) : 0;
-  const paragraphScore = thresholdScore(
-    avgParagraphWords,
-    [
-      [30, 151, 11],
-      [1, 200, 7],
-      [200, Infinity, 2],
-    ],
-    "range",
-  );
   factors.push(
-    makeFactor(
+    makeDiagnostic(
       "Paragraph Structure",
-      paragraphScore,
-      11,
       `${pCount} paragraphs, avg ${avgParagraphWords} words`,
     ),
   );
 
   const hasBold = $("strong, b").length > 0;
   const headingRatio = pCount > 0 ? page.stats.headingCount / pCount : 0;
-  let scanScore = 0;
-  if (hasBold) scanScore += 4;
-  if (hasFrequentVisualBreaks(page.stats)) scanScore += 4;
-  if (headingRatio >= 0.1) scanScore += 3;
   factors.push(
-    makeFactor(
+    makeDiagnostic(
       "Scannability",
-      scanScore,
-      11,
       `${hasBold ? "Bold text found" : "No bold text"}, ${headingRatio.toFixed(2)} heading ratio`,
     ),
   );
 
   const sectionData = measureSectionLengths(page.$);
-  const sectionScore =
-    sectionData.sectionCount === 0
-      ? 0
-      : thresholdScore(
-          sectionData.avgWordsPerSection,
-          [
-            [120, 181, 12],
-            [80, 251, 8],
-            [1, Infinity, 4],
-          ],
-          "range",
-        );
   factors.push(
-    makeFactor(
+    makeDiagnostic(
       "Section Length",
-      sectionScore,
-      12,
       sectionData.sectionCount > 0
         ? `${sectionData.sectionCount} sections, avg ${sectionData.avgWordsPerSection} words`
         : "No headed sections found",
-      sectionData.sectionCount === 0 ? "neutral" : undefined,
     ),
   );
 
   return buildCategoryOutput("contentStructure", factors, {
     sectionLengths: sectionData,
   });
-}
-
-const MAX_WORDS_PER_VISUAL_BREAK = 150;
-
-function hasFrequentVisualBreaks(stats: ExtractedPageType["stats"]): boolean {
-  const visualBreaks =
-    stats.headingCount + stats.listCount + stats.tableCount + stats.imageCount;
-  if (visualBreaks === 0) return false;
-  return stats.wordCount / visualBreaks <= MAX_WORDS_PER_VISUAL_BREAK;
 }

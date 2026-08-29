@@ -1,17 +1,17 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.agencyenterprise/aiseo-audit",
-  "description": "Audit web pages for AI search readiness (ChatGPT, Claude, Perplexity, Gemini).",
+  "description": "Audit web pages for AI search readiness with evidence-tiered factors and pipeline-stage scores (eligibility, retrieval alignment, citation fitness, provenance).",
   "repository": {
     "url": "https://github.com/agencyenterprise/aiseo-audit",
     "source": "github"
   },
-  "version": "1.6.0",
+  "version": "2.0.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "aiseo-audit-mcp",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "transport": {
         "type": "stdio"
       }

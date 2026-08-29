@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   parseJsonLdObjects,
   schemaTypesOf,
-} from "../../../src/modules/authority-context/json-ld.js";
+} from "../../../src/modules/extractor/json-ld.js";
 import { evaluateSchemaCompleteness } from "../../../src/modules/authority-context/schema-analysis.js";
 
 describe("parseJsonLdObjects", () => {

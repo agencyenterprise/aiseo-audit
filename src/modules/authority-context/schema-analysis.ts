@@ -1,4 +1,4 @@
-import { schemaTypesOf } from "./json-ld.js";
+import { schemaTypesOf } from "../extractor/json-ld.js";
 
 const PROPERTIES_ENGINES_EXPECT_PER_TYPE: Record<string, string[]> = {
   Article: ["headline", "author", "datePublished"],

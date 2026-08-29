@@ -12,6 +12,7 @@ import {
   sumFactors,
   thresholdScore,
 } from "../../../src/modules/scoring/service.js";
+import { makeCategory as makeCategoryResult } from "../../helpers/results.js";
 
 describe("thresholdScore", () => {
   it("returns score for matching threshold", () => {
@@ -198,7 +199,7 @@ function makeCategory(
   score: number,
   maxScore: number,
 ): CategoryResultType {
-  return { name, key, score, maxScore, factors: [] };
+  return makeCategoryResult({ name, key, score, maxScore, factors: [] });
 }
 
 describe("computeScore", () => {

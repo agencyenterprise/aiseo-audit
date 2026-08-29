@@ -15,7 +15,12 @@ git checkout main
 git pull origin main
 ```
 
-### 2. Bump the version
+### 2. Update CHANGELOG.md
+
+Move the `Unreleased` entry to the new version number with today's date, and commit it
+before bumping. Every release gets a CHANGELOG entry (Keep a Changelog format).
+
+### 4. Bump the version
 
 Run ONE of these commands in your terminal:
 
@@ -31,13 +36,13 @@ This command does three things automatically:
 - Creates a git commit (e.g., "v1.0.1")
 - Creates a git tag (e.g., `v1.0.1`)
 
-### 3. Push the commit and tag
+### 4. Push the commit and tag
 
 ```bash
 git push origin main --tags
 ```
 
-### 4. Publish to npm
+### 5. Publish to npm
 
 ```bash
 npm publish
@@ -45,7 +50,7 @@ npm publish
 
 `prepublishOnly` runs the full CI script (format check, typecheck, tests with coverage, build) before anything is uploaded, so a broken build cannot ship. Verify the publish with `npm view aiseo-audit version`.
 
-### 5. Create the GitHub Release
+### 6. Create the GitHub Release
 
 1. Go to the repo on GitHub
 2. Click **Releases** (right sidebar)
@@ -227,3 +232,27 @@ Expected: two JSON-RPC response lines on stdout. The first confirms the protocol
 
 - **The MCP Registry is in preview.** Breaking changes or data resets may occur before GA. Keep `server.json` committed so reruns are idempotent.
 - **Namespace ownership.** The `io.github.agencyenterprise/` prefix is tied to the GitHub organization. Only members of that organization can publish under that name via `mcp-publisher login github`.
+
+## Releasing 2.0.0 specifically
+
+Ordered checklist for the research-driven major (details in docs/MIGRATION-2.0.md):
+
+1. **Before 2.0 reaches npm (protects `@v1` Action users):** on the 1.x line, change the
+   Action's `version` input default from `latest` to `1`, cut a final 1.x release, and
+   re-point the floating tag: `git tag -f v1 && git push -f origin v1`. Without this, every
+   `@v1` consumer silently executes 2.0 the moment it becomes `latest`.
+2. Standard steps above (`npm version major`, push tags, `npm publish`).
+3. GitHub Release for `v2.0.0` (Marketplace checkbox on), then create the floating tag:
+   `git tag v2 && git push origin v2`. Keep `v1` alive.
+4. MCP, in order: publish `packages/aiseo-audit-mcp` 2.0.0 (already pinned to `^2.0.0`),
+   confirm `server.json` versions (already synced to 2.0.0), then republish the registry
+   entry with `mcp-publisher` (required this release: the tool description changed).
+5. One to two weeks later, deprecate the 1.x line:
+
+   ```bash
+   npm deprecate "aiseo-audit@<2.0.0" "Superseded by the research-driven 2.0 (evidence-tiered factors, pipeline-stage scores). Migration: https://github.com/agencyenterprise/aiseo-audit/blob/main/docs/MIGRATION-2.0.md"
+   npm deprecate "aiseo-audit-mcp@1.0.0" "Pins aiseo-audit 1.x forever. Use aiseo-audit-mcp 2.x."
+   ```
+
+   Quote the version range so the shell does not interpret `<`. Deprecation is reversible by
+   running the same command with an empty message.

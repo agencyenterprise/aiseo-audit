@@ -1,11 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { auditContentExtractability } from "../../../src/modules/content-extractability/index.js";
-import { extractPage } from "../../../src/modules/extractor/service.js";
+import { findFactor } from "../../helpers/factors.js";
+import { buildPage } from "../../helpers/page.js";
 import type { FetchResultType } from "../../../src/modules/fetcher/schema.js";
-
-function buildPage(html: string) {
-  return extractPage(html, "https://example.com/test");
-}
 
 const baseFetchResult: FetchResultType = {
   url: "https://example.com/test",
@@ -15,13 +12,6 @@ const baseFetchResult: FetchResultType = {
   html: "",
   fetchTimeMs: 100,
 };
-
-function findFactor(
-  name: string,
-  result: ReturnType<typeof auditContentExtractability>,
-) {
-  return result.category.factors.find((f) => f.name === name);
-}
 
 function padHeadToShrinkExtractRatio(
   metaCount: number,
@@ -48,7 +38,7 @@ describe("auditContentExtractability", () => {
       expect(ratio).toBeLessThanOrEqual(0.15);
 
       const result = auditContentExtractability(page, baseFetchResult);
-      expect(findFactor("Text Extraction Quality", result)?.score).toBe(12);
+      expect(findFactor(result, "Text Extraction Quality")?.score).toBe(12);
     });
 
     it("scores 10 for extract ratio above 15%", () => {
@@ -59,7 +49,7 @@ describe("auditContentExtractability", () => {
       expect(ratio).toBeGreaterThan(0.15);
 
       const result = auditContentExtractability(page, baseFetchResult);
-      expect(findFactor("Text Extraction Quality", result)?.score).toBe(10);
+      expect(findFactor(result, "Text Extraction Quality")?.score).toBe(10);
     });
 
     it("scores 8 for extract ratio in minimal range (1-5%)", () => {
@@ -71,7 +61,7 @@ describe("auditContentExtractability", () => {
       expect(ratio).toBeLessThan(0.05);
 
       const result = auditContentExtractability(page, baseFetchResult);
-      expect(findFactor("Text Extraction Quality", result)?.score).toBe(8);
+      expect(findFactor(result, "Text Extraction Quality")?.score).toBe(8);
     });
 
     it("scores 2 for extract ratio below 1%", () => {
@@ -82,100 +72,116 @@ describe("auditContentExtractability", () => {
       expect(ratio).toBeLessThan(0.01);
 
       const result = auditContentExtractability(page, baseFetchResult);
-      expect(findFactor("Text Extraction Quality", result)?.score).toBe(2);
+      expect(findFactor(result, "Text Extraction Quality")?.score).toBe(2);
     });
   });
 
-  describe("Word Count Adequacy", () => {
-    it("scores 12 for word count in optimal range (300-3000)", () => {
+  describe("Word Count Adequacy diagnostic", () => {
+    it("reports the word count as an unscored info diagnostic", () => {
       const html = padHeadToShrinkExtractRatio(0, "word ".repeat(500).trim());
       const page = buildPage(html);
-
-      expect(page.stats.wordCount).toBeGreaterThanOrEqual(300);
-      expect(page.stats.wordCount).toBeLessThanOrEqual(3000);
-
       const result = auditContentExtractability(page, baseFetchResult);
-      expect(findFactor("Word Count Adequacy", result)?.score).toBe(12);
-    });
+      const factor = findFactor(result, "Word Count Adequacy");
 
-    it("scores 10 for word count above 3000", () => {
-      const html = padHeadToShrinkExtractRatio(0, "word ".repeat(3100).trim());
-      const page = buildPage(html);
-
-      expect(page.stats.wordCount).toBeGreaterThan(3000);
-
-      const result = auditContentExtractability(page, baseFetchResult);
-      expect(findFactor("Word Count Adequacy", result)?.score).toBe(10);
-    });
-
-    it("scores 8 for word count in minimal range (100-299)", () => {
-      const html = padHeadToShrinkExtractRatio(0, "word ".repeat(150).trim());
-      const page = buildPage(html);
-
-      expect(page.stats.wordCount).toBeGreaterThanOrEqual(100);
-      expect(page.stats.wordCount).toBeLessThan(300);
-
-      const result = auditContentExtractability(page, baseFetchResult);
-      expect(findFactor("Word Count Adequacy", result)?.score).toBe(8);
-    });
-
-    it("scores 2 for word count below 100", () => {
-      const html = padHeadToShrinkExtractRatio(0, "word ".repeat(10).trim());
-      const page = buildPage(html);
-
-      expect(page.stats.wordCount).toBeLessThan(100);
-
-      const result = auditContentExtractability(page, baseFetchResult);
-      expect(findFactor("Word Count Adequacy", result)?.score).toBe(2);
+      expect(factor?.status).toBe("info");
+      expect(factor?.score).toBe(0);
+      expect(factor?.maxScore).toBe(0);
+      expect(factor?.value).toContain("words");
     });
   });
 
-  describe("Image Accessibility", () => {
-    it("scores 3 for 50-89% alt text coverage (no figcaptions)", () => {
-      const images = [
-        `<img src="a.png" alt="Description of image A">`,
-        `<img src="b.png" alt="Description of image B">`,
-        `<img src="c.png">`,
-        `<img src="d.png">`,
-      ].join("");
-      const html = `<body>${images}</body>`;
-      const page = buildPage(html);
-      const result = auditContentExtractability(page, baseFetchResult);
-      const factor = findFactor("Image Accessibility", result);
-      expect(factor?.score).toBe(3);
+  describe("Paywall Signals", () => {
+    it("scores the full 8 for a page with no paywall barriers", () => {
+      const html = `<body><p>Freely readable article text.</p></body>`;
+      const result = auditContentExtractability(
+        buildPage(html),
+        baseFetchResult,
+      );
+      const factor = findFactor(result, "Paywall Signals");
+
+      expect(factor?.score).toBe(8);
+      expect(factor?.maxScore).toBe(8);
+      expect(factor?.value).toBe("No paywall or login barriers detected");
     });
 
-    it("scores 5 for 90%+ alt text coverage (no figcaptions)", () => {
-      const images = [
-        `<img src="a.png" alt="Description of image A">`,
-        `<img src="b.png" alt="Description of image B">`,
-        `<img src="c.png" alt="Description of image C">`,
-        `<img src="d.png" alt="Description of image D">`,
-      ].join("");
-      const html = `<body>${images}</body>`;
-      const page = buildPage(html);
-      const result = auditContentExtractability(page, baseFetchResult);
-      const factor = findFactor("Image Accessibility", result);
-      expect(factor?.score).toBe(5);
+    it("scores 4 when exactly one paywall marker appears", () => {
+      const html = `<body><div id="paywall"></div><p>Teaser text.</p></body>`;
+      const result = auditContentExtractability(
+        buildPage(html),
+        baseFetchResult,
+      );
+      const factor = findFactor(result, "Paywall Signals");
+
+      expect(factor?.score).toBe(4);
+      expect(factor?.value).toBe("1 paywall marker found");
     });
 
-    it("adds 3 bonus points when figcaptions are present", () => {
+    it("scores 0 when multiple markers pile up", () => {
+      const html = `<body>
+        <div id="paywall"></div>
+        <p>Subscribe to continue reading this story.</p>
+      </body>`;
+      const result = auditContentExtractability(
+        buildPage(html),
+        baseFetchResult,
+      );
+      const factor = findFactor(result, "Paywall Signals");
+
+      expect(factor?.score).toBe(0);
+      expect(factor?.value).toBe("2 paywall markers found");
+    });
+
+    it("scores 0 when JSON-LD declares the page is not freely accessible", () => {
+      const html = `<body>
+        <script type="application/ld+json">{"@type":"Article","isAccessibleForFree":false}</script>
+        <p>Article text.</p>
+      </body>`;
+      const result = auditContentExtractability(
+        buildPage(html),
+        baseFetchResult,
+      );
+      const factor = findFactor(result, "Paywall Signals");
+
+      expect(factor?.score).toBe(0);
+      expect(factor?.value).toBe("Page declares isAccessibleForFree: false");
+    });
+  });
+
+  describe("Image Accessibility diagnostic", () => {
+    it("reports alt coverage and figcaptions without scoring them", () => {
       const html = `<body>
         <figure><img src="a.png" alt="Chart showing results"><figcaption>Results</figcaption></figure>
+        <img src="b.png">
       </body>`;
       const page = buildPage(html);
       const result = auditContentExtractability(page, baseFetchResult);
-      const factor = findFactor("Image Accessibility", result);
-      expect(factor?.score).toBeGreaterThanOrEqual(8);
+      const factor = findFactor(result, "Image Accessibility");
+
+      expect(factor?.status).toBe("info");
+      expect(factor?.score).toBe(0);
+      expect(factor?.maxScore).toBe(0);
+      expect(factor?.value).toContain("1/2 images have alt text");
+      expect(factor?.value).toContain("1 figcaptions");
     });
 
-    it("scores 0 and is neutral for pages with no images", () => {
+    it("notes when the page has no images", () => {
       const html = `<body><p>No images here.</p></body>`;
       const page = buildPage(html);
       const result = auditContentExtractability(page, baseFetchResult);
-      const factor = findFactor("Image Accessibility", result);
-      expect(factor?.score).toBe(0);
-      expect(factor?.status).toBe("neutral");
+      const factor = findFactor(result, "Image Accessibility");
+
+      expect(factor?.status).toBe("info");
+      expect(factor?.value).toBe("No images found");
+    });
+  });
+
+  describe("category scoring", () => {
+    it("counts only fetch, extraction, boilerplate, and paywall toward maxScore", () => {
+      const html = padHeadToShrinkExtractRatio(0, "word ".repeat(500).trim());
+      const page = buildPage(html);
+      const result = auditContentExtractability(page, baseFetchResult);
+
+      expect(result.category.maxScore).toBe(44);
     });
   });
 });

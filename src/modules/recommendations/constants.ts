@@ -15,8 +15,17 @@ import {
   transitionWordsExample,
 } from "./examples.js";
 
+export type RecommendationDirectionType =
+  | "simplify"
+  | "deepen"
+  | "shorten"
+  | "expand"
+  | "add"
+  | "remove";
+
 interface RecommendationOutput {
   text: string;
+  direction?: RecommendationDirectionType;
   steps?: string[];
   codeExample?: string;
   learnMoreUrl?: string;
@@ -26,8 +35,11 @@ type RecommendationBuilder = (
   rawData: AuditRawDataType,
 ) => RecommendationOutput;
 
-function constantRecommendation(text: string): RecommendationBuilder {
-  return () => ({ text });
+function constantRecommendation(
+  text: string,
+  direction?: RecommendationDirectionType,
+): RecommendationBuilder {
+  return () => ({ text, direction });
 }
 
 export const RECOMMENDATION_BUILDERS: Record<
@@ -50,16 +62,16 @@ export const RECOMMENDATION_BUILDERS: Record<
     const count = rawData.wordCount;
     if (count < 100) {
       return {
-        text: `Your page has ${count} words, which is too thin for AI engines to reference. The ideal range is 300-3000 words.`,
+        text: `Your page has ${count} words, likely too thin to supply extractable evidence. No universal word-count optimum is established; add substance only where it answers real questions.`,
       };
     }
     if (count < 300) {
       return {
-        text: `Your page has ${count} words. AI engines prefer 300-3000 words for comprehensive coverage. Consider expanding your content.`,
+        text: `Your page has ${count} words. No universal word-count optimum is established; expand only with content that answers the questions your audience actually asks.`,
       };
     }
     return {
-      text: `Your page has ${count} words, which exceeds the ideal 300-3000 word range. Consider splitting into multiple focused pages.`,
+      text: `Your page has ${count} words. Length itself is not scored; note that unfocused expansion diluted retrieval in end-to-end tests.`,
     };
   },
 
@@ -272,11 +284,11 @@ export const RECOMMENDATION_BUILDERS: Record<
     const avg = Math.round(sections.avgWordsPerSection);
     if (avg < 120) {
       return {
-        text: `Your sections average ${avg} words. The citation sweet spot is 120-180 words. Consider expanding sections with more detail rather than splitting into many short fragments.`,
+        text: `Your sections average ${avg} words. No section-length optimum has causal support; make each section a self-contained answer to one sub-question.`,
       };
     }
     return {
-      text: `Your sections average ${avg} words. The citation sweet spot is 120-180 words. Consider adding more subheadings to break up long sections into self-contained units.`,
+      text: `Your sections average ${avg} words. No section-length optimum has causal support; use subheadings where they mark genuinely distinct sub-questions.`,
     };
   },
 
@@ -339,14 +351,14 @@ export const RECOMMENDATION_BUILDERS: Record<
 
     if (!capsules || capsules.total === 0) {
       return {
-        text: "Frame your H2 headings as questions and place a concise answer (under 200 characters) in the first sentence. 72% of AI-cited content uses this pattern.",
+        text: "Question-framed headings with capsule answers are an unscored diagnostic: formatting alone showed no causal citation effect. What matters is that each sub-question gets a specific, self-contained answer.",
         steps,
         codeExample,
       };
     }
     const missing = capsules.total - capsules.withCapsule;
     return {
-      text: `${capsules.withCapsule} of your ${capsules.total} question-framed H2s have a concise answer capsule. Add a short, direct answer (under 200 characters) as the first sentence after the remaining ${missing}. 72% of AI-cited content uses this pattern.`,
+      text: `${capsules.withCapsule} of your ${capsules.total} question-framed H2s open with a direct answer. This is an unscored diagnostic: formatting alone showed no causal citation effect, but each real sub-question deserves a specific, self-contained answer.`,
       steps,
       codeExample,
     };
@@ -432,8 +444,13 @@ export const RECOMMENDATION_BUILDERS: Record<
     "Align your main topics with your title and headings. Topic consistency helps AI engines understand what your page is about.",
   ),
 
-  "Entity Density": constantRecommendation(
-    "Ensure a balanced density of named entities (2-8 per 100 words). Too few makes content vague; too many makes it hard to parse.",
+  "Term Repetition Balance": constantRecommendation(
+    "Reduce repetition of your leading term. Keyword repetition intensity measurably reduced visibility across four benchmarks; cover the term's aspects instead of repeating it.",
+    "remove",
+  ),
+
+  "Pronoun Ambiguity": constantRecommendation(
+    "Open paragraphs with the explicit subject name instead of a pronoun. Explicit subjects keep each paragraph self-contained and topically connected for passage-level retrieval.",
   ),
 
   "External References": (rawData) => {
@@ -463,9 +480,10 @@ export const RECOMMENDATION_BUILDERS: Record<
 </p>`
       : `<!-- Anchor an external reference to the claim it supports -->
 <p>
-  Structured content is cited 3x more often by AI engines,
-  according to <a href="https://arxiv.org/abs/2311.09735"
-  rel="noopener">Princeton's GEO research</a>.
+  Placing a document first in the model's context raised its citation
+  rank in all tested domains, according to
+  <a href="https://arxiv.org/abs/2506.11097" rel="noopener">C-SEO Bench
+  (NeurIPS 2025)</a>.
 </p>`;
 
     if (linkCount === 0) {
@@ -484,6 +502,7 @@ export const RECOMMENDATION_BUILDERS: Record<
   },
 
   "Citation Patterns": () => ({
+    direction: "add",
     text: 'Use formal citation patterns (e.g., [1], "according to") when referencing sources.',
     steps: [
       "Add in-text citation markers like [1] or (Author, Year) after specific claims",
@@ -495,10 +514,12 @@ export const RECOMMENDATION_BUILDERS: Record<
   }),
 
   "Numeric Claims": constantRecommendation(
-    "Include relevant statistics and data points to support your content with verifiable claims.",
+    "Attach real, verifiable statistics to the claims they support. Mechanically adding statistics reduced citation rank in 19 of 24 tested settings; numbers help only when they answer the query.",
+    "add",
   ),
 
   "Attribution Indicators": () => ({
+    direction: "add",
     text: 'Attribute claims to specific sources or experts. Phrases like "according to" help AI engines trace information.',
     steps: [
       "Identify factual claims that currently have no source",
@@ -510,7 +531,7 @@ export const RECOMMENDATION_BUILDERS: Record<
   }),
 
   "Quoted Attribution": () => ({
-    text: 'Add expert quotes with clear attribution. Use patterns like "Quote text" - Expert Name, or "Quote text," said Expert Name. Research shows quotation addition increased AI visibility by 30-40%.',
+    text: 'Attribute any quotes you use clearly, with patterns like "Quote text" - Expert Name. Only quote real sources; mechanically adding quotations showed no reliable citation benefit and engines penalize fabricated evidence.',
     steps: [
       "Find a relevant quote from an expert, publication, or research paper",
       "Wrap it in a <blockquote> with a <footer> containing a <cite> attribution",
@@ -586,64 +607,68 @@ export const RECOMMENDATION_BUILDERS: Record<
     codeExample: contactLinksExample,
   }),
 
-  "Publication Date": () => {
+  "Date Markup": () => {
     const today = new Date().toISOString().split("T")[0];
     return {
-      text: "Include publication and last-updated dates using proper HTML5 time elements or schema markup.",
+      text: "Use machine-readable date markup when your content carries dates, and only update dates when the content is actually refreshed. A visible stale date measurably hurts more than no date.",
       steps: [
-        "Add a visible publication date near the article title or byline",
-        "Wrap the date in a <time> element with a machine-readable datetime attribute",
-        "Add datePublished and dateModified to your JSON-LD schema",
+        "Wrap any visible date in a <time> element with a datetime attribute",
+        "Add datePublished and dateModified to your JSON-LD schema when accurate",
+        "Remove or update visibly stale dates rather than leaving them displayed",
       ],
-      codeExample: `<!-- Visible dates with <time> elements -->
-<p>Published: <time datetime="${today}" itemprop="datePublished">${today}</time></p>
-<p>Updated: <time datetime="${today}" itemprop="dateModified">${today}</time></p>
-
-<!-- In your JSON-LD schema -->
-"datePublished": "${today}",
-"dateModified": "${today}"`,
-      learnMoreUrl: "https://schema.org/datePublished",
+      codeExample: `<p>Updated: <time datetime="${today}" itemprop="dateModified">${today}</time></p>`,
+      learnMoreUrl: "https://schema.org/dateModified",
     };
   },
+
+  "Topic Time Sensitivity": constantRecommendation(
+    "Freshness is scored only for time-sensitive topics. Evergreen content is not penalized for age; time-sensitive content is compared against current alternatives.",
+  ),
+
+  "Promotional Language": constantRecommendation(
+    "Reduce promotional phrasing and calls to action in informational content. A production search engine's authority scoring explicitly penalizes commercial aggressiveness.",
+    "remove",
+  ),
+
+  "Affiliate Link Density": constantRecommendation(
+    "Balance affiliate links with non-affiliate references. Heavy affiliate density signals commercial intent, a penalty dimension in deployed authority scoring.",
+  ),
+
+  "Ad Slot Markers": constantRecommendation(
+    "Reduce ad intrusiveness in the content area. Ad-heavy layouts are part of how deployed engines distinguish genuine authority from commercial mimicry.",
+  ),
+
+  "Site Type": constantRecommendation(
+    "Forum and user-generated pages are cited less by GPT-family engines than classic search would suggest. Readiness work on such pages has different expected value per engine.",
+  ),
 
   "Content Freshness": (rawData) => {
     const freshness = rawData.freshness;
     const today = new Date().toISOString().split("T")[0];
-    const codeExample = `<!-- Add/update in your HTML -->
+    const codeExample = `<!-- Update only when the content is actually refreshed -->
 <time datetime="${today}" itemprop="dateModified">${today}</time>
 
-<!-- Add/update in your JSON-LD -->
+<!-- In your JSON-LD -->
 "dateModified": "${today}"`;
     const steps = [
-      "Review and update your content with current information",
-      "Update the dateModified in both visible HTML and JSON-LD schema (see code example)",
-      "Set up a recurring reminder to review content every 6 months",
+      "Refresh the content itself with current information",
+      "Update dateModified in visible HTML and JSON-LD only after a real refresh",
+      "Do not display a date you are not maintaining; a visible stale date measurably hurts more than no date",
     ];
 
     if (!freshness || freshness.ageInMonths === null) {
       return {
-        text: "Add a publication or modified date to your content. 65% of AI crawler hits target content less than 1 year old. Without a parseable date, AI engines may deprioritize your content.",
-        steps: [
-          "Add a <time> element with a datetime attribute to your page",
-          "Add datePublished and dateModified to your JSON-LD schema",
-          steps[2],
-        ],
+        text: "This time-sensitive topic has no parseable date. Refresh the content, then add honest date markup. Add a date only if you will keep it current: a visible stale date measurably hurts more than none.",
+        steps,
         codeExample,
       };
     }
     const months = Math.round(freshness.ageInMonths);
-    let text: string;
-    if (months > 24) {
-      text = `Your content was last updated ${months} months ago. AI engines strongly prefer content less than 12 months old. Consider updating with current information and refreshing the modified date.`;
-    } else if (months > 12) {
-      text = `Your content was last updated ${months} months ago. 65% of AI crawler hits target content less than 1 year old. Refresh your content and update the modified date.`;
-    } else if (!freshness.hasModifiedDate) {
-      text = `Your content has a publish date but no modified date. Adding a dateModified signal shows active maintenance and gives a freshness boost with AI engines.`;
-    } else {
-      text =
-        "Update your content to include a recent publication or modified date. Content freshness acts as a hard gate for AI engine citations.";
-    }
-    return { text, steps, codeExample };
+    return {
+      text: `Your time-sensitive content shows a visible date ${months} months old. Stale visible dates measurably reduced citation odds against fresh competitors. Refresh the content and update the date, or remove the displayed date if the content is genuinely evergreen.`,
+      steps,
+      codeExample,
+    };
   },
 
   "Structured Data": (rawData) => {
@@ -834,6 +859,7 @@ ${faqEntries}
   },
 
   "Jargon Density": () => ({
+    direction: "simplify",
     text: "Define technical terms or replace with simpler alternatives. High jargon density reduces AI reusability.",
     steps: [
       "List the 5 most domain-specific terms on the page",
@@ -854,4 +880,70 @@ ${faqEntries}
     ],
     codeExample: transitionWordsExample,
   }),
+
+  "Paywall Signals": constantRecommendation(
+    "Keep the full text programmatically accessible. Engines learned to prefer sources without logins, paywalls, or interaction requirements; mark restricted content honestly with isAccessibleForFree.",
+  ),
+
+  "Title Entity Alignment": (rawData) => ({
+    text: `Rewrite the title to carry the page's key entities and numbers. Entity-rich structural fields raised retrieval hit rate by 22% in end-to-end tests. Repeating a term more than once adds nothing; coverage matters, density does not.`,
+    steps: [
+      "List the top entities and figures your body content actually explains",
+      `Work the most important ones into the title (current: "${rawData.title || "no title"}")`,
+      "Prefer a specific, entity-bearing phrasing over a clever generic one",
+    ],
+  }),
+
+  "Meta Description Alignment": constantRecommendation(
+    "Write the meta description as a compact, entity-dense summary of the body. Retrieval systems index it as a separate field; generic descriptions waste the highest-leverage retrieval surface.",
+  ),
+
+  "Heading Entity Alignment": constantRecommendation(
+    "Make headings carry the entities and terms their sections explain. Headings are indexed structural fields; entity-bearing headings surface the page, the body earns the citation.",
+  ),
+
+  "Structured Data Alignment": constantRecommendation(
+    "Align JSON-LD text fields (headline, description, about, keywords) with the body's key entities. Structural fields that match substantive content improve retrieval; empty or generic fields do not.",
+  ),
+
+  "Lead Summary": constantRecommendation(
+    "Open the page with a short structured summary: an intro paragraph under the H1 stating the main conclusion, or an explicit overview block. Placing the main claim first improved citation position in three independent studies; displacing it caused rank drops.",
+  ),
+
+  "Explanatory Depth": constantRecommendation(
+    "Explain how and why, not just what. Engines learned to prefer sources with explanatory depth (mechanisms, causes, context) for informational queries.",
+    "deepen",
+  ),
+
+  "Query Term Coverage (Structural)": constantRecommendation(
+    "Cover your target queries' terms in the title, meta description, headings, and structured data. Query-term presence is one of the few causally validated citation factors.",
+  ),
+
+  "Query Term Coverage (Body)": constantRecommendation(
+    "Address your target queries' terms in the body content, especially in early paragraphs. Content that lacks the query's terms loses the citation almost deterministically.",
+  ),
+
+  "Query Aspect Coverage": constantRecommendation(
+    "Give each sub-question behind your target queries a specific, self-contained answer section. Covering the demand behind a query outperformed every formatting tactic in controlled tests.",
+    "deepen",
+  ),
+
+  "Hedged Language": constantRecommendation(
+    "Replace uncertainty qualifiers (might, possibly, could, perhaps) with confident, evidence-backed statements. Engines penalize hedging far more reliably than promotional tone. Only state confidently what your evidence actually supports.",
+  ),
+
+  "Price Presence": constantRecommendation(
+    "State the price explicitly, in visible text and in JSON-LD offers. Missing price information acted as a near-deterministic citation gatekeeper for product content.",
+    "add",
+  ),
+
+  "Technical Specifications": constantRecommendation(
+    "Include concrete technical specifications (dimensions, capacity, model numbers) in an extractable form. Specifications were a consistent citation differentiator for product content. Only list real, verifiable specifications.",
+    "deepen",
+  ),
+
+  "Comparison Content": constantRecommendation(
+    "Compare the product against named alternatives with concrete criteria. Comparison content was a citation differentiator in product settings.",
+    "add",
+  ),
 };

@@ -6,29 +6,18 @@ import {
   renderDiffReport,
   renderHistoryTimeline,
 } from "../../../../src/modules/report/service.js";
+import {
+  makeCategory,
+  makeResult as makeAnalyzerResult,
+} from "../../../helpers/results.js";
 
 function makeResult(): AnalyzerResultType {
-  return {
-    url: "https://example.com",
-    signalsBase: "https://example.com",
-    analyzedAt: "2026-04-17T00:00:00Z",
-    overallScore: 72,
-    grade: "C-",
-    totalPoints: 300,
-    maxPoints: 420,
+  return makeAnalyzerResult({
     categories: {
-      contentExtractability: {
-        name: "Content Extractability",
-        key: "contentExtractability",
-        score: 55,
-        maxScore: 60,
-        factors: [],
-      },
+      contentExtractability: makeCategory({ score: 55, factors: [] }),
     },
     recommendations: [],
-    rawData: { title: "", metaDescription: "", wordCount: 100 },
-    meta: { version: "1.5.0", analysisDurationMs: 120 },
-  };
+  });
 }
 
 function makeDiff(overallDelta: number): DiffResultType {

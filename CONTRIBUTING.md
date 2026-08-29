@@ -32,23 +32,27 @@ src/
 ├── version.ts              # Package version (injected at build time)
 ├── modules/
 │   ├── analyzer/           # Orchestrates the audit pipeline
-│   ├── audits/             # Audit orchestrator, factor-name registry, category assembly
-│   ├── answerability/      # Category audit: definitions, capsules, Q/A patterns
-│   ├── authority-context/  # Category audit: author, org, dates, JSON-LD
-│   ├── content-extractability/  # Category audit: fetch, extraction, robots.txt
-│   ├── content-structure/  # Category audit: headings, lists, sections
-│   ├── entity-clarity/     # Category audit: named entities, topics
-│   ├── grounding-signals/  # Category audit: citations, statistics, attribution
-│   ├── readability/        # Category audit: sentence length, Flesch, transitions
-│   ├── config/             # Config loading and schema
+│   ├── audits/             # Audit orchestrator, factor-name registry, FACTOR_REGISTRY (stage.ts), category assembly
+│   ├── answerability/      # Category audit: lead summary, definitions, direct answers, steps
+│   ├── authority-context/  # Category audit: author, org, freshness, JSON-LD, commercial-intent diagnostics
+│   ├── content-extractability/  # Category audit: fetch, extraction, robots.txt, paywall signals
+│   ├── content-structure/  # Category audit: heading hierarchy + formatting diagnostics
+│   ├── domain-profile/     # Domain detection (product vs informational)
+│   ├── entity-clarity/     # Category audit: named entities, topics, term repetition balance
+│   ├── grounding-signals/  # Category audit: citations, statistics, attribution, hedged language
+│   ├── product-fit/        # Conditional category audit: price, specs, comparisons (product pages)
+│   ├── query-alignment/    # Conditional category audit: per-query term and aspect coverage
+│   ├── readability/        # Category audit: floor-based sentence length, Flesch, jargon density
+│   ├── structural-alignment/  # Category audit: salient terms in title, meta, headings, JSON-LD
+│   ├── config/             # Config loading, schema, engine presets
 │   ├── diff/               # Score diffing, audit history, and --diff orchestration
 │   ├── extractor/          # HTML parsing and content extraction
 │   ├── fetcher/            # HTTP fetching
-│   ├── nlp/                # NLP utilities (entity extraction, readability, topics)
+│   ├── nlp/                # NLP utilities (entity extraction, salience, readability, topics)
 │   ├── recommendations/    # Recommendation generation
 │   ├── report/             # Report rendering (pretty, json, md, html) + shared view-model
-│   ├── scoring/            # All scoring logic (thresholds, factors, grades)
-│   └── sitemap/            # Sitemap fetching, parsing, and batch auditing
+│   ├── scoring/            # All scoring logic (thresholds, factors, grades, stage rollups, gates)
+│   └── sitemap/            # Sitemap fetching, parsing, host profile, and batch auditing
 └── utils/                  # Shared utilities (fs, http, strings, url)
 ```
 
@@ -60,7 +64,17 @@ Each module follows a consistent pattern:
 - `examples.ts` - Static code examples for recommendation output (where needed)
 - `support/` - Helper functions (where needed)
 
-Adding a factor touches three places, and the compiler walks you through them: register the display name in `src/modules/audits/factor-names.ts`, score it in its category module via `makeFactor`, and add its builder to `RECOMMENDATION_BUILDERS` (a missing builder is a type error). Adding a category is: create the module, add its key to `CategoryNameSchema`, and wire it in `audits/service.ts`; weights and TLDR projections derive from the schema automatically.
+Adding a factor touches five places, and the compiler walks you through the code-side four:
+
+1. Register the display name in `src/modules/audits/factor-names.ts`.
+2. Add a `FACTOR_REGISTRY` entry in `src/modules/audits/stage.ts` with the factor's pipeline stage, evidence tier, and paper-review citation slugs (the file names under `docs/paper-reviews/`).
+3. Score it in its category module via `makeFactor`, or report it unscored via `makeDiagnostic` if the evidence is null or observational-only.
+4. Add its builder to `RECOMMENDATION_BUILDERS` in `src/modules/recommendations/constants.ts` (a missing builder is a type error).
+5. Add a row to [docs/EVIDENCE.md](docs/EVIDENCE.md) with the same tier, stage, citations, experimental regime, and metric.
+
+Two rules are non-negotiable. Any threshold or weight that no paper validates must carry the `heuristic` tier (or `diagnostic`/`experimental` when it should not be scored at all); nothing ships labeled better than its evidence. And every new factor needs a citation to a review under `docs/paper-reviews/`; if the supporting paper is not reviewed yet, add the review first, following the Research Maintenance Policy in [docs/EMERGING_RESEARCH.md](docs/EMERGING_RESEARCH.md#research-maintenance-policy).
+
+Adding a category is: create the module, add its key to `CategoryNameSchema`, and wire it in `audits/service.ts`; weights derive from the schema automatically.
 
 ## How to Contribute
 
@@ -79,10 +93,12 @@ Adding a factor touches three places, and the compiler walks you through them: r
 
 ## Research and Scoring
 
-The audit scoring is research-backed. Before proposing changes to scoring thresholds or adding new audit factors, review:
+The audit scoring is a research-informed heuristic: factors carry evidence tiers mapped to peer-reviewed findings, and weights are expert-set heuristics, openly labeled as such. Before proposing changes to scoring thresholds or adding new audit factors, review:
 
+- [Evidence](docs/EVIDENCE.md) - The factor-to-evidence table every scored factor must have a row in
+- [Emerging Research](docs/EMERGING_RESEARCH.md) - Cross-paper synthesis and the Research Maintenance Policy for adding new papers
+- [Paper Reviews](docs/paper-reviews/README.md) - Primary-source reviews of the peer-reviewed papers the scoring is built on
 - [Audit Breakdown](docs/AUDIT_BREAKDOWN.md) - Detailed scoring methodology
-- [Research](docs/RESEARCH.md) - Research sources and gap analysis
 
 ## Code Style
 

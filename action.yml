@@ -1,5 +1,5 @@
 name: AI SEO Audit
-description: Audit web pages for AI search readiness (ChatGPT, Claude, Perplexity, Gemini). 7 categories, 30+ factors, research-backed scoring.
+description: Audit web pages for AI search readiness (ChatGPT, Claude, Perplexity, Gemini). Research-informed heuristic scoring with evidence-tiered factors and pipeline-stage scores.
 author: Agency Enterprise
 branding:
   icon: search
@@ -129,21 +129,18 @@ runs:
           const score = report.overallScore ?? report.averageScore ?? 0;
           const grade = report.grade ?? report.averageGrade ?? '';
           const tldr = report.tldr;
-          const wins = (tldr?.quickestWins ?? [])
-            .map((w, i) => `${i + 1}. **+${w.expectedGain} pts**: ${w.factor} (${w.category})`)
+          const fixes = (tldr?.topFixes ?? [])
+            .map((f, i) => `${i + 1}. **${f.factor}** (${f.category}) - ${f.auditPoints} audit pts`)
             .join('\n');
-
-          const projection = tldr && tldr.projectedScore > tldr.score
-            ? ` → After top ${tldr.quickestWins.length} fixes: **~${tldr.projectedScore}/100 (${tldr.projectedGrade})**`
-            : '';
 
           const body = [
             marker,
-            `## AI SEO Audit: ${score}/100 (${grade})${projection}`,
+            `## AI SEO Audit: ${score}/100 (${grade})`,
             '',
-            wins ? 'Quickest wins:' : '_No quick wins identified. The page is already solid._',
-            wins,
+            fixes ? 'Top fixes:' : '_No fixes identified. The page is already solid._',
+            fixes,
             '',
+            tldr?.note ? `<sub>${tldr.note}</sub>` : '',
             `<sub>Posted by [aiseo-audit](https://github.com/agencyenterprise/aiseo-audit)</sub>`,
           ].filter(Boolean).join('\n');
 

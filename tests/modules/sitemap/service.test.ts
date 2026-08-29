@@ -429,6 +429,64 @@ describe("analyzeSitemap", () => {
     });
   });
 
+  describe("host profile", () => {
+    it("aggregates site identity signals across successful pages", async () => {
+      const consistent = makeMockAnalyzerResult("https://example.com/a", 70);
+      consistent.rawData.entityConsistency = {
+        entityName: "Acme Corp",
+        surfacesFound: 3,
+        surfacesChecked: 4,
+      };
+      consistent.rawData.structuredDataTypes = ["Organization", "Article"];
+      consistent.categories.authorityContext = {
+        name: "Authority Context",
+        key: "authorityContext",
+        score: 20,
+        maxScore: 30,
+        factors: [
+          {
+            name: "Author Attribution",
+            score: 10,
+            maxScore: 10,
+            value: "Jane Doe",
+            status: "good",
+          },
+          {
+            name: "Contact/About Links",
+            score: 10,
+            maxScore: 10,
+            value: "About + Contact",
+            status: "good",
+          },
+        ],
+      };
+      const bare = makeMockAnalyzerResult("https://example.com/b", 60);
+
+      vi.mocked(httpGet).mockResolvedValue({
+        status: 200,
+        data: standardSitemapXml,
+        headers: {},
+        finalUrl: "https://example.com/sitemap.xml",
+      });
+      vi.mocked(analyzeUrlWithSignals)
+        .mockResolvedValueOnce(consistent)
+        .mockResolvedValueOnce(bare);
+
+      const result = await analyzeSitemap(
+        { sitemapUrl: "https://example.com/sitemap.xml" },
+        mockConfig,
+      );
+
+      expect(result.hostProfile).toBeDefined();
+      expect(result.hostProfile?.dominantSiteName).toBe("Acme Corp");
+      expect(result.hostProfile?.siteNameUniformityPct).toBe(50);
+      expect(result.hostProfile?.organizationSchemaPct).toBe(50);
+      expect(result.hostProfile?.bylineCoveragePct).toBe(50);
+      expect(result.hostProfile?.aboutOrContactFound).toBe(true);
+      expect(result.hostProfile?.note).toContain("host level");
+    });
+  });
+
   describe("result aggregation", () => {
     it("computes average score from successful results", async () => {
       vi.mocked(httpGet).mockResolvedValue({

@@ -6,25 +6,49 @@ import type {
 import { buildCategoryOutput } from "../audits/category.js";
 import type { ExtractedPageType } from "../extractor/schema.js";
 import { countPatternMatches, extractEntities } from "../nlp/service.js";
-import { makeFactor, thresholdScore } from "../scoring/service.js";
+import { extractSalientTerms } from "../nlp/support/salience.js";
+import {
+  makeDiagnostic,
+  makeFactor,
+  thresholdScore,
+} from "../scoring/service.js";
 import { detectAnswerCapsules } from "./capsules.js";
+import { detectLeadSummary, scoreLeadSummary } from "./lead-summary.js";
 import {
   DEFINITION_PATTERNS,
   DIRECT_ANSWER_PATTERNS,
+  EXPLANATORY_DEPTH_PATTERNS,
   QUESTION_PATTERNS,
   STEP_PATTERNS,
   SUMMARY_MARKERS,
 } from "./patterns.js";
 import { extractQuestions } from "./questions.js";
 
+export type AnswerabilityOptionsType = {
+  domain?: "product" | "informational";
+};
+
 export function auditAnswerability(
   page: ExtractedPageType,
   preExtracted?: ExtractedEntitiesType,
+  options: AnswerabilityOptionsType = {},
 ): CategoryAuditOutputType {
   const text = page.cleanText;
   const $ = page.$;
   const factors: FactorResultType[] = [];
-  const { imperativeVerbCount = 0 } = preExtracted ?? extractEntities(text);
+  const entities = preExtracted ?? extractEntities(text);
+  const { imperativeVerbCount = 0 } = entities;
+
+  const salient = extractSalientTerms(text, entities);
+  const leadSummary = detectLeadSummary($, text, salient.entities);
+  factors.push(
+    makeFactor(
+      "Lead Summary",
+      scoreLeadSummary(leadSummary),
+      13,
+      describeLeadSummary(leadSummary),
+    ),
+  );
 
   const defCount = countPatternMatches(text, DEFINITION_PATTERNS);
   const defScore = thresholdScore(defCount, [
@@ -59,16 +83,12 @@ export function auditAnswerability(
   );
 
   const capsules = detectAnswerCapsules(page.$);
-  const capsuleScore = scoreAnswerCapsules(capsules);
   factors.push(
-    makeFactor(
+    makeDiagnostic(
       "Answer Capsules",
-      capsuleScore,
-      13,
       capsules.total > 0
         ? `${capsules.withCapsule}/${capsules.total} question headings have answer capsules`
         : "No question-framed H2s found",
-      capsules.total === 0 ? "neutral" : undefined,
     ),
   );
 
@@ -92,18 +112,9 @@ export function auditAnswerability(
 
   const questionMatches = extractQuestions(text);
   const queryMatches = countPatternMatches(text, QUESTION_PATTERNS);
-  const qaScore = thresholdScore(questionMatches.length + queryMatches, [
-    [10, 11],
-    [5, 8],
-    [2, 5],
-    [1, 2],
-    [0, 0],
-  ]);
   factors.push(
-    makeFactor(
+    makeDiagnostic(
       "Q/A Patterns",
-      qaScore,
-      11,
       `${questionMatches.length} questions, ${queryMatches} query patterns`,
     ),
   );
@@ -124,26 +135,53 @@ export function auditAnswerability(
     ),
   );
 
+  factors.push(explanatoryDepthFactor($, text, options.domain));
+
   return buildCategoryOutput("answerability", factors, {
     answerCapsules: capsules,
     questionsFound: questionMatches.slice(0, 5),
   });
 }
 
-const POINTS_FOR_QUESTION_HEADINGS_WITHOUT_CAPSULES = 2;
+function describeLeadSummary(leadSummary: {
+  hasIntroParagraphUnderH1: boolean;
+  hasExplicitSummaryMarker: boolean;
+  firstParagraphStatesMainClaim: boolean;
+}): string {
+  const present = [
+    leadSummary.hasIntroParagraphUnderH1 && "intro paragraph under H1",
+    leadSummary.hasExplicitSummaryMarker && "explicit summary marker",
+    leadSummary.firstParagraphStatesMainClaim && "main claim stated first",
+  ].filter(Boolean);
+  return present.length > 0
+    ? present.join(", ")
+    : "No lead summary: the page does not state its conclusion first";
+}
 
-function scoreAnswerCapsules(capsules: {
-  total: number;
-  withCapsule: number;
-}): number {
-  if (capsules.total === 0) return 0;
-  if (capsules.withCapsule === 0) {
-    return POINTS_FOR_QUESTION_HEADINGS_WITHOUT_CAPSULES;
-  }
-  const capsuleRatio = capsules.withCapsule / capsules.total;
-  return thresholdScore(capsuleRatio, [
-    [0.7, 13],
-    [0.4, 9],
-    [0, 5],
+const HOW_OR_WHY_HEADING = /^(?:how|why)\b/i;
+
+function explanatoryDepthFactor(
+  $: ExtractedPageType["$"],
+  text: string,
+  domain: "product" | "informational" | undefined,
+): FactorResultType {
+  const markerCount = countPatternMatches(text, EXPLANATORY_DEPTH_PATTERNS);
+  const howOrWhyHeadings = $("h2, h3")
+    .toArray()
+    .filter((el) => HOW_OR_WHY_HEADING.test($(el).text().trim())).length;
+  const depthSignals = markerCount + howOrWhyHeadings;
+  const depthScore = thresholdScore(depthSignals, [
+    [6, 10],
+    [3, 7],
+    [1, 3],
+    [0, 0],
   ]);
+
+  return makeFactor(
+    "Explanatory Depth",
+    depthScore,
+    10,
+    `${markerCount} explanatory markers, ${howOrWhyHeadings} how/why headings`,
+    domain === "product" ? "neutral" : undefined,
+  );
 }

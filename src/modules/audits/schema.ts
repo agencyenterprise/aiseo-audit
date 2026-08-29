@@ -5,11 +5,14 @@ export type { ExtractedEntitiesType } from "../nlp/schema.js";
 
 export const CategoryNameSchema = z.enum([
   "contentExtractability",
+  "structuralAlignment",
   "contentStructure",
   "answerability",
+  "queryAlignment",
   "entityClarity",
   "groundingSignals",
   "authorityContext",
+  "productFit",
   "readabilityForCompression",
 ]);
 
@@ -18,6 +21,15 @@ export const FactorStatusSchema = z.enum([
   "needs_improvement",
   "critical",
   "neutral",
+  "info",
+]);
+
+export const EvidenceTierSchema = z.enum([
+  "supported",
+  "conditional",
+  "heuristic",
+  "diagnostic",
+  "experimental",
 ]);
 
 export const DomainSignalsSchema = z.object({
@@ -33,6 +45,8 @@ export const FactorResultSchema = z.object({
   maxScore: z.number().min(0),
   value: z.string(),
   status: FactorStatusSchema,
+  evidence: EvidenceTierSchema.optional(),
+  citations: z.array(z.string()).optional(),
 });
 
 export const CategoryResultSchema = z.object({
@@ -119,6 +133,26 @@ export const AuditRawDataSchema = z.object({
       surfacesChecked: z.number(),
     })
     .optional(),
+  queryAlignment: z
+    .object({
+      queries: z.array(
+        z.object({
+          query: z.string(),
+          structuralCoverage: z.number(),
+          bodyCoverage: z.number(),
+          matchedTerms: z.array(z.string()),
+          missingTerms: z.array(z.string()),
+        }),
+      ),
+    })
+    .optional(),
+  domainDetected: z.enum(["product", "informational"]).optional(),
+  priceSignals: z
+    .object({
+      found: z.boolean(),
+      source: z.enum(["json-ld", "visible-text", "none"]),
+    })
+    .optional(),
 });
 
 export const CategoryAuditOutputSchema = z.object({
@@ -127,7 +161,7 @@ export const CategoryAuditOutputSchema = z.object({
 });
 
 export const AuditResultSchema = z.object({
-  categories: z.record(CategoryNameSchema, CategoryResultSchema),
+  categories: z.partialRecord(CategoryNameSchema, CategoryResultSchema),
   rawData: AuditRawDataSchema,
 });
 
@@ -138,6 +172,7 @@ export type CategoryNameType = z.infer<typeof CategoryNameSchema>;
 export type CategoryResultType = z.infer<typeof CategoryResultSchema>;
 export type CrawlerAccessResultType = z.infer<typeof CrawlerAccessResultSchema>;
 export type DomainSignalsType = z.infer<typeof DomainSignalsSchema>;
+export type EvidenceTierType = z.infer<typeof EvidenceTierSchema>;
 export type FactorResultType = z.infer<typeof FactorResultSchema>;
 export type FactorStatusType = z.infer<typeof FactorStatusSchema>;
 export type FreshnessResultType = z.infer<typeof FreshnessResultSchema>;

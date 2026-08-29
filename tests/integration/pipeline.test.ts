@@ -11,11 +11,11 @@ import {
 } from "vitest";
 import { analyzeUrl } from "../../src/modules/analyzer/service.js";
 import { loadConfig } from "../../src/modules/config/service.js";
-import type { HttpResponseType } from "../../src/utils/http.js";
 
 vi.mock("../../src/utils/http.js");
 
 import { httpGet, httpProbe } from "../../src/utils/http.js";
+import { mockResponse, setupHttpMocks } from "../helpers/http.js";
 const mockedGet = httpGet as Mock;
 const mockedProbe = httpProbe as Mock;
 
@@ -23,51 +23,6 @@ const fixturesDir = join(__dirname, "../fixtures/pages");
 
 function loadFixture(name: string): string {
   return readFileSync(join(fixturesDir, name), "utf-8");
-}
-
-function mockResponse(overrides: Partial<HttpResponseType>): HttpResponseType {
-  return {
-    status: 200,
-    data: "",
-    headers: {},
-    finalUrl: "",
-    ...overrides,
-  };
-}
-
-function setupHttpMocks(options: {
-  pageHtml?: string;
-  pageStatus?: number;
-  robotsTxt?: string;
-  llmsTxtStatus?: number;
-}): void {
-  const {
-    pageHtml = "",
-    pageStatus = 200,
-    robotsTxt = "User-agent: *\nAllow: /",
-    llmsTxtStatus = 404,
-  } = options;
-
-  mockedGet.mockImplementation(async (opts: { url: string }) => {
-    if (opts.url.includes("robots.txt")) {
-      return mockResponse({ status: 200, data: robotsTxt, finalUrl: opts.url });
-    }
-    return mockResponse({
-      status: pageStatus,
-      data: pageHtml,
-      headers: { "content-type": "text/html" },
-      finalUrl: opts.url,
-    });
-  });
-
-  mockedProbe.mockImplementation(async (opts: { url: string }) => {
-    return mockResponse({
-      status: llmsTxtStatus,
-      data: llmsTxtStatus === 200 ? "# Example llms.txt\n" : "",
-      headers: { "content-type": "text/plain" },
-      finalUrl: opts.url,
-    });
-  });
 }
 
 describe("Pipeline Integration", () => {

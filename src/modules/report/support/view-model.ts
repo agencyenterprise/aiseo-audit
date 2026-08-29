@@ -1,5 +1,6 @@
 import type { AnalyzerResultType } from "../../analyzer/schema.js";
 import type { RecommendationType } from "../../recommendations/schema.js";
+import type { GateResultType, StageScoresType } from "../../scoring/schema.js";
 import {
   isSuccessResult,
   type SitemapUrlResultType,
@@ -75,4 +76,73 @@ export function markdownFenceFor(content: string): string {
     .split(/[^`]+/)
     .reduce((max, run) => Math.max(max, run.length), 0);
   return "`".repeat(Math.max(3, longestRun + 1));
+}
+
+export const VISIBLE_RECOMMENDATION_COUNT = 3;
+
+export const NON_ADDITIVE_RECS_NOTE =
+  "Apply the top items and re-measure before continuing - gains do not stack additively, and each addition competes for the same content budget.";
+
+export const PRODUCT_PAGE_WARNING =
+  "Generic content optimization measurably hurt product pages in end-to-end tests; prioritize price, specs, and comparisons over rewriting.";
+
+export const SUPPRESSED_STAGE_LABEL = "suppressed (eligibility failed)";
+
+export const UNSCORED_DIAGNOSTIC_LABEL = "unscored diagnostic";
+
+export const STAGE_LABELS: Record<keyof StageScoresType, string> = {
+  technicalEligibility: "Technical Eligibility",
+  retrievalAlignment: "Retrieval Alignment",
+  citationFitness: "Citation Fitness",
+  provenance: "Provenance",
+};
+
+export function enginePresetBanner(
+  engine: AnalyzerResultType["meta"]["engine"],
+): string | null {
+  if (!engine || engine === "generic") return null;
+  return `Experimental engine preset: ${engine}`;
+}
+
+export function isProductPage(result: AnalyzerResultType): boolean {
+  return (
+    result.meta.domain === "product" ||
+    result.rawData.domainDetected === "product"
+  );
+}
+
+export function trippedGateLine(gate: GateResultType): string {
+  return `capped at ${gate.capPct}: ${gate.label}`;
+}
+
+export function trippedGates(stages: StageScoresType): GateResultType[] {
+  return stages.citationFitness.gates.filter(
+    (gate) => gate.status === "tripped",
+  );
+}
+
+export function stagePctLabel(pct: number | null, suppressed: boolean): string {
+  if (suppressed) return SUPPRESSED_STAGE_LABEL;
+  return pct === null ? "n/a" : `${pct}%`;
+}
+
+export function orderFactorsForDisplay<T extends { status: string }>(
+  factors: T[],
+): T[] {
+  const scored = factors.filter((factor) => factor.status !== "info");
+  const diagnostics = factors.filter((factor) => factor.status === "info");
+  return [...scored, ...diagnostics];
+}
+
+export function visibleRecommendations(
+  recommendations: RecommendationType[],
+): RecommendationType[] {
+  return recommendations.slice(0, VISIBLE_RECOMMENDATION_COUNT);
+}
+
+export function hiddenRecommendationsNote(
+  recommendations: RecommendationType[],
+): string | null {
+  const hidden = recommendations.length - VISIBLE_RECOMMENDATION_COUNT;
+  return hidden > 0 ? `${hidden} more in JSON output` : null;
 }

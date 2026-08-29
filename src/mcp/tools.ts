@@ -23,7 +23,12 @@ export async function handleAuditUrl(
   deps: AuditUrlDependencies = defaultDependencies,
 ): Promise<CallToolResult> {
   try {
-    const config = await deps.loadConfig();
+    const loadedConfig = await deps.loadConfig();
+    const config = {
+      ...loadedConfig,
+      ...(args.queries && { queries: args.queries }),
+      ...(args.domain && { domain: args.domain }),
+    };
     const result = await deps.analyzeUrl(
       { url: args.url, timeout: args.timeout },
       config,
