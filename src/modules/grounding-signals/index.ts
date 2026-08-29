@@ -7,6 +7,7 @@ import type {
   ExtractedEntitiesType,
   FactorResultType,
 } from "../audits/schema.js";
+import { measureHedging } from "./hedging.js";
 import {
   ATTRIBUTION_PATTERNS,
   CITATION_PATTERNS,
@@ -117,6 +118,8 @@ export function auditGroundingSignals(
     ),
   );
 
+  factors.push(hedgedLanguageFactor(text));
+
   return buildCategoryOutput("groundingSignals", factors, {
     externalLinks: externalLinks.slice(0, 10),
   });
@@ -125,4 +128,34 @@ export function auditGroundingSignals(
 function countCitesOutsideBlockquotes($: ExtractedPageType["$"]): number {
   return $("cite").filter((_, el) => $(el).parents("blockquote").length === 0)
     .length;
+}
+
+const CONFIDENT_HEDGE_SHARE = 0.05;
+const ACCEPTABLE_HEDGE_SHARE = 0.12;
+const HEAVY_HEDGE_SHARE = 0.2;
+
+function hedgedLanguageFactor(text: string): FactorResultType {
+  const hedging = measureHedging(text);
+  const sharePct = `${(hedging.hedgedShare * 100).toFixed(1)}%`;
+  const value = `${hedging.hedgedSentenceCount} of ${hedging.sentenceCount} sentences hedge (${sharePct})`;
+
+  if (hedging.sentenceCount === 0) {
+    return makeFactor(
+      "Hedged Language",
+      0,
+      10,
+      "No sentences found",
+      "neutral",
+    );
+  }
+  if (hedging.hedgedShare <= CONFIDENT_HEDGE_SHARE) {
+    return makeFactor("Hedged Language", 10, 10, value);
+  }
+  if (hedging.hedgedShare <= ACCEPTABLE_HEDGE_SHARE) {
+    return makeFactor("Hedged Language", 6, 10, value);
+  }
+  if (hedging.hedgedShare <= HEAVY_HEDGE_SHARE) {
+    return makeFactor("Hedged Language", 3, 10, value);
+  }
+  return makeFactor("Hedged Language", 0, 10, value);
 }

@@ -1,0 +1,762 @@
+{
+  "url": "https://example.com",
+  "signalsBase": "https://example.com",
+  "analyzedAt": "2026-08-29T02:24:22.942Z",
+  "overallScore": 19,
+  "grade": "F",
+  "totalPoints": 88,
+  "maxPoints": 462,
+  "categories": {
+    "contentExtractability": {
+      "name": "Content Extractability",
+      "key": "contentExtractability",
+      "score": 46,
+      "maxScore": 72,
+      "factors": [
+        {
+          "name": "Fetch Success",
+          "score": 12,
+          "maxScore": 12,
+          "value": "HTTP 200 in 325ms",
+          "status": "good"
+        },
+        {
+          "name": "Text Extraction Quality",
+          "score": 10,
+          "maxScore": 12,
+          "value": "22.7% content ratio",
+          "status": "good"
+        },
+        {
+          "name": "Boilerplate Ratio",
+          "score": 12,
+          "maxScore": 12,
+          "value": "0% boilerplate",
+          "status": "good"
+        },
+        {
+          "name": "Word Count Adequacy",
+          "score": 2,
+          "maxScore": 12,
+          "value": "19 words",
+          "status": "critical"
+        },
+        {
+          "name": "AI Crawler Access",
+          "score": 10,
+          "maxScore": 10,
+          "value": "All major AI crawlers allowed",
+          "status": "good"
+        },
+        {
+          "name": "LLMs.txt Presence",
+          "score": 0,
+          "maxScore": 6,
+          "value": "Not found",
+          "status": "neutral"
+        },
+        {
+          "name": "Image Accessibility",
+          "score": 0,
+          "maxScore": 8,
+          "value": "No images found",
+          "status": "neutral"
+        }
+      ]
+    },
+    "contentStructure": {
+      "name": "Content Structure for Reuse",
+      "key": "contentStructure",
+      "score": 22,
+      "maxScore": 64,
+      "factors": [
+        {
+          "name": "Heading Hierarchy",
+          "score": 4,
+          "maxScore": 11,
+          "value": "1 H1, 0 H2, 0 H3",
+          "status": "needs_improvement"
+        },
+        {
+          "name": "Lists Presence",
+          "score": 0,
+          "maxScore": 11,
+          "value": "0 list items",
+          "status": "critical"
+        },
+        {
+          "name": "Tables Presence",
+          "score": 0,
+          "maxScore": 8,
+          "value": "0 table(s)",
+          "status": "neutral"
+        },
+        {
+          "name": "Paragraph Structure",
+          "score": 7,
+          "maxScore": 11,
+          "value": "2 paragraphs, avg 10 words",
+          "status": "needs_improvement"
+        },
+        {
+          "name": "Scannability",
+          "score": 7,
+          "maxScore": 11,
+          "value": "No bold text, 0.50 heading ratio",
+          "status": "needs_improvement"
+        },
+        {
+          "name": "Section Length",
+          "score": 4,
+          "maxScore": 12,
+          "value": "1 sections, avg 17 words",
+          "status": "needs_improvement"
+        }
+      ]
+    },
+    "answerability": {
+      "name": "Answerability",
+      "key": "answerability",
+      "score": 3,
+      "maxScore": 64,
+      "factors": [
+        {
+          "name": "Definition Patterns",
+          "score": 0,
+          "maxScore": 10,
+          "value": "0 definition patterns",
+          "status": "critical"
+        },
+        {
+          "name": "Direct Answer Statements",
+          "score": 0,
+          "maxScore": 11,
+          "value": "0 direct statements",
+          "status": "critical"
+        },
+        {
+          "name": "Answer Capsules",
+          "score": 0,
+          "maxScore": 13,
+          "value": "No question-framed H2s found",
+          "status": "neutral"
+        },
+        {
+          "name": "Step-by-Step Content",
+          "score": 3,
+          "maxScore": 10,
+          "value": "0 step indicators, 1 instruction verbs",
+          "status": "needs_improvement"
+        },
+        {
+          "name": "Q/A Patterns",
+          "score": 0,
+          "maxScore": 11,
+          "value": "0 questions, 0 query patterns",
+          "status": "critical"
+        },
+        {
+          "name": "Summary/Conclusion",
+          "score": 0,
+          "maxScore": 9,
+          "value": "No summary markers",
+          "status": "critical"
+        }
+      ]
+    },
+    "entityClarity": {
+      "name": "Entity Clarity",
+      "key": "entityClarity",
+      "score": 0,
+      "maxScore": 60,
+      "factors": [
+        {
+          "name": "Entity Richness",
+          "score": 0,
+          "maxScore": 20,
+          "value": "0 entities (0 people, 0 orgs, 0 places)",
+          "status": "neutral"
+        },
+        {
+          "name": "Topic Consistency",
+          "score": 0,
+          "maxScore": 25,
+          "value": "0/2 title keywords align with content topics",
+          "status": "critical"
+        },
+        {
+          "name": "Entity Density",
+          "score": 0,
+          "maxScore": 15,
+          "value": "0.0 entities per 100 words",
+          "status": "critical"
+        }
+      ]
+    },
+    "groundingSignals": {
+      "name": "Grounding Signals",
+      "key": "groundingSignals",
+      "score": 6,
+      "maxScore": 60,
+      "factors": [
+        {
+          "name": "External References",
+          "score": 6,
+          "maxScore": 13,
+          "value": "1 external links",
+          "status": "needs_improvement"
+        },
+        {
+          "name": "Citation Patterns",
+          "score": 0,
+          "maxScore": 13,
+          "value": "0 citation indicators, 0 quote elements",
+          "status": "critical"
+        },
+        {
+          "name": "Numeric Claims",
+          "score": 0,
+          "maxScore": 13,
+          "value": "0 statistical references, 0 written-out numbers",
+          "status": "critical"
+        },
+        {
+          "name": "Attribution Indicators",
+          "score": 0,
+          "maxScore": 11,
+          "value": "0 attribution patterns",
+          "status": "critical"
+        },
+        {
+          "name": "Quoted Attribution",
+          "score": 0,
+          "maxScore": 10,
+          "value": "0 attributed quotes",
+          "status": "neutral"
+        }
+      ]
+    },
+    "authorityContext": {
+      "name": "Authority Context",
+      "key": "authorityContext",
+      "score": 0,
+      "maxScore": 82,
+      "factors": [
+        {
+          "name": "Author Attribution",
+          "score": 0,
+          "maxScore": 10,
+          "value": "Not found",
+          "status": "critical"
+        },
+        {
+          "name": "Organization Identity",
+          "score": 0,
+          "maxScore": 10,
+          "value": "Not found",
+          "status": "critical"
+        },
+        {
+          "name": "Contact/About Links",
+          "score": 0,
+          "maxScore": 10,
+          "value": "Not found",
+          "status": "critical"
+        },
+        {
+          "name": "Publication Date",
+          "score": 0,
+          "maxScore": 8,
+          "value": "Not found",
+          "status": "critical"
+        },
+        {
+          "name": "Content Freshness",
+          "score": 0,
+          "maxScore": 12,
+          "value": "No parseable date found",
+          "status": "critical"
+        },
+        {
+          "name": "Structured Data",
+          "score": 0,
+          "maxScore": 12,
+          "value": "No JSON-LD, 0/4 OG tags",
+          "status": "critical"
+        },
+        {
+          "name": "Schema Completeness",
+          "score": 0,
+          "maxScore": 10,
+          "value": "No recognized JSON-LD schemas found",
+          "status": "neutral"
+        },
+        {
+          "name": "Entity Consistency",
+          "score": 0,
+          "maxScore": 10,
+          "value": "No identifiable entity name",
+          "status": "neutral"
+        }
+      ]
+    },
+    "readabilityForCompression": {
+      "name": "Readability for Compression",
+      "key": "readabilityForCompression",
+      "score": 11,
+      "maxScore": 60,
+      "factors": [
+        {
+          "name": "Sentence Length",
+          "score": 5,
+          "maxScore": 15,
+          "value": "Avg 6 words/sentence",
+          "status": "needs_improvement"
+        },
+        {
+          "name": "Readability",
+          "score": 6,
+          "maxScore": 15,
+          "value": "Flesch Reading Ease: 35.7",
+          "status": "needs_improvement"
+        },
+        {
+          "name": "Jargon Density",
+          "score": 0,
+          "maxScore": 15,
+          "value": "10.5% complex words",
+          "status": "critical"
+        },
+        {
+          "name": "Transition Usage",
+          "score": 0,
+          "maxScore": 15,
+          "value": "0 transition types found",
+          "status": "critical"
+        }
+      ]
+    }
+  },
+  "recommendations": [
+    {
+      "category": "Grounding Signals",
+      "factor": "Attribution Indicators",
+      "currentValue": "0 attribution patterns",
+      "priority": "high",
+      "recommendation": "Attribute claims to specific sources or experts. Phrases like \"according to\" help AI engines trace information.",
+      "expectedGain": 11,
+      "steps": [
+        "Identify factual claims that currently have no source",
+        "Prepend 'According to [Source]' or 'Per [Organization]' before each claim",
+        "Link the source name to its original URL so AI engines can follow the reference",
+        "Add a citation marker (e.g., [1]) for formal references tied to a sources section"
+      ],
+      "codeExample": "<!-- Before: unattributed claim -->\n<p>72% of AI-cited content uses question-framed headings.</p>\n\n<!-- After: attributed with a link -->\n<p>According to <a href=\"https://arxiv.org/abs/2311.09735\">Princeton's GEO research</a>,\n72% of AI-cited content uses question-framed headings.</p>"
+    },
+    {
+      "category": "Authority Context",
+      "factor": "Author Attribution",
+      "currentValue": "Not found",
+      "priority": "high",
+      "recommendation": "Add visible author information with a byline to establish content credibility and enable AI attribution.",
+      "expectedGain": 10,
+      "steps": [
+        "Add a visible byline near the top of the article (after the H1)",
+        "Link the author name to an about/bio page using rel=\"author\"",
+        "Add author information to your JSON-LD schema (see code example)"
+      ],
+      "codeExample": "<!-- Add a visible byline -->\n<p class=\"byline\">By <a href=\"/about/author-name\" rel=\"author\">Author Name</a></p>\n\n<!-- Add to your JSON-LD schema -->\n\"author\": {\n  \"@type\": \"Person\",\n  \"name\": \"Author Name\",\n  \"url\": \"https://yoursite.com/about/author-name\"\n}",
+      "learnMoreUrl": "https://schema.org/author"
+    },
+    {
+      "category": "Grounding Signals",
+      "factor": "Citation Patterns",
+      "currentValue": "0 citation indicators, 0 quote elements",
+      "priority": "high",
+      "recommendation": "Use formal citation patterns (e.g., [1], \"according to\") when referencing sources.",
+      "expectedGain": 13,
+      "steps": [
+        "Add in-text citation markers like [1] or (Author, Year) after specific claims",
+        "Include a 'References' or 'Sources' section at the bottom of the page",
+        "Use <cite> elements around titles of books, articles, or research papers",
+        "Link each citation marker to its corresponding reference entry"
+      ],
+      "codeExample": "<!-- In-text citation with marker -->\n<p>AI engines prioritize structured content by a factor of 3x <a href=\"#ref-1\">[1]</a>.</p>\n\n<!-- Cited title -->\n<p>As described in <cite>Generative Engine Optimization</cite>, answer density is key.</p>\n\n<!-- References section -->\n<section>\n  <h2>References</h2>\n  <ol>\n    <li id=\"ref-1\">\n      <cite><a href=\"https://arxiv.org/abs/2311.09735\">Generative Engine Optimization (GEO)</a></cite>\n      - Aggarwal et al., Princeton University, 2023\n    </li>\n  </ol>\n</section>"
+    },
+    {
+      "category": "Authority Context",
+      "factor": "Contact/About Links",
+      "currentValue": "Not found",
+      "priority": "high",
+      "recommendation": "Link to About and Contact pages to establish credibility and enable source verification.",
+      "expectedGain": 10,
+      "steps": [
+        "Add links to your About and Contact pages in the site navigation",
+        "Include them in the footer of every page",
+        "Ensure the links are reachable via plain anchor tags, not JavaScript-only interactions"
+      ],
+      "codeExample": "<!-- In site navigation or footer -->\n<nav aria-label=\"Company\">\n  <a href=\"/about\">About Us</a>\n  <a href=\"/contact\">Contact</a>\n</nav>\n\n<!-- Optional: contactPoint in your Organization JSON-LD -->\n\"contactPoint\": {\n  \"@type\": \"ContactPoint\",\n  \"contactType\": \"customer support\",\n  \"url\": \"https://yoursite.com/contact\"\n}"
+    },
+    {
+      "category": "Authority Context",
+      "factor": "Content Freshness",
+      "currentValue": "No parseable date found",
+      "priority": "high",
+      "recommendation": "Add a publication or modified date to your content. 65% of AI crawler hits target content less than 1 year old. Without a parseable date, AI engines may deprioritize your content.",
+      "expectedGain": 12,
+      "steps": [
+        "Add a <time> element with a datetime attribute to your page",
+        "Add datePublished and dateModified to your JSON-LD schema",
+        "Set up a recurring reminder to review content every 6 months"
+      ],
+      "codeExample": "<!-- Add/update in your HTML -->\n<time datetime=\"2026-08-29\" itemprop=\"dateModified\">2026-08-29</time>\n\n<!-- Add/update in your JSON-LD -->\n\"dateModified\": \"2026-08-29\""
+    },
+    {
+      "category": "Answerability",
+      "factor": "Definition Patterns",
+      "currentValue": "0 definition patterns",
+      "priority": "high",
+      "recommendation": "Define key terms and concepts clearly (e.g., \"X is defined as...\" or \"X refers to...\"). Clear definitions are directly reusable by AI engines.",
+      "expectedGain": 10,
+      "steps": [
+        "Identify the 3 to 5 key terms central to your page topic",
+        "Add a one-sentence definition for each using the 'X is' or 'X refers to' pattern",
+        "Place each definition early in the section that first uses the term",
+        "Use a <dl> definition list when the page covers many terms"
+      ],
+      "codeExample": "<!-- Inline definition on first use -->\n<p>AI SEO is defined as [your one-sentence definition here].</p>\n\n<!-- Definition list for multiple terms -->\n<dl>\n  <dt>AI SEO</dt>\n  <dd>[A clear, concise definition that AI engines can extract and reuse.]</dd>\n\n  <dt>[Second key term]</dt>\n  <dd>[The definition of your second most important concept.]</dd>\n</dl>"
+    },
+    {
+      "category": "Answerability",
+      "factor": "Direct Answer Statements",
+      "currentValue": "0 direct statements",
+      "priority": "high",
+      "recommendation": "Start key sentences with direct statements that could serve as standalone answers.",
+      "expectedGain": 11,
+      "steps": [
+        "Find paragraphs where the main point is buried after qualifications or context",
+        "Move the core assertion to the first sentence of the paragraph",
+        "Write opening sentences so they can stand alone as a complete answer",
+        "Follow the direct statement with supporting detail, examples, and caveats"
+      ],
+      "codeExample": "<!-- Before: buried answer -->\n<p>There are many factors involved, and while it depends on the situation,\nin most cases companies that invest in AI SEO tend to see better visibility\nin AI-generated answers.</p>\n\n<!-- After: direct answer first -->\n<p>Companies that invest in AI SEO see better visibility in AI-generated answers.\nResults depend on content quality, structured data completeness, and how well\nheadings are framed as questions.</p>"
+    },
+    {
+      "category": "Entity Clarity",
+      "factor": "Entity Density",
+      "currentValue": "0.0 entities per 100 words",
+      "priority": "high",
+      "recommendation": "Ensure a balanced density of named entities (2-8 per 100 words). Too few makes content vague; too many makes it hard to parse.",
+      "expectedGain": 15
+    },
+    {
+      "category": "Readability for Compression",
+      "factor": "Jargon Density",
+      "currentValue": "10.5% complex words",
+      "priority": "high",
+      "recommendation": "Define technical terms or replace with simpler alternatives. High jargon density reduces AI reusability.",
+      "expectedGain": 15,
+      "steps": [
+        "List the 5 most domain-specific terms on the page",
+        "For each term: either add a plain-English definition on first use, or replace with simpler language",
+        "Use the 'is defined as' or 'also known as' pattern for terms you must keep",
+        "Aim for a Flesch Reading Ease score of 60 to 70 by simplifying sentence structure"
+      ],
+      "codeExample": "<!-- Before: jargon-heavy -->\n<p>Our RAG-based LLM pipeline leverages semantic chunking and vector embeddings\nto optimize retrieval latency for enterprise-scale deployments.</p>\n\n<!-- After: jargon defined on first use -->\n<p>Our AI pipeline uses Retrieval-Augmented Generation (RAG), a technique that\ncombines a language model with a searchable knowledge base, to deliver fast,\naccurate answers at enterprise scale.</p>"
+    },
+    {
+      "category": "Content Structure for Reuse",
+      "factor": "Lists Presence",
+      "currentValue": "0 list items",
+      "priority": "high",
+      "recommendation": "Add bulleted or numbered lists to organize information. Lists are easily extracted and reused by AI engines.",
+      "expectedGain": 11,
+      "steps": [
+        "Identify prose that enumerates 3 or more items in a sentence",
+        "Convert those sentences into <ul> or <ol> list elements",
+        "Use <ol> for sequential steps and <ul> for unordered collections",
+        "Keep list items parallel, each starting with the same grammatical form"
+      ],
+      "codeExample": "<!-- Before: prose enumeration -->\n<p>We offer design, development, and strategy services.</p>\n\n<!-- After: unordered list -->\n<ul>\n  <li>Design: UI/UX and brand identity</li>\n  <li>Development: web and mobile engineering</li>\n  <li>Strategy: AI readiness and growth planning</li>\n</ul>\n\n<!-- Ordered list for sequential steps -->\n<ol>\n  <li>Submit your project brief</li>\n  <li>Schedule a discovery call</li>\n  <li>Receive your proposal within 48 hours</li>\n</ol>"
+    },
+    {
+      "category": "Grounding Signals",
+      "factor": "Numeric Claims",
+      "currentValue": "0 statistical references, 0 written-out numbers",
+      "priority": "high",
+      "recommendation": "Include relevant statistics and data points to support your content with verifiable claims.",
+      "expectedGain": 13
+    },
+    {
+      "category": "Authority Context",
+      "factor": "Organization Identity",
+      "currentValue": "Not found",
+      "priority": "high",
+      "recommendation": "Add Organization structured data or og:site_name to help engines identify the source.",
+      "expectedGain": 10,
+      "steps": [
+        "Add an og:site_name meta tag to every page's <head>",
+        "Add an Organization JSON-LD block to your site's global <head>",
+        "Ensure the organization name is identical across JSON-LD, og:site_name, and visible page content"
+      ],
+      "codeExample": "<!-- og:site_name in <head> -->\n<meta property=\"og:site_name\" content=\"Your Organization\">\n\n<!-- Organization JSON-LD (add to global site header) -->\n<script type=\"application/ld+json\">\n{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"Organization\",\n  \"name\": \"Your Organization\",\n  \"url\": \"https://yoursite.com\",\n  \"logo\": \"https://yoursite.com/logo.png\",\n  \"sameAs\": [\n    \"https://twitter.com/yourhandle\",\n    \"https://linkedin.com/company/yourcompany\"\n  ]\n}\n</script>",
+      "learnMoreUrl": "https://schema.org/Organization"
+    },
+    {
+      "category": "Authority Context",
+      "factor": "Publication Date",
+      "currentValue": "Not found",
+      "priority": "high",
+      "recommendation": "Include publication and last-updated dates using proper HTML5 time elements or schema markup.",
+      "expectedGain": 8,
+      "steps": [
+        "Add a visible publication date near the article title or byline",
+        "Wrap the date in a <time> element with a machine-readable datetime attribute",
+        "Add datePublished and dateModified to your JSON-LD schema"
+      ],
+      "codeExample": "<!-- Visible dates with <time> elements -->\n<p>Published: <time datetime=\"2026-08-29\" itemprop=\"datePublished\">2026-08-29</time></p>\n<p>Updated: <time datetime=\"2026-08-29\" itemprop=\"dateModified\">2026-08-29</time></p>\n\n<!-- In your JSON-LD schema -->\n\"datePublished\": \"2026-08-29\",\n\"dateModified\": \"2026-08-29\"",
+      "learnMoreUrl": "https://schema.org/datePublished"
+    },
+    {
+      "category": "Answerability",
+      "factor": "Q/A Patterns",
+      "currentValue": "0 questions, 0 query patterns",
+      "priority": "high",
+      "recommendation": "Include and answer common questions your audience might have. Structure content to directly answer \"what is\", \"how to\" style queries.",
+      "expectedGain": 11
+    },
+    {
+      "category": "Authority Context",
+      "factor": "Structured Data",
+      "currentValue": "No JSON-LD, 0/4 OG tags",
+      "priority": "high",
+      "recommendation": "Add JSON-LD structured data and Open Graph tags to provide machine-readable context.",
+      "expectedGain": 12,
+      "steps": [
+        "Add a Article JSON-LD block to your <head> (see code example)",
+        "Fill in author, publisher, and date fields with real values",
+        "Add og:title, og:description, and og:image <meta> tags",
+        "Add a <link rel=\"canonical\"> pointing to the preferred URL",
+        "Validate at https://search.google.com/test/rich-results"
+      ],
+      "codeExample": "<script type=\"application/ld+json\">\n{\n  \"@context\": \"https://schema.org\",\n  \"@type\": \"Article\",\n  \"headline\": \"Example Domain\",\n  \"description\": \"Your page description\",\n  \"author\": {\n    \"@type\": \"Person\",\n    \"name\": \"Author Name\"\n  },\n  \"publisher\": {\n    \"@type\": \"Organization\",\n    \"name\": \"Your Organization\"\n  },\n  \"datePublished\": \"2026-08-29\",\n  \"dateModified\": \"2026-08-29\"\n}\n</script>",
+      "learnMoreUrl": "https://schema.org/docs/gs.html"
+    },
+    {
+      "category": "Answerability",
+      "factor": "Summary/Conclusion",
+      "currentValue": "No summary markers",
+      "priority": "high",
+      "recommendation": "Add a conclusion section with key takeaways or a summary. This helps AI engines quickly extract the main points.",
+      "expectedGain": 9,
+      "steps": [
+        "Add an H2 heading at the end of the page: 'Summary', 'Key Takeaways', or 'Conclusion'",
+        "List 3 to 5 bullet points covering the most important points from the page",
+        "Keep each bullet to one sentence; conclusion bullets are the most-cited part of a page",
+        "Optionally follow the summary with a 'Next Steps' or 'Learn More' section"
+      ],
+      "codeExample": "<h2>Key Takeaways</h2>\n<ul>\n  <li>AI SEO focuses on being cited in generated answers, not ranked in link lists.</li>\n  <li>Structured data, answer capsules, and clear entity attribution are the highest-impact factors.</li>\n  <li>Content freshness acts as a hard gate: AI engines strongly prefer content under 12 months old.</li>\n</ul>\n\n<h2>Next Steps</h2>\n<p>Run an audit on your top pages to identify your highest-priority improvements.</p>"
+    },
+    {
+      "category": "Entity Clarity",
+      "factor": "Topic Consistency",
+      "currentValue": "0/2 title keywords align with content topics",
+      "priority": "high",
+      "recommendation": "Align your main topics with your title and headings. Topic consistency helps AI engines understand what your page is about.",
+      "expectedGain": 25
+    },
+    {
+      "category": "Readability for Compression",
+      "factor": "Transition Usage",
+      "currentValue": "0 transition types found",
+      "priority": "high",
+      "recommendation": "Use transition words (however, therefore, additionally) to improve content flow and logical structure.",
+      "expectedGain": 15,
+      "steps": [
+        "Add contrast transitions between opposing ideas: 'however', 'although', 'on the other hand'",
+        "Add sequence transitions between steps or points: 'first', 'next', 'finally'",
+        "Add addition transitions to build on a point: 'additionally', 'furthermore', 'in addition'",
+        "Add conclusion transitions at the end of sections: 'therefore', 'as a result', 'in summary'"
+      ],
+      "codeExample": "<!-- Before: abrupt transitions -->\n<p>AI engines extract structured content. Many pages have no structure.</p>\n<p>Adding headings and lists improves your score.</p>\n\n<!-- After: logical flow with transitions -->\n<p>AI engines extract structured content. <strong>However</strong>, many pages\nlack the organization needed for reliable extraction.</p>\n<p><strong>Therefore</strong>, adding headings and lists directly improves\nhow AI engines process and cite your content.</p>"
+    },
+    {
+      "category": "Content Extractability",
+      "factor": "Word Count Adequacy",
+      "currentValue": "19 words",
+      "priority": "high",
+      "recommendation": "Your page has 19 words, which is too thin for AI engines to reference. The ideal range is 300-3000 words.",
+      "expectedGain": 10
+    },
+    {
+      "category": "Grounding Signals",
+      "factor": "External References",
+      "currentValue": "1 external links",
+      "priority": "medium",
+      "recommendation": "Found 1 external link. AI engines prefer content with 6+ external references. Add more links to authoritative sources that support your claims.",
+      "expectedGain": 7,
+      "steps": [
+        "Identify factual claims that can be supported by an external source",
+        "Find authoritative sources: research papers, industry reports, official documentation",
+        "Wrap the linked text in a meaningful anchor: describe what you are linking to, not 'click here'",
+        "Aim for 6 or more external links per page"
+      ],
+      "codeExample": "<!-- Anchor an external reference to the claim it supports -->\n<p>\n  As referenced in <a href=\"https://iana.org/domains/example\"\n  rel=\"noopener\">Learn more</a>, [your claim here].\n</p>\n\n<!-- Add more references using the same pattern -->\n<p>\n  According to <a href=\"[source-url]\" rel=\"noopener\">[Source Name]</a>,\n  [another claim supported by evidence].\n</p>"
+    },
+    {
+      "category": "Content Structure for Reuse",
+      "factor": "Heading Hierarchy",
+      "currentValue": "1 H1, 0 H2, 0 H3",
+      "priority": "medium",
+      "recommendation": "Use a clear H1 > H2 > H3 heading hierarchy. Headings serve as structural anchors that AI engines use to segment and reuse content.",
+      "expectedGain": 7,
+      "steps": [
+        "Use exactly 1 H1 tag for the main page title",
+        "Use H2 tags for major sections (aim for 3+ sections)",
+        "Use H3 tags for subsections within each H2",
+        "Never skip levels (e.g., don't jump from H1 to H3)",
+        "Frame H2s as questions when possible for answer capsule compatibility"
+      ],
+      "codeExample": "<!-- Recommended heading structure -->\n<h1>Example Domain</h1>\n\n<h2>What is Example Domain?</h2>\n<p>Definition and overview...</p>\n\n  <h3>Key Features</h3>\n  <p>Details...</p>\n\n<h2>Why Does Example Domain Matter?</h2>\n<p>Importance and context...</p>\n\n<h2>How to Get Started</h2>\n<p>Step-by-step guide...</p>"
+    },
+    {
+      "category": "Readability for Compression",
+      "factor": "Readability",
+      "currentValue": "Flesch Reading Ease: 35.7",
+      "priority": "medium",
+      "recommendation": "Your Flesch Reading Ease score is 36 (difficult). A score of 60-70 is ideal for broad AI reusability. Simplify where possible without losing meaning.",
+      "expectedGain": 9
+    },
+    {
+      "category": "Content Structure for Reuse",
+      "factor": "Section Length",
+      "currentValue": "1 sections, avg 17 words",
+      "priority": "medium",
+      "recommendation": "Your sections average 17 words. The citation sweet spot is 120-180 words. Consider expanding sections with more detail rather than splitting into many short fragments.",
+      "expectedGain": 8
+    },
+    {
+      "category": "Readability for Compression",
+      "factor": "Sentence Length",
+      "currentValue": "Avg 6 words/sentence",
+      "priority": "medium",
+      "recommendation": "Your average sentence is 6 words. While short sentences are readable, combining some into 12-22 word sentences provides better context for AI summarization.",
+      "expectedGain": 10
+    },
+    {
+      "category": "Answerability",
+      "factor": "Step-by-Step Content",
+      "currentValue": "0 step indicators, 1 instruction verbs",
+      "priority": "medium",
+      "recommendation": "Break down processes into clear, numbered steps. Step-by-step content is highly reusable by AI engines.",
+      "expectedGain": 7
+    },
+    {
+      "category": "Content Structure for Reuse",
+      "factor": "Paragraph Structure",
+      "currentValue": "2 paragraphs, avg 10 words",
+      "priority": "low",
+      "recommendation": "Keep paragraphs between 30-150 words for optimal readability and extractability.",
+      "expectedGain": 4
+    },
+    {
+      "category": "Content Structure for Reuse",
+      "factor": "Scannability",
+      "currentValue": "No bold text, 0.50 heading ratio",
+      "priority": "low",
+      "recommendation": "Use bold text, short paragraphs, and frequent headings to improve scannability for both humans and AI.",
+      "expectedGain": 4
+    }
+  ],
+  "rawData": {
+    "title": "Example Domain",
+    "metaDescription": "",
+    "wordCount": 19,
+    "crawlerAccess": {
+      "allowed": [],
+      "blocked": [],
+      "unknown": [
+        "GPTBot",
+        "OAI-SearchBot",
+        "ChatGPT-User",
+        "ClaudeBot",
+        "Claude-User",
+        "Claude-SearchBot",
+        "PerplexityBot",
+        "Perplexity-User",
+        "Google-Extended",
+        "Applebot-Extended",
+        "CCBot",
+        "Bytespider",
+        "meta-externalagent"
+      ]
+    },
+    "llmsTxt": {
+      "llmsTxtExists": false,
+      "llmsFullTxtExists": false
+    },
+    "imageAccessibility": {
+      "imageCount": 0,
+      "imagesWithAlt": 0,
+      "figcaptionCount": 0
+    },
+    "sectionLengths": {
+      "sectionCount": 1,
+      "avgWordsPerSection": 17,
+      "sections": [
+        17
+      ]
+    },
+    "answerCapsules": {
+      "total": 0,
+      "withCapsule": 0
+    },
+    "questionsFound": [],
+    "entities": {
+      "people": [],
+      "organizations": [],
+      "places": [],
+      "topics": [],
+      "imperativeVerbCount": 1,
+      "numberCount": 0
+    },
+    "externalLinks": [
+      {
+        "url": "https://iana.org/domains/example",
+        "text": "Learn more"
+      }
+    ],
+    "freshness": {
+      "publishDate": null,
+      "modifiedDate": null,
+      "ageInMonths": null,
+      "hasModifiedDate": false
+    },
+    "structuredDataTypes": [],
+    "schemaCompleteness": {
+      "totalTypes": 0,
+      "avgCompleteness": 0,
+      "details": []
+    },
+    "entityConsistency": {
+      "entityName": null,
+      "surfacesFound": 0,
+      "surfacesChecked": 0
+    },
+    "avgSentenceLength": 6,
+    "readabilityScore": 35.65929824561405
+  },
+  "meta": {
+    "version": "1.6.2",
+    "weights": {
+      "contentExtractability": 1,
+      "contentStructure": 1,
+      "answerability": 1,
+      "entityClarity": 1,
+      "groundingSignals": 1,
+      "authorityContext": 1,
+      "readabilityForCompression": 1
+    },
+    "analysisDurationMs": 459
+  }
+}

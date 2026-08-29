@@ -1,12 +1,17 @@
 import type { ExtractedPageType } from "../extractor/schema.js";
 import { buildCategoryOutput } from "../audits/category.js";
 import type { FetchResultType } from "../fetcher/schema.js";
-import { makeFactor, thresholdScore } from "../scoring/service.js";
+import {
+  makeDiagnostic,
+  makeFactor,
+  thresholdScore,
+} from "../scoring/service.js";
 import type {
   CategoryAuditOutputType,
   DomainSignalsType,
   FactorResultType,
 } from "../audits/schema.js";
+import { detectPaywallSignals } from "./paywall.js";
 import { checkCrawlerAccess } from "./robots.js";
 
 export function auditContentExtractability(
@@ -67,20 +72,11 @@ export function auditContentExtractability(
     ),
   );
 
-  const wordCount = page.stats.wordCount;
-  const wcScore = thresholdScore(
-    wordCount,
-    [
-      [300, 3001, 12],
-      [3001, Infinity, 10],
-      [100, 300, 8],
-      [1, 100, 2],
-    ],
-    "range",
-  );
   factors.push(
-    makeFactor("Word Count Adequacy", wcScore, 12, `${wordCount} words`),
+    makeDiagnostic("Word Count Adequacy", `${page.stats.wordCount} words`),
   );
+
+  factors.push(paywallSignalsFactor(page));
 
   if (domainSignals) {
     const access = checkCrawlerAccess(domainSignals.robotsTxt);
@@ -113,21 +109,16 @@ export function auditContentExtractability(
 
     const hasLlms = domainSignals.llmsTxtExists;
     const hasLlmsFull = domainSignals.llmsFullTxtExists;
-    const llmsScore =
-      hasLlms && hasLlmsFull ? 6 : hasLlms || hasLlmsFull ? 4 : 0;
     factors.push(
-      makeFactor(
+      makeDiagnostic(
         "LLMs.txt Presence",
-        llmsScore,
-        6,
         hasLlms && hasLlmsFull
-          ? "llms.txt + llms-full.txt found"
+          ? "llms.txt + llms-full.txt found (experimental standard, no outcome evidence)"
           : hasLlms
-            ? "llms.txt found"
+            ? "llms.txt found (experimental standard, no outcome evidence)"
             : hasLlmsFull
-              ? "llms-full.txt found"
-              : "Not found",
-        !hasLlms && !hasLlmsFull ? "neutral" : undefined,
+              ? "llms-full.txt found (experimental standard, no outcome evidence)"
+              : "Not found (experimental standard, no outcome evidence)",
       ),
     );
   }
@@ -135,29 +126,41 @@ export function auditContentExtractability(
   const imageCount = page.stats.imageCount;
   const imagesWithAlt = page.stats.imagesWithAlt;
   const figcaptionCount = page.$("figure figcaption").length;
-  const altRatio = imageCount > 0 ? imagesWithAlt / imageCount : 0;
-
-  let imageAccessibilityScore = 0;
-  if (imageCount > 0) {
-    if (altRatio >= 0.9) imageAccessibilityScore += 5;
-    else if (altRatio >= 0.5) imageAccessibilityScore += 3;
-    else imageAccessibilityScore += 1;
-    if (figcaptionCount > 0) imageAccessibilityScore += 3;
-  }
 
   factors.push(
-    makeFactor(
+    makeDiagnostic(
       "Image Accessibility",
-      imageAccessibilityScore,
-      8,
       imageCount > 0
-        ? `${imagesWithAlt}/${imageCount} images have alt text${figcaptionCount > 0 ? `, ${figcaptionCount} figcaptions` : ""}`
+        ? `${imagesWithAlt}/${imageCount} images have alt text${figcaptionCount > 0 ? `, ${figcaptionCount} figcaptions` : ""} (accessibility information)`
         : "No images found",
-      imageCount === 0 ? "neutral" : undefined,
     ),
   );
 
   rawData.imageAccessibility = { imageCount, imagesWithAlt, figcaptionCount };
 
   return buildCategoryOutput("contentExtractability", factors, rawData);
+}
+
+function paywallSignalsFactor(page: ExtractedPageType): FactorResultType {
+  const paywall = detectPaywallSignals(page.$);
+
+  if (paywall.declaresNotFreelyAccessible || paywall.markerCount >= 2) {
+    return makeFactor(
+      "Paywall Signals",
+      0,
+      8,
+      paywall.declaresNotFreelyAccessible
+        ? "Page declares isAccessibleForFree: false"
+        : `${paywall.markerCount} paywall markers found`,
+    );
+  }
+  if (paywall.markerCount === 1) {
+    return makeFactor("Paywall Signals", 4, 8, "1 paywall marker found");
+  }
+  return makeFactor(
+    "Paywall Signals",
+    8,
+    8,
+    "No paywall or login barriers detected",
+  );
 }

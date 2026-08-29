@@ -1,240 +1,151 @@
 import { describe, expect, it } from "vitest";
-import type { AnalyzerResultType } from "../../../../src/modules/analyzer/schema.js";
-import { buildTldr } from "../../../../src/modules/report/support/tldr.js";
-
-function makeResult(
-  overrides?: Partial<AnalyzerResultType>,
-): AnalyzerResultType {
-  return {
-    url: "https://example.com",
-    signalsBase: "https://example.com",
-    analyzedAt: "2026-04-17T00:00:00.000Z",
-    overallScore: 59,
-    grade: "F",
-    totalPoints: 276,
-    maxPoints: 462,
-    categories: {
-      answerability: {
-        name: "Answerability",
-        key: "answerability",
-        score: 18,
-        maxScore: 64,
-        factors: [
-          {
-            name: "Answer Capsules",
-            score: 0,
-            maxScore: 13,
-            value: "",
-            status: "critical",
-          },
-        ],
-      },
-      authorityContext: {
-        name: "Authority Context",
-        key: "authorityContext",
-        score: 57,
-        maxScore: 82,
-        factors: [
-          {
-            name: "Author Attribution",
-            score: 0,
-            maxScore: 10,
-            value: "",
-            status: "critical",
-          },
-        ],
-      },
-      contentExtractability: {
-        name: "Content Extractability",
-        key: "contentExtractability",
-        score: 61,
-        maxScore: 72,
-        factors: [
-          {
-            name: "Image Alt Text",
-            score: 1,
-            maxScore: 8,
-            value: "",
-            status: "critical",
-          },
-        ],
-      },
-    },
-    recommendations: [
-      {
-        category: "Answerability",
-        factor: "Answer Capsules",
-        currentValue: "0",
-        priority: "high",
-        recommendation: "Add answer capsules",
-        expectedGain: 13,
-      },
-      {
-        category: "Authority Context",
-        factor: "Author Attribution",
-        currentValue: "Not found",
-        priority: "high",
-        recommendation: "Add author",
-        expectedGain: 10,
-      },
-      {
-        category: "Content Extractability",
-        factor: "Image Alt Text",
-        currentValue: "1/8",
-        priority: "high",
-        recommendation: "Add alt text",
-        expectedGain: 7,
-      },
-      {
-        category: "Answerability",
-        factor: "Summary",
-        currentValue: "0",
-        priority: "low",
-        recommendation: "Add summary",
-        expectedGain: 2,
-      },
-    ],
-    rawData: { title: "Test", metaDescription: "", wordCount: 100 },
-    meta: { version: "1.5.0", analysisDurationMs: 120 },
-    ...overrides,
-  };
-}
+import {
+  buildTldr,
+  TLDR_NOTE,
+} from "../../../../src/modules/report/support/tldr.js";
+import {
+  makeGate,
+  makeRecommendation,
+  makeResult,
+  makeStages,
+} from "../../../helpers/results.js";
 
 describe("buildTldr", () => {
   it("returns the current score and grade", () => {
-    const tldr = buildTldr(makeResult());
+    const tldr = buildTldr(makeResult({ overallScore: 59, grade: "F" }));
     expect(tldr.score).toBe(59);
     expect(tldr.grade).toBe("F");
   });
 
-  it("picks the top 3 wins ranked by weighted overall impact", () => {
+  it("carries the non-additive audit points note", () => {
     const tldr = buildTldr(makeResult());
-    expect(tldr.quickestWins).toHaveLength(3);
-    expect(tldr.quickestWins[0].factor).toBe("Answer Capsules");
-    expect(tldr.quickestWins[0].expectedGain).toBe(13);
-    expect(tldr.quickestWins[1].factor).toBe("Author Attribution");
-    expect(tldr.quickestWins[2].factor).toBe("Image Alt Text");
+    expect(tldr.note).toBe(TLDR_NOTE);
+    expect(tldr.note).toContain("not additive");
   });
 
-  it("ranks 8 points in a small category above 11 points in a large one", () => {
-    const result = makeResult();
-    result.categories.answerability.maxScore = 20;
-    result.categories.answerability.score = 5;
-    result.recommendations = [
-      {
-        category: "Authority Context",
-        factor: "Author Attribution",
-        currentValue: "Not found",
-        priority: "high",
-        recommendation: "Add author",
-        expectedGain: 11,
-      },
-      {
-        category: "Answerability",
-        factor: "Answer Capsules",
-        currentValue: "0",
-        priority: "high",
-        recommendation: "Add answer capsules",
-        expectedGain: 8,
-      },
-    ];
-
-    const tldr = buildTldr(result);
-    expect(tldr.quickestWins[0].factor).toBe("Answer Capsules");
-  });
-
-  it("lets a 10x category weight promote that category's win to first place", () => {
-    const result = makeResult();
-    result.meta.weights = {
-      contentExtractability: 10,
-      contentStructure: 1,
-      answerability: 1,
-      entityClarity: 1,
-      groundingSignals: 1,
-      authorityContext: 1,
-      readabilityForCompression: 1,
-    };
-
-    const tldr = buildTldr(result);
-    expect(tldr.quickestWins[0].factor).toBe("Image Alt Text");
-  });
-
-  it("excludes recommendations with zero expected gain", () => {
-    const result = makeResult();
-    result.recommendations[0].expectedGain = 0;
-    const tldr = buildTldr(result);
-    expect(tldr.quickestWins.every((w) => w.expectedGain > 0)).toBe(true);
-  });
-
-  it("projects a score higher than the baseline when wins are applied", () => {
-    const baseline = buildTldr(
-      makeResult({ recommendations: [] }),
-    ).projectedScore;
-    const withWins = buildTldr(makeResult()).projectedScore;
-    expect(withWins).toBeGreaterThan(baseline);
-  });
-
-  it("projects the same score as current when there are no wins", () => {
-    const tldr = buildTldr(makeResult({ recommendations: [] }));
-    expect(tldr.quickestWins).toHaveLength(0);
-    expect(tldr.projectedScore).toBe(tldr.score);
-  });
-
-  it("honors a smaller maxWins cap", () => {
-    const tldr = buildTldr(makeResult(), 1);
-    expect(tldr.quickestWins).toHaveLength(1);
-    expect(tldr.quickestWins[0].factor).toBe("Answer Capsules");
-  });
-
-  it("includes a projected grade derived from the projected score", () => {
-    const tldr = buildTldr(makeResult());
-    expect(tldr.projectedGrade).toMatch(/^[A-F][+-]?$/);
-  });
-
-  it("projects 100 when the only category's only factor reaches full marks", () => {
-    const result: AnalyzerResultType = {
-      url: "https://example.com",
-      signalsBase: "https://example.com",
-      analyzedAt: "2026-04-17T00:00:00.000Z",
-      overallScore: 50,
-      grade: "D",
-      totalPoints: 5,
-      maxPoints: 10,
-      categories: {
-        contentExtractability: {
-          name: "Content Extractability",
-          key: "contentExtractability",
-          score: 5,
-          maxScore: 10,
-          factors: [
-            {
-              name: "Word Count",
-              score: 5,
-              maxScore: 10,
-              value: "5/10",
-              status: "needs_improvement",
-            },
-          ],
-        },
-      },
+  it("selects the top 3 fixes by priority then audit points", () => {
+    const result = makeResult({
       recommendations: [
-        {
-          category: "Content Extractability",
-          factor: "Word Count",
-          currentValue: "5/10",
+        makeRecommendation({
+          factor: "Low Priority Big Points",
+          priority: "low",
+          auditPoints: 40,
+        }),
+        makeRecommendation({
+          factor: "High Priority Small Points",
+          priority: "high",
+          auditPoints: 3,
+        }),
+        makeRecommendation({
+          factor: "High Priority Big Points",
+          priority: "high",
+          auditPoints: 12,
+        }),
+        makeRecommendation({
+          factor: "Medium Priority",
           priority: "medium",
-          recommendation: "Add more content",
-          expectedGain: 5,
-        },
+          auditPoints: 8,
+        }),
       ],
-      rawData: { title: "Test", metaDescription: "", wordCount: 5 },
-      meta: { version: "1.5.0", analysisDurationMs: 1 },
-    };
+    });
 
     const tldr = buildTldr(result);
 
-    expect(tldr.score).toBe(50);
-    expect(tldr.projectedScore).toBe(100);
-    expect(tldr.projectedGrade).toBe("A");
+    expect(tldr.topFixes).toHaveLength(3);
+    expect(tldr.topFixes[0].factor).toBe("High Priority Big Points");
+    expect(tldr.topFixes[1].factor).toBe("High Priority Small Points");
+    expect(tldr.topFixes[2].factor).toBe("Medium Priority");
+  });
+
+  it("exposes factor, category, and auditPoints on each fix", () => {
+    const result = makeResult({
+      recommendations: [
+        makeRecommendation({
+          factor: "Author Attribution",
+          category: "Authority Context",
+          priority: "high",
+          auditPoints: 10,
+        }),
+      ],
+    });
+
+    const tldr = buildTldr(result);
+
+    expect(tldr.topFixes[0]).toEqual({
+      factor: "Author Attribution",
+      category: "Authority Context",
+      auditPoints: 10,
+    });
+  });
+
+  it("defaults auditPoints to zero for recommendations without points", () => {
+    const result = makeResult({
+      recommendations: [makeRecommendation({ auditPoints: undefined })],
+    });
+
+    const tldr = buildTldr(result);
+
+    expect(tldr.topFixes[0].auditPoints).toBe(0);
+  });
+
+  it("returns no fixes when there are no recommendations", () => {
+    const tldr = buildTldr(makeResult({ recommendations: [] }));
+    expect(tldr.topFixes).toHaveLength(0);
+  });
+
+  it("omits stages when the result carries none", () => {
+    const tldr = buildTldr(makeResult({ stages: undefined }));
+    expect(tldr.stages).toBeUndefined();
+  });
+
+  it("summarizes stage percentages and eligibility status", () => {
+    const tldr = buildTldr(makeResult({ stages: makeStages() }));
+
+    expect(tldr.stages).toEqual({
+      technicalEligibility: { status: "pass", pct: 87 },
+      retrievalAlignment: { pct: 75 },
+      citationFitness: { pct: 64, uncappedPct: 64, trippedGates: [] },
+      provenance: { pct: 73 },
+    });
+  });
+
+  it("names tripped gates and preserves the uncapped percentage", () => {
+    const stages = makeStages();
+    const tldr = buildTldr(
+      makeResult({
+        stages: {
+          ...stages,
+          citationFitness: {
+            ...stages.citationFitness,
+            pct: 50,
+            uncappedPct: 82,
+            gates: [
+              makeGate({ status: "tripped" }),
+              makeGate({
+                id: "missingPriceProduct",
+                label: "Product page without price information",
+                capPct: 60,
+                status: "not_applicable",
+              }),
+            ],
+          },
+        },
+      }),
+    );
+
+    expect(tldr.stages?.citationFitness).toEqual({
+      pct: 50,
+      uncappedPct: 82,
+      trippedGates: ["Visible date is stale"],
+    });
+  });
+
+  it("never exposes projected scores or expected gains", () => {
+    const tldr = buildTldr(makeResult());
+    const serialized = JSON.stringify(tldr);
+    expect(serialized).not.toContain("projectedScore");
+    expect(serialized).not.toContain("projectedGrade");
+    expect(serialized).not.toContain("expectedGain");
+    expect(serialized).not.toContain("quickestWins");
   });
 });

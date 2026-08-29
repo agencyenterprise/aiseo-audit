@@ -3,13 +3,18 @@ import { normalizeUrl, originOf } from "../../utils/url.js";
 import type { DomainSignalsType } from "../audits/schema.js";
 import { runAudits } from "../audits/service.js";
 import type { AiseoConfigType } from "../config/schema.js";
+import { applyEnginePreset } from "../config/engine-presets.js";
 import { extractPage } from "../extractor/service.js";
 import type { FetchResultType } from "../fetcher/schema.js";
 import { fetchUrl } from "../fetcher/service.js";
 import { generateRecommendations } from "../recommendations/service.js";
 import { computeScore } from "../scoring/service.js";
+import { computeStages } from "../scoring/stages.js";
 import { VERSION } from "../../version.js";
-import { DOMAIN_SIGNAL_TIMEOUT_CAP } from "./constants.js";
+import {
+  DOMAIN_SIGNAL_TIMEOUT_CAP,
+  RESULT_SCHEMA_VERSION,
+} from "./constants.js";
 import type { AnalyzerOptionsType, AnalyzerResultType } from "./schema.js";
 
 export async function analyzeUrl(
@@ -86,24 +91,41 @@ function buildResult(
   startTime: number,
 ): AnalyzerResultType {
   const page = extractPage(fetchResult.html, url);
-  const auditResult = runAudits(page, fetchResult, domainSignals);
-  const scoring = computeScore(auditResult.categories, config.weights);
+  const auditResult = runAudits(page, fetchResult, domainSignals, {
+    queries: config.queries,
+    domain: config.domain,
+  });
+  const stages = computeStages(auditResult.categories, auditResult.rawData, {
+    queries: config.queries,
+    domain: config.domain,
+  });
+  const weights = applyEnginePreset(config.weights, config.engine);
+  const scoring = computeScore(auditResult.categories, weights, {
+    stages,
+    stageWeights: config.stageWeights,
+  });
   const recommendations = generateRecommendations(auditResult);
 
   return {
     url,
     signalsBase: domainSignals.signalsBase,
     analyzedAt: new Date().toISOString(),
+    schemaVersion: RESULT_SCHEMA_VERSION,
     overallScore: scoring.overallScore,
     grade: scoring.grade,
     totalPoints: scoring.totalPoints,
     maxPoints: scoring.maxPoints,
+    stages,
     categories: auditResult.categories,
     recommendations,
     rawData: auditResult.rawData,
     meta: {
       version: VERSION,
       weights: config.weights,
+      stageWeights: config.stageWeights,
+      queries: config.queries.length > 0 ? config.queries : undefined,
+      domain: config.domain,
+      engine: config.engine,
       analysisDurationMs: Date.now() - startTime,
     },
   };

@@ -1,14 +1,28 @@
 import chalk from "chalk";
 import type { AnalyzerResultType } from "../../analyzer/schema.js";
+import type { FactorResultType } from "../../audits/schema.js";
 import type { SitemapResultType } from "../../sitemap/schema.js";
+import type { StageScoresType } from "../../scoring/schema.js";
 import { buildTldr, type TldrType } from "./tldr.js";
 import {
+  enginePresetBanner,
   generatedByLine,
   hasHttpUrls,
+  hiddenRecommendationsNote,
   HTTP_AUDIT_NOTE,
+  isProductPage,
+  NON_ADDITIVE_RECS_NOTE,
+  orderFactorsForDisplay,
   priorityLabel,
+  PRODUCT_PAGE_WARNING,
   scoreBand,
   SITEMAP_HTTP_AUDIT_NOTE,
+  STAGE_LABELS,
+  stagePctLabel,
+  trippedGateLine,
+  trippedGates,
+  UNSCORED_DIAGNOSTIC_LABEL,
+  visibleRecommendations,
 } from "./view-model.js";
 
 export function renderPretty(result: AnalyzerResultType): string {
@@ -25,7 +39,7 @@ export function renderPretty(result: AnalyzerResultType): string {
   lines.push("");
 
   const tldr = buildTldr(result);
-  if (tldr.quickestWins.length > 0) {
+  if (tldr.topFixes.length > 0) {
     renderTldrBlock(lines, tldr);
     lines.push("");
     lines.push(thinDivider);
@@ -39,28 +53,28 @@ export function renderPretty(result: AnalyzerResultType): string {
   );
   lines.push(chalk.dim(`  Points: ${result.totalPoints}/${result.maxPoints}`));
   lines.push("");
+  if (result.stages) {
+    renderStagesBlock(lines, result.stages);
+    lines.push("");
+  }
+  renderBanners(lines, result);
   renderDomainSignalsBlock(lines, result.signalsBase, result.rawData);
   lines.push("");
   lines.push(thinDivider);
 
   for (const category of Object.values(result.categories)) {
     const catColor = scoreColor(category.score, category.maxScore);
-    const catPct =
+    const catLabel =
       category.maxScore > 0
-        ? Math.round((category.score / category.maxScore) * 100)
-        : 0;
+        ? `(${Math.round((category.score / category.maxScore) * 100)}%)`
+        : "(not applicable to this page)";
     lines.push("");
     lines.push(
-      `  ${chalk.bold(pad(category.name, LABEL_COL))} ${dots(Math.max(2, LABEL_COL + 2 - category.name.length))} ${catColor(`${category.score}/${category.maxScore}`)} ${chalk.dim(`(${catPct}%)`)}`,
+      `  ${chalk.bold(pad(category.name, LABEL_COL))} ${dots(Math.max(2, LABEL_COL + 2 - category.name.length))} ${catColor(`${category.score}/${category.maxScore}`)} ${chalk.dim(catLabel)}`,
     );
 
-    for (const factor of category.factors) {
-      const fColor = scoreColor(factor.score, factor.maxScore);
-      const indented = `  ${factor.name}`;
-
-      lines.push(
-        `  ${chalk.dim(pad(indented, LABEL_COL + 2))} ${dots(Math.max(2, LABEL_COL + 2 - indented.length))} ${fColor(`${factor.score}/${factor.maxScore}`)} ${chalk.dim(factor.value)}`,
-      );
+    for (const factor of orderFactorsForDisplay(category.factors)) {
+      lines.push(factorLine(factor));
     }
   }
 
@@ -72,8 +86,9 @@ export function renderPretty(result: AnalyzerResultType): string {
     lines.push(chalk.bold("  Recommendations:"));
     lines.push("");
 
-    for (let i = 0; i < result.recommendations.length; i++) {
-      const rec = result.recommendations[i];
+    const shown = visibleRecommendations(result.recommendations);
+    for (let i = 0; i < shown.length; i++) {
+      const rec = shown[i];
       const label = priorityLabel(rec.priority);
       const tag =
         label === "HIGH"
@@ -110,6 +125,14 @@ export function renderPretty(result: AnalyzerResultType): string {
 
       lines.push("");
     }
+
+    const hiddenNote = hiddenRecommendationsNote(result.recommendations);
+    if (hiddenNote) {
+      lines.push(chalk.dim(`  ${hiddenNote}`));
+      lines.push("");
+    }
+    lines.push(chalk.dim(`  ${NON_ADDITIVE_RECS_NOTE}`));
+    lines.push("");
   }
 
   lines.push(divider);
@@ -136,7 +159,7 @@ export function renderPrettyTldr(result: AnalyzerResultType): string {
   lines.push(divider);
   lines.push("");
 
-  if (tldr.quickestWins.length > 0) {
+  if (tldr.topFixes.length > 0) {
     renderTldrBlock(lines, tldr);
   } else {
     const overallScoreColor = scoreColor(tldr.score, 100);
@@ -144,7 +167,7 @@ export function renderPrettyTldr(result: AnalyzerResultType): string {
       `  Score: ${overallScoreColor(`${tldr.score}/100`)}  Grade: ${gradeColor(tldr.grade)(tldr.grade)}`,
     );
     lines.push(
-      chalk.dim("  No quick wins identified. Everything is already solid."),
+      chalk.dim("  No fixes identified. Everything is already solid."),
     );
   }
 
@@ -194,6 +217,29 @@ export function renderSitemapPretty(result: SitemapResultType): string {
     lines.push(thinDivider);
   }
 
+  if (result.hostProfile) {
+    const host = result.hostProfile;
+    lines.push("");
+    lines.push(chalk.bold("  Host Profile:"));
+    lines.push("");
+    lines.push(
+      `  ${chalk.bold(labelWithDots("Site name"))} ${host.dominantSiteName ? `"${host.dominantSiteName}" on ${host.siteNameUniformityPct}% of pages` : "not resolvable"}`,
+    );
+    lines.push(
+      `  ${chalk.bold(labelWithDots("Organization schema"))} ${host.organizationSchemaPct}% of pages`,
+    );
+    lines.push(
+      `  ${chalk.bold(labelWithDots("Author bylines"))} ${host.bylineCoveragePct}% of pages`,
+    );
+    lines.push(
+      `  ${chalk.bold(labelWithDots("About/contact links"))} ${host.aboutOrContactFound ? "found" : "not found"}`,
+    );
+    lines.push("");
+    lines.push(chalk.dim(`  ${host.note}`));
+    lines.push("");
+    lines.push(thinDivider);
+  }
+
   lines.push("");
   lines.push(chalk.bold("  URL Results:"));
   lines.push("");
@@ -236,39 +282,108 @@ export function renderSitemapPretty(result: SitemapResultType): string {
 }
 
 function renderTldrBlock(lines: string[], tldr: TldrType): void {
-  if (tldr.quickestWins.length === 0) return;
-
-  const projectedColor = scoreColor(tldr.projectedScore, 100);
-  const projectedGradeColor = gradeColor(tldr.projectedGrade);
+  if (tldr.topFixes.length === 0) return;
 
   lines.push(
     `  Score: ${scoreColor(tldr.score, 100)(`${tldr.score}/100`)} ${chalk.dim(
       "Grade:",
-    )} ${gradeColor(tldr.grade)(tldr.grade)}   ${chalk.dim("→")}   Top ${
-      tldr.quickestWins.length
-    } fixes: ~${projectedColor(`${tldr.projectedScore}/100`)} ${projectedGradeColor(
-      tldr.projectedGrade,
-    )}`,
+    )} ${gradeColor(tldr.grade)(tldr.grade)}`,
   );
   lines.push("");
-  lines.push(chalk.bold("  Quickest wins:"));
+  lines.push(chalk.bold("  Top fixes:"));
 
-  const indexWidth = String(tldr.quickestWins.length).length;
-  const gainWidth = Math.max(
-    ...tldr.quickestWins.map((w) => `+${w.expectedGain}`.length),
+  const indexWidth = String(tldr.topFixes.length).length;
+  const pointsWidth = Math.max(
+    ...tldr.topFixes.map((fix) => `${fix.auditPoints}`.length),
   );
   const factorWidth = Math.max(
-    ...tldr.quickestWins.map((w) => w.factor.length),
+    ...tldr.topFixes.map((fix) => fix.factor.length),
   );
 
-  tldr.quickestWins.forEach((win, i) => {
+  tldr.topFixes.forEach((fix, i) => {
     const index = String(i + 1).padStart(indexWidth, " ");
-    const gain = `+${win.expectedGain}`.padStart(gainWidth, " ");
-    const factor = win.factor.padEnd(factorWidth, " ");
+    const points = `${fix.auditPoints}`.padStart(pointsWidth, " ");
+    const factor = fix.factor.padEnd(factorWidth, " ");
     lines.push(
-      `    ${index}. ${chalk.green(gain)} pts  ${factor}  ${chalk.dim(`(${win.category})`)}`,
+      `    ${index}. ${chalk.green(points)} audit pts  ${factor}  ${chalk.dim(`(${fix.category})`)}`,
     );
   });
+  lines.push("");
+  lines.push(chalk.dim(`  ${tldr.note}`));
+}
+
+function renderStagesBlock(lines: string[], stages: StageScoresType): void {
+  const eligibility = stages.technicalEligibility;
+  const eligibilityBanner =
+    eligibility.status === "pass"
+      ? chalk.green("PASS")
+      : chalk.red(
+          `FAIL (blockers: ${eligibility.blockers.join(", ") || "unknown"})`,
+        );
+
+  lines.push(chalk.bold("  Pipeline Stages:"));
+  lines.push(
+    `    ${stageLabelWithDots(STAGE_LABELS.technicalEligibility)} ${eligibilityBanner} ${chalk.dim(stagePctLabel(eligibility.pct, eligibility.suppressed))}`,
+  );
+  lines.push(
+    `    ${stageLabelWithDots(STAGE_LABELS.retrievalAlignment)} ${stagePctText(stages.retrievalAlignment.pct, stages.retrievalAlignment.suppressed)}`,
+  );
+  lines.push(
+    `    ${stageLabelWithDots(STAGE_LABELS.citationFitness)} ${citationFitnessText(stages)}`,
+  );
+  for (const gate of trippedGates(stages)) {
+    lines.push(chalk.yellow(`      ${trippedGateLine(gate)}`));
+  }
+  lines.push(
+    `    ${stageLabelWithDots(STAGE_LABELS.provenance)} ${stagePctText(stages.provenance.pct, stages.provenance.suppressed)}`,
+  );
+}
+
+function citationFitnessText(stages: StageScoresType): string {
+  const { pct, uncappedPct, suppressed } = stages.citationFitness;
+  const base = stagePctText(pct, suppressed);
+  if (
+    !suppressed &&
+    pct !== null &&
+    uncappedPct !== null &&
+    uncappedPct !== pct
+  ) {
+    return `${base} ${chalk.dim(`(uncapped ${uncappedPct}%)`)}`;
+  }
+  return base;
+}
+
+function stagePctText(pct: number | null, suppressed: boolean): string {
+  if (suppressed) return chalk.dim(stagePctLabel(pct, suppressed));
+  if (pct === null) return chalk.dim("n/a");
+  return scoreColor(pct, 100)(`${pct}%`);
+}
+
+function renderBanners(lines: string[], result: AnalyzerResultType): void {
+  const engineBanner = enginePresetBanner(result.meta.engine);
+  if (engineBanner) {
+    lines.push(chalk.yellow(`  ${engineBanner}`));
+    lines.push("");
+  }
+  if (isProductPage(result)) {
+    lines.push(chalk.yellow(`  ${PRODUCT_PAGE_WARNING}`));
+    lines.push("");
+  }
+}
+
+function factorLine(factor: FactorResultType): string {
+  const indented = `  ${factor.name}`;
+  const padded = `  ${chalk.dim(pad(indented, LABEL_COL + 2))} ${dots(Math.max(2, LABEL_COL + 2 - indented.length))}`;
+  const tierBadge = factor.evidence
+    ? ` ${chalk.dim(`[${factor.evidence}]`)}`
+    : "";
+
+  if (factor.status === "info") {
+    return `${padded} ${chalk.dim(`i ${UNSCORED_DIAGNOSTIC_LABEL}`)} ${chalk.dim(factor.value)}${tierBadge}`;
+  }
+
+  const fColor = scoreColor(factor.score, factor.maxScore);
+  return `${padded} ${fColor(`${factor.score}/${factor.maxScore}`)} ${chalk.dim(factor.value)}${tierBadge}`;
 }
 
 function renderDomainSignalsBlock(
@@ -316,8 +431,14 @@ function gradeColor(grade: string): (text: string) => string {
 }
 
 const LABEL_COL = 38;
+const STAGE_LABEL_COL = 24;
+
 function labelWithDots(name: string): string {
   return `${pad(name, LABEL_COL)} ${dots(Math.max(2, LABEL_COL + 2 - name.length))}`;
+}
+
+function stageLabelWithDots(name: string): string {
+  return `${pad(name, STAGE_LABEL_COL)} ${dots(Math.max(2, STAGE_LABEL_COL + 2 - name.length))}`;
 }
 
 function pad(str: string, len: number): string {

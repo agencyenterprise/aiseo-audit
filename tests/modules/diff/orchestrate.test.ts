@@ -3,52 +3,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AnalyzerResultType } from "../../../src/modules/analyzer/schema.js";
-import type { AiseoConfigType } from "../../../src/modules/config/schema.js";
 import { orchestrateDiff } from "../../../src/modules/diff/orchestrate.js";
+import { makeConfig } from "../../helpers/config.js";
+import { makeResult as makeAnalyzerResult } from "../../helpers/results.js";
 
 function makeResult(
   overallScore: number,
   url = "https://example.com",
 ): AnalyzerResultType {
-  return {
+  return makeAnalyzerResult({
     url,
     signalsBase: url,
     analyzedAt: new Date().toISOString(),
     overallScore,
-    grade: overallScore >= 90 ? "A" : "D",
-    totalPoints: 0,
-    maxPoints: 100,
-    categories: {
-      contentExtractability: {
-        name: "Content Extractability",
-        key: "contentExtractability",
-        score: overallScore,
-        maxScore: 100,
-        factors: [],
-      },
-    },
-    recommendations: [],
-    rawData: { title: "", metaDescription: "", wordCount: 0 },
-    meta: { version: "1.5.0", analysisDurationMs: 0 },
-  };
-}
-
-function makeConfig(diff?: AiseoConfigType["diff"]): AiseoConfigType {
-  return {
-    timeout: 45000,
-    userAgent: "test",
-    format: "pretty",
-    weights: {
-      contentExtractability: 1,
-      contentStructure: 1,
-      answerability: 1,
-      entityClarity: 1,
-      groundingSignals: 1,
-      authorityContext: 1,
-      readabilityForCompression: 1,
-    },
-    diff,
-  };
+  });
 }
 
 describe("orchestrateDiff", () => {
@@ -86,9 +54,11 @@ describe("orchestrateDiff", () => {
     const outcome = await orchestrateDiff({
       result: makeResult(68),
       config: makeConfig({
-        "https://example.com": [
-          { path: priorPath, timestamp: "2026-04-10T00:00:00Z", score: 55 },
-        ],
+        diff: {
+          "https://example.com": [
+            { path: priorPath, timestamp: "2026-04-10T00:00:00Z", score: 55 },
+          ],
+        },
       }),
       configPath,
       historyDir: join(testDir, "audits"),
@@ -137,7 +107,7 @@ describe("orchestrateDiff", () => {
 
     const outcome = await orchestrateDiff({
       result: makeResult(59),
-      config: { ...makeConfig(), historyDir: customDir },
+      config: makeConfig({ historyDir: customDir }),
       configPath,
     });
 

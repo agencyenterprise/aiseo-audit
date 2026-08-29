@@ -18,6 +18,15 @@ export const CategoryAverageSchema = z.object({
   averagePct: z.number(),
 });
 
+export const HostProfileSchema = z.object({
+  dominantSiteName: z.string().nullable(),
+  siteNameUniformityPct: z.number(),
+  organizationSchemaPct: z.number(),
+  bylineCoveragePct: z.number(),
+  aboutOrContactFound: z.boolean(),
+  note: z.string(),
+});
+
 export const SitemapResultSchema = z.object({
   sitemapUrl: z.string(),
   signalsBase: z.string(),
@@ -28,6 +37,7 @@ export const SitemapResultSchema = z.object({
   averageScore: z.number(),
   averageGrade: z.string(),
   categoryAverages: z.record(z.string(), CategoryAverageSchema),
+  hostProfile: HostProfileSchema.optional(),
   urlResults: z.array(SitemapUrlResultSchema),
   warnings: z.array(z.string()),
   meta: z.object({
@@ -45,6 +55,7 @@ export type SitemapOptionsType = {
 
 export type SitemapUrlResultType = z.infer<typeof SitemapUrlResultSchema>;
 export type CategoryAverageType = z.infer<typeof CategoryAverageSchema>;
+export type HostProfileType = z.infer<typeof HostProfileSchema>;
 export type SitemapResultType = z.infer<typeof SitemapResultSchema>;
 
 export type SitemapSuccessResultType = Extract<

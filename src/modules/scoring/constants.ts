@@ -1,5 +1,7 @@
 import type { GradeType } from "./schema.js";
 
+export const ELIGIBILITY_FAIL_CAP = 25;
+
 export const GRADE_THRESHOLDS: Array<[number, GradeType]> = [
   [93, "A"],
   [90, "A-"],

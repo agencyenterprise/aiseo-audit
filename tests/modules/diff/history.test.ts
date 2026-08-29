@@ -2,39 +2,12 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { AnalyzerResultType } from "../../../src/modules/analyzer/schema.js";
 import type { DiffEntryType } from "../../../src/modules/config/schema.js";
 import {
   loadBaselineResult,
   recordAuditRun,
 } from "../../../src/modules/diff/history.js";
-
-function makeResult(
-  overrides: Partial<AnalyzerResultType> = {},
-): AnalyzerResultType {
-  return {
-    url: "https://example.com",
-    signalsBase: "https://example.com",
-    analyzedAt: "2026-04-17T00:00:00.000Z",
-    overallScore: 59,
-    grade: "F",
-    totalPoints: 100,
-    maxPoints: 200,
-    categories: {
-      contentExtractability: {
-        name: "Content Extractability",
-        key: "contentExtractability",
-        score: 50,
-        maxScore: 60,
-        factors: [],
-      },
-    },
-    recommendations: [],
-    rawData: { title: "", metaDescription: "", wordCount: 0 },
-    meta: { version: "1.5.0", analysisDurationMs: 0 },
-    ...overrides,
-  };
-}
+import { makeResult } from "../../helpers/results.js";
 
 describe("recordAuditRun", () => {
   const testDir = join(tmpdir(), `aiseo-history-test-${Date.now()}`);
@@ -78,7 +51,7 @@ describe("recordAuditRun", () => {
 
   it("appends a new entry to the diff history for the URL in the config", async () => {
     await recordAuditRun({
-      result: makeResult(),
+      result: makeResult({ overallScore: 59 }),
       configPath,
       existingDiff: undefined,
       historyDir: join(testDir, "audits"),

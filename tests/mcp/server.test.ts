@@ -3,43 +3,10 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it, vi } from "vitest";
 import { createMcpServer } from "../../src/mcp/server.js";
 import type { AuditUrlDependencies } from "../../src/mcp/tools.js";
-import type { AnalyzerResultType } from "../../src/modules/analyzer/schema.js";
-import type { AiseoConfigType } from "../../src/modules/config/schema.js";
+import { makeConfig } from "../helpers/config.js";
+import { makeResult } from "../helpers/results.js";
 
 type TextContentBlock = { type: "text"; text: string };
-
-function makeResult(): AnalyzerResultType {
-  return {
-    url: "https://example.com",
-    signalsBase: "https://example.com",
-    analyzedAt: "2026-04-17T00:00:00Z",
-    overallScore: 72,
-    grade: "C-",
-    totalPoints: 300,
-    maxPoints: 420,
-    categories: {},
-    recommendations: [],
-    rawData: { title: "", metaDescription: "", wordCount: 100 },
-    meta: { version: "1.5.0", analysisDurationMs: 100 },
-  };
-}
-
-function makeConfig(): AiseoConfigType {
-  return {
-    timeout: 45000,
-    userAgent: "test",
-    format: "pretty",
-    weights: {
-      contentExtractability: 1,
-      contentStructure: 1,
-      answerability: 1,
-      entityClarity: 1,
-      groundingSignals: 1,
-      authorityContext: 1,
-      readabilityForCompression: 1,
-    },
-  };
-}
 
 async function connectInMemory(
   analyzeUrl: ReturnType<typeof vi.fn>,

@@ -6,6 +6,7 @@ import {
   analyzeUrlWithSignals,
   fetchDomainSignals,
 } from "../analyzer/service.js";
+import type { AnalyzerResultType } from "../analyzer/schema.js";
 import type { AiseoConfigType } from "../config/schema.js";
 import { fetchUrl } from "../fetcher/service.js";
 import { computeGrade } from "../scoring/service.js";
@@ -82,6 +83,7 @@ export async function analyzeSitemap(
 
   const averageGrade = computeGrade(averageScore);
   const categoryAverages = computeCategoryAverages(urlResults);
+  const hostProfile = computeHostProfile(successResults);
 
   return {
     sitemapUrl: options.sitemapUrl,
@@ -93,6 +95,7 @@ export async function analyzeSitemap(
     averageScore,
     averageGrade,
     categoryAverages,
+    hostProfile,
     urlResults,
     warnings: context.warnings,
     meta: {
@@ -228,4 +231,70 @@ function computeCategoryAverages(
   }
 
   return averages;
+}
+
+const HOST_PROFILE_NOTE =
+  "Authority signals operate largely at the host level; page-level provenance fixes cannot substitute for consistent site identity.";
+
+function computeHostProfile(
+  successResults: AnalyzerResultType[],
+): SitemapResultType["hostProfile"] {
+  if (successResults.length === 0) return undefined;
+
+  const siteNames = successResults
+    .map((result) => result.rawData.entityConsistency?.entityName ?? null)
+    .filter((name): name is string => name !== null && name.length > 0);
+  const dominantSiteName = mostFrequent(siteNames);
+  const siteNameUniformityPct = shareAsPct(
+    siteNames.filter((name) => name === dominantSiteName).length,
+    successResults.length,
+  );
+
+  const organizationSchemaPct = shareAsPct(
+    successResults.filter((result) =>
+      (result.rawData.structuredDataTypes ?? []).includes("Organization"),
+    ).length,
+    successResults.length,
+  );
+
+  const bylineCoveragePct = shareAsPct(
+    successResults.filter((result) =>
+      factorScored(result, "Author Attribution"),
+    ).length,
+    successResults.length,
+  );
+
+  const aboutOrContactFound = successResults.some((result) =>
+    factorScored(result, "Contact/About Links"),
+  );
+
+  return {
+    dominantSiteName,
+    siteNameUniformityPct,
+    organizationSchemaPct,
+    bylineCoveragePct,
+    aboutOrContactFound,
+    note: HOST_PROFILE_NOTE,
+  };
+}
+
+function mostFrequent(values: string[]): string | null {
+  if (values.length === 0) return null;
+  const counts = new Map<string, number>();
+  for (const value of values) {
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+}
+
+function shareAsPct(count: number, total: number): number {
+  return total > 0 ? Math.round((count / total) * 100) : 0;
+}
+
+function factorScored(result: AnalyzerResultType, factorName: string): boolean {
+  return Object.values(result.categories).some((category) =>
+    category.factors.some(
+      (factor) => factor.name === factorName && factor.score > 0,
+    ),
+  );
 }

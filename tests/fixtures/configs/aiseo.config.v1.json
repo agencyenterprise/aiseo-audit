@@ -1,0 +1,25 @@
+{
+  "timeout": 30000,
+  "userAgent": "AISEOAudit/1.6.2",
+  "format": "json",
+  "failUnder": 60,
+  "weights": {
+    "contentExtractability": 1,
+    "contentStructure": 1,
+    "answerability": 2,
+    "entityClarity": 1,
+    "groundingSignals": 1,
+    "authorityContext": 1,
+    "readabilityForCompression": 0.5
+  },
+  "historyDir": "./audits",
+  "diff": {
+    "https://example.com": [
+      {
+        "path": "audits/example-com-2026-08-01T00-00-00-000Z.json",
+        "timestamp": "2026-08-01T00:00:00.000Z",
+        "score": 19
+      }
+    ]
+  }
+}

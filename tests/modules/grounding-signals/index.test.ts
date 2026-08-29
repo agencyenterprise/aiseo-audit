@@ -1,17 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { auditGroundingSignals } from "../../../src/modules/grounding-signals/index.js";
-import { extractPage } from "../../../src/modules/extractor/service.js";
-
-function buildPage(html: string) {
-  return extractPage(html, "https://example.com/test");
-}
-
-function findFactor(
-  name: string,
-  result: ReturnType<typeof auditGroundingSignals>,
-) {
-  return result.category.factors.find((f) => f.name === name);
-}
+import { findFactor } from "../../helpers/factors.js";
+import { buildPage } from "../../helpers/page.js";
 
 describe("auditGroundingSignals", () => {
   describe("Numeric Claims", () => {
@@ -22,7 +12,7 @@ describe("auditGroundingSignals", () => {
       </body></html>`;
       const page = buildPage(html);
       const result = auditGroundingSignals(page);
-      const factor = findFactor("Numeric Claims", result);
+      const factor = findFactor(result, "Numeric Claims");
 
       expect(factor?.score).toBeGreaterThan(0);
     });
@@ -35,7 +25,7 @@ describe("auditGroundingSignals", () => {
       </body></html>`;
       const page = buildPage(html);
       const result = auditGroundingSignals(page);
-      const factor = findFactor("Numeric Claims", result);
+      const factor = findFactor(result, "Numeric Claims");
 
       expect(factor?.score).toBeGreaterThan(0);
     });
@@ -46,7 +36,7 @@ describe("auditGroundingSignals", () => {
       </body></html>`;
       const page = buildPage(html);
       const result = auditGroundingSignals(page);
-      const factor = findFactor("Numeric Claims", result);
+      const factor = findFactor(result, "Numeric Claims");
 
       expect(factor?.value).toContain("statistical references");
       expect(factor?.value).toContain("written-out numbers");
@@ -58,7 +48,7 @@ describe("auditGroundingSignals", () => {
       </body></html>`;
       const page = buildPage(html);
       const result = auditGroundingSignals(page);
-      const factor = findFactor("Numeric Claims", result);
+      const factor = findFactor(result, "Numeric Claims");
 
       expect(factor?.value).toContain("1 statistical references");
       expect(factor?.value).toContain("2 written-out numbers");
@@ -70,7 +60,7 @@ describe("auditGroundingSignals", () => {
       </body></html>`;
       const page = buildPage(html);
       const result = auditGroundingSignals(page);
-      const factor = findFactor("Numeric Claims", result);
+      const factor = findFactor(result, "Numeric Claims");
 
       expect(factor?.score).toBe(0);
     });
@@ -84,7 +74,7 @@ describe("auditGroundingSignals", () => {
       </body></html>`;
       const page = buildPage(html);
       const result = auditGroundingSignals(page);
-      const factor = findFactor("External References", result);
+      const factor = findFactor(result, "External References");
 
       expect(factor?.score).toBeGreaterThan(0);
     });
@@ -95,7 +85,7 @@ describe("auditGroundingSignals", () => {
       </body></html>`;
       const page = buildPage(html);
       const result = auditGroundingSignals(page);
-      const factor = findFactor("External References", result);
+      const factor = findFactor(result, "External References");
 
       expect(factor?.score).toBe(0);
     });
@@ -110,9 +100,57 @@ describe("auditGroundingSignals", () => {
       </body></html>`;
       const page = buildPage(html);
       const result = auditGroundingSignals(page);
-      const factor = findFactor("Citation Patterns", result);
+      const factor = findFactor(result, "Citation Patterns");
 
       expect(factor?.score).toBeGreaterThan(0);
+    });
+  });
+
+  describe("Hedged Language", () => {
+    const confidentSentence = "The cat sat on the mat. ";
+
+    it("scores the full 10 when hedging stays at or under 5% of sentences", () => {
+      const text = `${confidentSentence.repeat(19)}This may vary.`;
+      const result = auditGroundingSignals(
+        buildPage(`<body><p>${text}</p></body>`),
+      );
+      const factor = findFactor(result, "Hedged Language");
+
+      expect(factor?.score).toBe(10);
+      expect(factor?.maxScore).toBe(10);
+      expect(factor?.value).toContain("1 of 20 sentences hedge");
+    });
+
+    it("scores 6 when one in ten sentences hedges", () => {
+      const text = `${confidentSentence.repeat(9)}This may vary.`;
+      const result = auditGroundingSignals(
+        buildPage(`<body><p>${text}</p></body>`),
+      );
+      expect(findFactor(result, "Hedged Language")?.score).toBe(6);
+    });
+
+    it("scores 3 when a fifth of the sentences hedge", () => {
+      const text = `${confidentSentence.repeat(8)}This may vary. It could break.`;
+      const result = auditGroundingSignals(
+        buildPage(`<body><p>${text}</p></body>`),
+      );
+      expect(findFactor(result, "Hedged Language")?.score).toBe(3);
+    });
+
+    it("scores 0 when hedging dominates the prose", () => {
+      const text = `${confidentSentence.repeat(4)}This may vary. It could break. Results might differ. Values may shift. Outcomes may change.`;
+      const result = auditGroundingSignals(
+        buildPage(`<body><p>${text}</p></body>`),
+      );
+      expect(findFactor(result, "Hedged Language")?.score).toBe(0);
+    });
+
+    it("stays neutral when the page has no sentences", () => {
+      const result = auditGroundingSignals(buildPage("<body></body>"));
+      const factor = findFactor(result, "Hedged Language");
+
+      expect(factor?.status).toBe("neutral");
+      expect(factor?.value).toBe("No sentences found");
     });
   });
 
@@ -128,6 +166,16 @@ describe("auditGroundingSignals", () => {
       expect(factorNames).toContain("Numeric Claims");
       expect(factorNames).toContain("Attribution Indicators");
       expect(factorNames).toContain("Quoted Attribution");
+      expect(factorNames).toContain("Hedged Language");
+    });
+
+    it("excludes the neutral quoted-attribution factor from maxScore on quiet pages", () => {
+      const text = "The cat sat on the mat. ".repeat(5);
+      const result = auditGroundingSignals(
+        buildPage(`<body><p>${text}</p></body>`),
+      );
+
+      expect(result.category.maxScore).toBe(60);
     });
 
     it("returns groundingSignals as category key", () => {

@@ -293,7 +293,7 @@ describe("context-aware recommendations", () => {
     const recs = generateRecommendations(auditResult);
 
     expect(recs[0].recommendation).toContain("312 words");
-    expect(recs[0].recommendation).toContain("120-180");
+    expect(recs[0].recommendation).toContain("No section-length optimum");
   });
 
   it("includes capsule counts in Answer Capsules", () => {
@@ -311,7 +311,7 @@ describe("context-aware recommendations", () => {
     const recs = generateRecommendations(auditResult);
 
     expect(recs[0].recommendation).toContain("1 of your 5");
-    expect(recs[0].recommendation).toContain("remaining 4");
+    expect(recs[0].recommendation).toContain("unscored diagnostic");
   });
 
   it("includes freshness age in Content Freshness", () => {
@@ -798,12 +798,7 @@ describe("actionable recommendation fields", () => {
       "readabilityForCompression",
       FREE_FORM_CODE_EXAMPLE,
     ],
-    [
-      "Publication Date",
-      "Authority Context",
-      "authorityContext",
-      "datePublished",
-    ],
+    ["Date Markup", "Authority Context", "authorityContext", "dateModified"],
     ["Contact/About Links", "Authority Context", "authorityContext", "About"],
   ] as Array<[string, string, CategoryNameType, string | null]>)(
     "includes steps and codeExample for %s",
@@ -861,17 +856,17 @@ describe("actionable recommendation fields", () => {
     expect(recs[0].codeExample).toContain("Acme Corp");
   });
 
-  it("includes steps and codeExample for Publication Date", () => {
+  it("includes steps and codeExample for Date Markup", () => {
     const auditResult = makeAuditResult({
       authority: makeCategory("Authority Context", "authorityContext", [
-        makeFactor("Publication Date", 0, 8),
+        makeFactor("Date Markup", 0, 8),
       ]),
     });
 
     const recs = generateRecommendations(auditResult);
 
     expect(recs[0].steps).toBeDefined();
-    expect(recs[0].codeExample).toContain("datePublished");
+    expect(recs[0].codeExample).toContain("dateModified");
     expect(recs[0].learnMoreUrl).toBeDefined();
   });
 
@@ -1125,8 +1120,8 @@ describe("actionable recommendation fields", () => {
     expect(recs[0].codeExample).toContain("alt=");
   });
 
-  describe("expectedGain", () => {
-    it("attaches expectedGain equal to (maxScore - score) for each recommendation", () => {
+  describe("auditPoints", () => {
+    it("attaches auditPoints equal to (maxScore - score) for each recommendation", () => {
       const auditResult = makeAuditResult({
         content: makeCategory("Content", "contentExtractability", [
           makeFactor("Word Count", 3, 10),
@@ -1136,10 +1131,10 @@ describe("actionable recommendation fields", () => {
       const recs = generateRecommendations(auditResult);
 
       expect(recs).toHaveLength(1);
-      expect(recs[0].expectedGain).toBe(7);
+      expect(recs[0].auditPoints).toBe(7);
     });
 
-    it("reports zero gain when a factor is already at max", () => {
+    it("reports zero points when a factor is already at max", () => {
       const auditResult = makeAuditResult({
         content: makeCategory("Content", "contentExtractability", [
           makeFactor("Word Count", 10, 10),
@@ -1151,10 +1146,10 @@ describe("actionable recommendation fields", () => {
 
       expect(recs).toHaveLength(1);
       expect(recs[0].factor).toBe("Headings");
-      expect(recs[0].expectedGain).toBe(10);
+      expect(recs[0].auditPoints).toBe(10);
     });
 
-    it("computes gains independently per factor across multiple categories", () => {
+    it("computes points independently per factor across multiple categories", () => {
       const auditResult = makeAuditResult({
         content: makeCategory("Content", "contentExtractability", [
           makeFactor("Word Count", 2, 10),
@@ -1167,11 +1162,119 @@ describe("actionable recommendation fields", () => {
       const recs = generateRecommendations(auditResult);
 
       const byFactor = Object.fromEntries(
-        recs.map((r) => [r.factor, r.expectedGain]),
+        recs.map((r) => [r.factor, r.auditPoints]),
       );
 
       expect(byFactor["Word Count"]).toBe(8);
       expect(byFactor["Author Attribution"]).toBe(10);
     });
+  });
+});
+
+describe("evidence coordination", () => {
+  it("skips info-status diagnostics entirely", () => {
+    const diagnostic: FactorResultType = {
+      name: "Lists Presence",
+      score: 0,
+      maxScore: 0,
+      value: "3 list items",
+      status: "info",
+    };
+    const auditResult = makeAuditResult({
+      content: makeCategory("Content", "contentStructure", [diagnostic]),
+    });
+
+    expect(generateRecommendations(auditResult)).toHaveLength(0);
+  });
+
+  it("carries direction, evidence, and citations onto recommendations", () => {
+    const factor: FactorResultType = {
+      name: "Term Repetition Balance",
+      score: 0,
+      maxScore: 8,
+      value: "over-repeated",
+      status: "critical",
+      evidence: "conditional",
+      citations: ["autogeo-iclr-2026"],
+    };
+    const auditResult = makeAuditResult({
+      entityClarity: makeCategory("Entity Clarity", "entityClarity", [factor]),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    expect(recs[0].direction).toBe("remove");
+    expect(recs[0].evidence).toBe("conditional");
+    expect(recs[0].citations).toEqual(["autogeo-iclr-2026"]);
+  });
+
+  it("merges opposing directions into a single conflict recommendation", () => {
+    const simplify = makeFactor("Jargon Density", 0, 10);
+    const deepen = makeFactor("Explanatory Depth", 0, 10);
+    const auditResult = makeAuditResult({
+      readability: makeCategory(
+        "Readability for Compression",
+        "readabilityForCompression",
+        [simplify],
+      ),
+      answerability: makeCategory("Answerability", "answerability", [deepen]),
+    });
+
+    const recs = generateRecommendations(auditResult);
+
+    const conflict = recs.find((rec) =>
+      rec.factor.startsWith("Direction conflict"),
+    );
+    expect(conflict).toBeDefined();
+    expect(conflict?.recommendation).toContain("opposite directions");
+    expect(conflict?.citations).toEqual(["if-geo-findings-acl-2026"]);
+    expect(recs.some((rec) => rec.factor === "Jargon Density")).toBe(false);
+    expect(recs.some((rec) => rec.factor === "Explanatory Depth")).toBe(false);
+  });
+
+  it("suppresses simplify recommendations on already-polished pages", () => {
+    const auditResult = makeAuditResult(
+      {
+        readability: makeCategory(
+          "Readability for Compression",
+          "readabilityForCompression",
+          [makeFactor("Jargon Density", 0, 10)],
+        ),
+      },
+      {
+        readabilityScore: 62,
+        avgSentenceLength: 16,
+        sectionLengths: {
+          sectionCount: 4,
+          avgWordsPerSection: 140,
+          sections: [120, 140, 150, 150],
+        },
+      },
+    );
+
+    expect(
+      generateRecommendations(auditResult).some(
+        (rec) => rec.factor === "Jargon Density",
+      ),
+    ).toBe(false);
+  });
+
+  it("keeps simplify recommendations on unpolished pages", () => {
+    const auditResult = makeAuditResult(
+      {
+        readability: makeCategory(
+          "Readability for Compression",
+          "readabilityForCompression",
+          [makeFactor("Jargon Density", 0, 10)],
+        ),
+      },
+      { readabilityScore: 20, avgSentenceLength: 40 },
+    );
+
+    expect(
+      generateRecommendations(auditResult).some(
+        (rec) => rec.factor === "Jargon Density",
+      ),
+    ).toBe(true);
   });
 });

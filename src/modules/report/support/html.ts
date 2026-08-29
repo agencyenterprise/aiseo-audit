@@ -1,4 +1,5 @@
 import type { AnalyzerResultType } from "../../analyzer/schema.js";
+import type { StageScoresType } from "../../scoring/schema.js";
 import {
   isSuccessResult,
   type SitemapResultType,
@@ -6,15 +7,27 @@ import {
 } from "../../sitemap/schema.js";
 import { buildTldr, type TldrType } from "./tldr.js";
 import {
+  enginePresetBanner,
   escapeHtml,
   generatedByLine,
   groupRecommendationsByCategory,
   hasHttpUrls,
+  hiddenRecommendationsNote,
   HTTP_AUDIT_NOTE,
+  isProductPage,
+  NON_ADDITIVE_RECS_NOTE,
+  orderFactorsForDisplay,
   percent,
   priorityLabel,
+  PRODUCT_PAGE_WARNING,
   scoreBand,
   SITEMAP_HTTP_AUDIT_NOTE,
+  STAGE_LABELS,
+  stagePctLabel,
+  trippedGateLine,
+  trippedGates,
+  UNSCORED_DIAGNOSTIC_LABEL,
+  visibleRecommendations,
   type ScoreBandType,
 } from "./view-model.js";
 
@@ -43,6 +56,8 @@ export function renderHtml(result: AnalyzerResultType): string {
   }));
   const gauges = categories.map(buildCategoryGauge).join("");
   const sections = categories.map(buildCategorySection).join("");
+  const stagesHtml = result.stages ? buildStagesSection(result.stages) : "";
+  const bannersHtml = buildBanners(result);
   const recsHtml = buildRecommendationsByCategory(result);
   const overallGauge = buildMultiSegmentGauge(
     result.overallScore,
@@ -219,6 +234,91 @@ ${baseStyles()}
 .audit-icon.warn { color: var(--average); }
 .audit-icon.fail { color: var(--fail); }
 .audit-icon.neutral { color: var(--text-secondary); }
+.audit-icon.info {
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  font-style: italic;
+  font-weight: 700;
+  width: 14px;
+  height: 14px;
+  line-height: 14px;
+  font-size: 10px;
+}
+.audit-diagnostic {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin-left: 6px;
+}
+.evidence-badge {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-secondary);
+  background: #f1f3f4;
+  border-radius: 3px;
+  padding: 2px 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Pipeline stages */
+.stages-section {
+  padding: 24px 0 16px;
+  border-bottom: 1px solid var(--border);
+}
+.stages-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.stage-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 6px 0;
+  border-top: 1px solid #f0f0f0;
+  font-size: 13px;
+}
+.stage-name { font-weight: 500; }
+.stage-value { color: var(--text-secondary); font-weight: 600; }
+.stage-banner {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.4px;
+}
+.pass-banner { background: #e6f4ea; color: var(--pass-text); }
+.fail-banner { background: #fce8e6; color: var(--fail-text); }
+.stage-blockers { color: var(--fail-text); font-size: 12px; }
+.stage-gate {
+  padding: 4px 0 4px 16px;
+  font-size: 12px;
+  color: var(--average-text);
+}
+
+/* Report banners */
+.report-banner {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border: 1px solid #f4dfa8;
+  border-radius: 8px;
+  background: #fef7e0;
+  font-size: 13px;
+  color: #7a5d00;
+}
+.recs-footnote {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding-top: 10px;
+}
 .audit-name {
   font-weight: 500;
   min-width: 180px;
@@ -341,6 +441,10 @@ ${tldrStyles()}
     ${overallGauge}
   </div>
 
+  ${stagesHtml}
+
+  ${bannersHtml}
+
   ${sections}
 
   ${recsHtml}
@@ -361,8 +465,8 @@ export function renderHtmlTldr(result: AnalyzerResultType): string {
   const tldr = buildTldr(result);
   const card = buildTldrCard(tldr);
   const fallback =
-    tldr.quickestWins.length === 0
-      ? `<div class="tldr-card"><div class="tldr-headline"><span class="tldr-score">${tldr.score}/100 (${escapeHtml(tldr.grade)})</span><span class="tldr-projection">No quick wins identified.</span></div></div>`
+    tldr.topFixes.length === 0
+      ? `<div class="tldr-card"><div class="tldr-headline"><span class="tldr-score">${tldr.score}/100 (${escapeHtml(tldr.grade)})</span><span class="tldr-solid">No fixes identified.</span></div></div>`
       : card;
 
   return `<!DOCTYPE html>
@@ -406,6 +510,21 @@ export function renderSitemapHtml(result: SitemapResultType): string {
   const urlSections = result.urlResults
     .map((r, i) => buildSitemapUrlSection(r, i))
     .join("");
+
+  const hostProfileSection = result.hostProfile
+    ? `<div class="category-averages">
+    <div class="category-averages-title">Host Profile</div>
+    <div class="sitemap-cat-row"><span class="sitemap-cat-name">Site name</span><span class="sitemap-cat-score">${
+      result.hostProfile.dominantSiteName
+        ? `${escapeHtml(result.hostProfile.dominantSiteName)} on ${result.hostProfile.siteNameUniformityPct}% of pages`
+        : "not resolvable"
+    }</span></div>
+    <div class="sitemap-cat-row"><span class="sitemap-cat-name">Organization schema</span><span class="sitemap-cat-score">${result.hostProfile.organizationSchemaPct}% of pages</span></div>
+    <div class="sitemap-cat-row"><span class="sitemap-cat-name">Author bylines</span><span class="sitemap-cat-score">${result.hostProfile.bylineCoveragePct}% of pages</span></div>
+    <div class="sitemap-cat-row"><span class="sitemap-cat-name">About/contact links</span><span class="sitemap-cat-score">${result.hostProfile.aboutOrContactFound ? "found" : "not found"}</span></div>
+    <div class="footer">${escapeHtml(result.hostProfile.note)}</div>
+  </div>`
+    : "";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -475,6 +594,8 @@ ${baseStyles()}
     ${categoryAvgRows}
   </div>
 
+  ${hostProfileSection}
+
   <div class="url-results">
     <div class="url-results-title">URL Results</div>
     ${urlSections}
@@ -492,24 +613,89 @@ ${baseStyles()}
 }
 
 function buildTldrCard(tldr: TldrType): string {
-  if (tldr.quickestWins.length === 0) return "";
+  if (tldr.topFixes.length === 0) return "";
 
-  const wins = tldr.quickestWins
+  const fixes = tldr.topFixes
     .map(
-      (win, i) =>
-        `<li class="tldr-win"><span class="tldr-rank">${i + 1}</span><span class="tldr-gain">+${win.expectedGain} pts</span><span class="tldr-factor">${escapeHtml(win.factor)}</span><span class="tldr-category">${escapeHtml(win.category)}</span></li>`,
+      (fix, i) =>
+        `<li class="tldr-win"><span class="tldr-rank">${i + 1}</span><span class="tldr-gain">${fix.auditPoints} audit pts</span><span class="tldr-factor">${escapeHtml(fix.factor)}</span><span class="tldr-category">${escapeHtml(fix.category)}</span></li>`,
     )
     .join("");
 
   return `<div class="tldr-card">
     <div class="tldr-headline">
       <span class="tldr-score">${tldr.score}/100 (${escapeHtml(tldr.grade)})</span>
-      <span class="tldr-arrow">→</span>
-      <span class="tldr-projection">Top ${tldr.quickestWins.length} fixes: ~${tldr.projectedScore}/100 (${escapeHtml(tldr.projectedGrade)})</span>
     </div>
-    <div class="tldr-title">Quickest wins</div>
-    <ol class="tldr-wins">${wins}</ol>
+    <div class="tldr-title">Top fixes</div>
+    <ol class="tldr-wins">${fixes}</ol>
+    <div class="tldr-note">${escapeHtml(tldr.note)}</div>
   </div>`;
+}
+
+function buildStagesSection(stages: StageScoresType): string {
+  const eligibility = stages.technicalEligibility;
+  const eligibilityBanner =
+    eligibility.status === "pass"
+      ? `<span class="stage-banner pass-banner">PASS</span>`
+      : `<span class="stage-banner fail-banner">FAIL</span> <span class="stage-blockers">Blockers: ${escapeHtml(eligibility.blockers.join(", ") || "unknown")}</span>`;
+
+  const gateRows = trippedGates(stages)
+    .map(
+      (gate) =>
+        `<div class="stage-gate">${escapeHtml(trippedGateLine(gate))}</div>`,
+    )
+    .join("");
+
+  return `<div class="stages-section">
+    <div class="stages-title">Pipeline Stages</div>
+    <div class="stage-row">
+      <span class="stage-name">${STAGE_LABELS.technicalEligibility}</span>
+      <span class="stage-value">${eligibilityBanner} ${escapeHtml(stagePctLabel(eligibility.pct, eligibility.suppressed))}</span>
+    </div>
+    <div class="stage-row">
+      <span class="stage-name">${STAGE_LABELS.retrievalAlignment}</span>
+      <span class="stage-value">${escapeHtml(stagePctLabel(stages.retrievalAlignment.pct, stages.retrievalAlignment.suppressed))}</span>
+    </div>
+    <div class="stage-row">
+      <span class="stage-name">${STAGE_LABELS.citationFitness}</span>
+      <span class="stage-value">${escapeHtml(citationFitnessValue(stages))}</span>
+    </div>
+    ${gateRows}
+    <div class="stage-row">
+      <span class="stage-name">${STAGE_LABELS.provenance}</span>
+      <span class="stage-value">${escapeHtml(stagePctLabel(stages.provenance.pct, stages.provenance.suppressed))}</span>
+    </div>
+  </div>`;
+}
+
+function citationFitnessValue(stages: StageScoresType): string {
+  const { pct, uncappedPct, suppressed } = stages.citationFitness;
+  const base = stagePctLabel(pct, suppressed);
+  if (
+    !suppressed &&
+    pct !== null &&
+    uncappedPct !== null &&
+    uncappedPct !== pct
+  ) {
+    return `${base} (uncapped ${uncappedPct}%)`;
+  }
+  return base;
+}
+
+function buildBanners(result: AnalyzerResultType): string {
+  const banners: string[] = [];
+  const engineBanner = enginePresetBanner(result.meta.engine);
+  if (engineBanner) {
+    banners.push(
+      `<div class="report-banner">${escapeHtml(engineBanner)}</div>`,
+    );
+  }
+  if (isProductPage(result)) {
+    banners.push(
+      `<div class="report-banner">${escapeHtml(PRODUCT_PAGE_WARNING)}</div>`,
+    );
+  }
+  return banners.join("\n  ");
 }
 
 function buildCategoryGauge(category: {
@@ -645,20 +831,23 @@ function buildCategorySection(category: {
     maxScore: number;
     value: string;
     status: string;
+    evidence?: string;
+    citations?: string[];
   }>;
 }): string {
   const pct = percent(category.score, category.maxScore);
   const cls = scoreBand(pct);
   const id = escapeHtml(category.name.replace(/\s+/g, "-").toLowerCase());
 
-  const factorRows = category.factors
+  const factorRows = orderFactorsForDisplay(category.factors)
     .map(
       (f) => `
           <div class="audit-row">
             <span class="audit-icon ${statusClass(f.status)}">${statusIcon(f.status)}</span>
             <span class="audit-name">${escapeHtml(f.name)}</span>
-            <span class="audit-detail">${escapeHtml(f.value)}</span>
-            <span class="audit-score">${f.score}/${f.maxScore}</span>
+            <span class="audit-detail">${escapeHtml(f.value)}${f.status === "info" ? ` <span class="audit-diagnostic">${UNSCORED_DIAGNOSTIC_LABEL}</span>` : ""}</span>
+            ${f.evidence ? `<span class="evidence-badge">${escapeHtml(f.evidence)}</span>` : ""}
+            <span class="audit-score">${f.status === "info" ? "" : `${f.score}/${f.maxScore}`}</span>
           </div>`,
     )
     .join("");
@@ -676,7 +865,10 @@ function buildCategorySection(category: {
 function buildRecommendationsByCategory(
   result: Pick<AnalyzerResultType, "recommendations" | "categories">,
 ): string {
-  const grouped = groupRecommendationsByCategory(result);
+  const grouped = groupRecommendationsByCategory({
+    categories: result.categories,
+    recommendations: visibleRecommendations(result.recommendations),
+  });
   if (grouped.length === 0) return "";
 
   let html = `<div class="recs-section">
@@ -688,6 +880,12 @@ function buildRecommendationsByCategory(
     html += recs.map(buildRecommendationRow).join("");
     html += `</div>`;
   }
+
+  const hiddenNote = hiddenRecommendationsNote(result.recommendations);
+  if (hiddenNote) {
+    html += `<div class="recs-footnote">${escapeHtml(hiddenNote)}</div>`;
+  }
+  html += `<div class="recs-footnote">${escapeHtml(NON_ADDITIVE_RECS_NOTE)}</div>`;
 
   html += `</div>`;
   return html;
@@ -822,11 +1020,11 @@ function tldrStyles(): string {
 }
 .tldr-headline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 16px; margin-bottom: 12px; }
 .tldr-score { font-weight: 600; }
-.tldr-arrow { color: var(--muted); }
-.tldr-projection { color: #006633; font-weight: 600; }
+.tldr-solid { color: var(--muted); }
+.tldr-note { margin-top: 10px; font-size: 12px; color: var(--muted); }
 .tldr-title { font-weight: 600; margin: 8px 0 6px; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
 .tldr-wins { list-style: none; padding: 0; margin: 0; }
-.tldr-win { display: grid; grid-template-columns: 24px 72px 1fr auto; gap: 10px; align-items: baseline; padding: 4px 0; font-size: 14px; }
+.tldr-win { display: grid; grid-template-columns: 24px 96px 1fr auto; gap: 10px; align-items: baseline; padding: 4px 0; font-size: 14px; }
 .tldr-rank { color: var(--muted); text-align: right; }
 .tldr-gain { color: #006633; font-weight: 600; }
 .tldr-factor { font-weight: 500; }
@@ -845,12 +1043,16 @@ function statusIcon(status: string): string {
   if (status === "good") return "&#10003;";
   if (status === "neutral") return "&#8212;";
   if (status === "needs_improvement") return "&#9650;";
-  return "&#10007;";
+  if (status === "critical") return "&#10007;";
+  if (status === "info") return "i";
+  return "&#8212;";
 }
 
 function statusClass(status: string): string {
   if (status === "good") return "good";
   if (status === "neutral") return "neutral";
   if (status === "needs_improvement") return "warn";
-  return "fail";
+  if (status === "critical") return "fail";
+  if (status === "info") return "info";
+  return "neutral";
 }

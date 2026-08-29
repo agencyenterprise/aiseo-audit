@@ -2,6 +2,12 @@ import { Command, CommanderError } from "commander";
 import { resolve } from "node:path";
 import { z } from "zod";
 import { analyzeUrl } from "../modules/analyzer/service.js";
+import {
+  DomainOptionSchema,
+  EngineProfileSchema,
+  MAX_TARGET_QUERIES,
+  type AiseoConfigType,
+} from "../modules/config/schema.js";
 import { loadConfigWithPath } from "../modules/config/service.js";
 import { orchestrateDiff } from "../modules/diff/orchestrate.js";
 import type { ReportFormatType } from "../modules/report/schema.js";
@@ -31,6 +37,9 @@ const CliOptionsSchema = z.object({
   diff: z.boolean().optional(),
   all: z.boolean().optional(),
   baseline: z.string().optional(),
+  query: z.array(z.string().min(1)).optional(),
+  domain: DomainOptionSchema.optional(),
+  engine: EngineProfileSchema.optional(),
 });
 
 type CliOptionsType = z.infer<typeof CliOptionsSchema>;
@@ -82,6 +91,20 @@ function buildProgram(onExit: (code: number) => void): Command {
     )
     .option("--timeout <ms>", "Request timeout in milliseconds")
     .option("--user-agent <ua>", "Custom User-Agent string")
+    .option(
+      "--query <query>",
+      "Target query to measure coverage against (repeatable; supply about 5 queries for stable coverage measurement)",
+      collectRepeatable,
+      [] as string[],
+    )
+    .option(
+      "--domain <auto|product|informational>",
+      "Page domain profile; product pages get product-fit checks (default: auto)",
+    )
+    .option(
+      "--engine <generic|gemini|gpt|perplexity>",
+      "Experimental engine preset that reweights categories (default: generic)",
+    )
     .option("--config <path>", "Path to aiseo.config.json config file")
     .option("--tldr", "Emit only the TL;DR summary (no detailed breakdown)")
     .option(
@@ -125,9 +148,9 @@ async function execute(
     await assertWritableOutputPath(opts.out);
   }
 
-  const { config, path: discoveredConfigPath } = await loadConfigWithPath(
-    opts.config,
-  );
+  const { config: loadedConfig, path: discoveredConfigPath } =
+    await loadConfigWithPath(opts.config);
+  const config = applyAuditTargetOverrides(loadedConfig, opts);
   const configPath = discoveredConfigPath ?? pathForFreshConfig();
 
   const format = resolveFormat(opts, config.format);
@@ -215,6 +238,28 @@ async function execute(
     return 1;
   }
   return 0;
+}
+
+function collectRepeatable(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
+
+function applyAuditTargetOverrides(
+  config: AiseoConfigType,
+  opts: CliOptionsType,
+): AiseoConfigType {
+  const queries = [...config.queries, ...(opts.query ?? [])];
+  if (queries.length > MAX_TARGET_QUERIES) {
+    fail(
+      `Too many target queries: ${queries.length} supplied between --query flags and config, maximum is ${MAX_TARGET_QUERIES}`,
+    );
+  }
+  return {
+    ...config,
+    queries,
+    domain: opts.domain ?? config.domain,
+    engine: opts.engine ?? config.engine,
+  };
 }
 
 function parseOptions(rawOpts: unknown): CliOptionsType {

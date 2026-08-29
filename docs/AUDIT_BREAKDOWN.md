@@ -2,21 +2,29 @@
 
 # Audit Breakdown
 
-How every audit category works, what it measures, how it scores, and how the code is structured behind it.
+How every audit category works in aiseo-audit 2.0: what it measures, how it scores, and how the code is structured behind it.
+
+2.0 is a research-informed heuristic audit. Every factor carries an evidence tier and citations into the peer-reviewed GEO literature, and every numeric weight and threshold is an expert-set heuristic, not a research-derived probability. The evidence trail for each factor lives in [EVIDENCE.md](EVIDENCE.md); the underlying paper-by-paper reviews live in [paper-reviews/](paper-reviews/README.md); the cross-paper synthesis lives in [EMERGING_RESEARCH.md](EMERGING_RESEARCH.md). The 1.x version of this document is archived verbatim at [archive/v1/AUDIT_BREAKDOWN.md](archive/v1/AUDIT_BREAKDOWN.md).
 
 ---
 
 ## Table of Contents
 
 - [How Scoring Works](#how-scoring-works)
+- [Pipeline Stages](#pipeline-stages)
+- [Domain Profiles](#domain-profiles)
+- [Query Alignment](#query-alignment)
 - [1. Content Extractability](#1-content-extractability)
-- [2. Content Structure for Reuse](#2-content-structure-for-reuse)
-- [3. Answerability](#3-answerability)
-- [4. Entity Clarity](#4-entity-clarity)
-- [5. Grounding Signals](#5-grounding-signals)
-- [6. Authority Context](#6-authority-context)
-- [7. Readability for Compression](#7-readability-for-compression)
-- [Grading Scale](#grading-scale)
+- [2. Structural Alignment](#2-structural-alignment)
+- [3. Content Structure for Reuse](#3-content-structure-for-reuse)
+- [4. Answerability](#4-answerability)
+- [5. Query Alignment (Factors)](#5-query-alignment-factors)
+- [6. Entity Clarity](#6-entity-clarity)
+- [7. Grounding Signals](#7-grounding-signals)
+- [8. Authority Context](#8-authority-context)
+- [9. Product Fit](#9-product-fit)
+- [10. Readability for Compression](#10-readability-for-compression)
+- [Recommendations Engine](#recommendations-engine)
 - [Code Architecture](#code-architecture)
 - [Sources](#sources)
 
@@ -24,15 +32,31 @@ How every audit category works, what it measures, how it scores, and how the cod
 
 ## How Scoring Works
 
-Each of the 7 audit categories contains multiple **factors**. Every factor produces a score from `0` to its `maxScore`.
+2.0 scores on two axes at once:
+
+1. **10 categories** group factors by what they measure (extractability, answerability, grounding, ...). Categories are the display grouping and the weighting unit.
+2. **4 pipeline stages** group the same factors by where in the generative pipeline they act (technical eligibility, retrieval alignment, citation fitness, provenance). Stages are the diagnostic rollup: they tell you _where_ a page loses, not just _that_ it loses.
+
+Every factor lives in exactly one category (`audits/factor-names.ts`) and one stage (`FACTOR_REGISTRY` in `audits/stage.ts`), and carries an evidence tier and citations from the same registry.
+
+### The denominator rule
+
+Not every factor is scored. A factor is **scorable** only when both hold:
+
+- Its status is not `neutral` (not applicable to this page) and not `info` (diagnostic output).
+- Its evidence tier is not `diagnostic` (factors where the isolated causal test came back null, or the evidence is purely observational, are reported but never scored).
+
+Non-scorable factors are excluded from the category `score` **and** from the category `maxScore`. A page is never penalized for a factor that does not apply to it, and never rewarded through a factor the research does not support scoring.
 
 ```
-Category Score = sum of all factor scores in that category
-Category Max   = sum of all factor maxScores in that category
+Category Score = sum of scorable factor scores
+Category Max   = sum of scorable factor maxScores
 Category %     = (Category Score / Category Max) * 100
 ```
 
-The **overall score** (0-100) is a weighted average of all 7 category percentages. By default all categories are weighted equally. You can change weights in `aiseo.config.json`:
+### Overall score
+
+The overall score (0-100) is a weighted average of category percentages, taken **only over categories with `maxScore > 0`**. Weights are renormalized over those categories, so a category that does not apply (for example Query Alignment when no queries are supplied, or Product Fit on an informational page) neither helps nor hurts. Configure weights in `aiseo.config.json`:
 
 ```json
 {
@@ -44,544 +68,22 @@ The **overall score** (0-100) is a weighted average of all 7 category percentage
 }
 ```
 
-Weights are relative. A category with weight `2` counts twice as much as one with weight `1`. Setting a weight to `0` excludes that category entirely.
+Weights are relative; `0` excludes a category. The `engine` config option (`generic`, `gemini`, `gpt`, `perplexity`) applies experimental weight multipliers before scoring (gemini: contentStructure x1.3, groundingSignals x1.1; gpt: groundingSignals x1.3, authorityContext x1.2; perplexity: structuralAlignment x1.2, authorityContext x1.2). Presets are labeled experimental in the report.
 
----
+**Optional stage weighting:** if `stageWeights` is set in config, the overall score is instead a weighted average of the four stage percentages (stages without a percentage are excluded and weights renormalized). Category weights still control nothing in that mode; raw `totalPoints`/`maxPoints` are unchanged.
 
-## 1. Content Extractability
+### Eligibility cap
 
-**Question:** Can a generative engine successfully fetch this page and pull out meaningful text?
+Technical eligibility is pass/fail on top of its percentage. It **fails** when any blocking factor (Fetch Success, Text Extraction Quality) lands at `critical` status, or when robots.txt blocks every known AI crawler (none allowed, none unknown). On failure:
 
-This is the baseline. If the content can't be fetched or extracted, nothing else matters.
+- The overall score is capped at **25** (`ELIGIBILITY_FAIL_CAP`), which is an F.
+- The three downstream stage percentages are suppressed (reported as `suppressed (eligibility failed)` instead of a number), because retrieval and citation properties of a page that engines cannot ingest are noise.
 
-### Factors
+### Factor status
 
-| Factor                  | Max | What It Measures                                                             |
-| ----------------------- | --- | ---------------------------------------------------------------------------- |
-| Fetch Success           | 12  | Did the HTTP request return a 200?                                           |
-| Text Extraction Quality | 12  | Ratio of clean text bytes to raw HTML bytes                                  |
-| Boilerplate Ratio       | 12  | How much of the page is nav/footer/scripts vs actual content                 |
-| Word Count Adequacy     | 12  | Is there enough text to be useful (sweet spot: 300-3000 words)               |
-| AI Crawler Access       | 10  | Are GPTBot, ClaudeBot, PerplexityBot, Google-Extended allowed in robots.txt? |
-| LLMs.txt Presence       | 6   | Does the domain have llms.txt and/or llms-full.txt at the root?              |
-| Image Accessibility     | 8   | Do images have alt text? Are figure/figcaption patterns used?                |
+Each scored factor gets a status from its score share: `good` at 70%+, `needs_improvement` at 30-69%, `critical` below 30%. These thresholds also drive recommendation priority.
 
-### Scoring Details
-
-**Fetch Success**
-
-- HTTP 200 = 12 points
-- HTTP 2xx/3xx (redirects that resolve) = 8 points
-- HTTP 4xx+ = 0 points
-
-If the fetch fails entirely (before an HTTP status is returned), the HTTP layer throws a typed `FetchError` with a `code` field indicating the cause: `TIMEOUT`, `DNS_FAILURE`, `CONNECTION_REFUSED`, `TLS_ERROR`, `TOO_LARGE`, or `NETWORK_ERROR`. Each includes a human-readable message with the hostname and actionable guidance. The CLI surfaces these directly instead of the generic "fetch failed".
-
-**Text Extraction Quality** measures the ratio `cleanTextLength / rawByteLength`:
-
-Bands are contiguous (each band's upper bound is exclusive), so a continuous ratio can never fall between them:
-
-- 5% to <16% = 12 (ideal for a normal web page)
-- 16% and above = 10 (text-heavy, fine but less structured)
-- 1% to <5% = 8
-- Below 1% but some content = 2 (mostly binary or non-text content)
-- No extractable content = 0
-
-**Boilerplate Ratio** is computed by removing entire DOM elements (including all nested children) that match the boilerplate selectors, then comparing the cleaned text length to the raw text length. The full removal list:
-
-- HTML elements: `<script>`, `<style>`, `<noscript>`, `<svg>`, `<iframe>`, `<nav>`, `<header>`, `<footer>`, `<aside>`
-- ARIA roles: `[role="navigation"]`, `[role="banner"]`, `[role="contentinfo"]`
-- Class/ID selectors: `.sidebar`, `#sidebar`, `.nav`, `.navbar`, `.footer`, `.header`, `.menu`, `.ad`, `.ads`, `.advertisement`, `.cookie-banner`, `#cookie-consent`, `.cookie-notice`
-- Cookie/consent/overlay class names, matched at the whole-class-token level: an element is removed only when a class token consists entirely of boilerplate words (`cookie`, `cookies`, `consent`, `gdpr`, `popup`, `modal`, `overlay`) plus generic UI qualifiers (`banner`, `notice`, `backdrop`, `wrapper`, ...). `cookie-consent-banner` is removed; `cookie-recipe-card` is content and kept.
-
-Scoring:
-
-- Less than 30% boilerplate = 12
-- 30-50% = 9
-- 50-70% = 6
-- Over 70% = 2
-
-**Word Count Adequacy**:
-
-- 300-3000 words = 12 (ideal range for generative reuse)
-- 100-299 = 8
-- Over 3000 = 10 (lengthy but still usable)
-- 1-99 = 2 (too thin to be useful)
-- 0 words = 0
-
-**AI Crawler Access** fetches `robots.txt` from the origin of the URL being audited (where the file lives per RFC 9309; auditing `https://example.com/projects/page` checks `https://example.com/robots.txt`). Use `--signals-base` to override the base URL when your domain signals live elsewhere. Every report explicitly shows which URL domain signals were fetched from. For sitemap audits, domain signals are fetched once from the sitemap origin and shared across all URLs in the audit.
-
-The crawlers checked, using the user-agent tokens each vendor documents:
-
-- GPTBot, OAI-SearchBot, ChatGPT-User (OpenAI)
-- ClaudeBot, Claude-User, Claude-SearchBot (Anthropic)
-- PerplexityBot, Perplexity-User (Perplexity)
-- Google-Extended (Google AI training)
-- Applebot-Extended (Apple AI training)
-- CCBot (Common Crawl), Bytespider (ByteDance), meta-externalagent (Meta)
-
-The parser applies proper robots.txt rule evaluation: `*` wildcards and `$` end anchors in paths (`Disallow: /*` blocks everything, same as `Disallow: /`), longest-path-wins specificity, `Allow` overrides `Disallow` at equal path length, blank lines inside groups tolerated, and both crawler-specific groups and `*` wildcard groups respected. A crawler is site-blocked only when a disallow rule matching `/` applies without an overriding `Allow`. Path-level partial blocks (e.g. `Disallow: /blog/`) are surfaced separately in the audit output as `partiallyBlocked`. These do not count as a full site block but are visible for review.
-
-Scoring: 0 blocked = 10, 1-2 blocked = 6, 3-4 blocked = 3, 5+ blocked = 0
-
-**LLMs.txt Presence** checks for an emerging standard [[8]](#sources) that is gaining traction alongside robots.txt. Unlike robots.txt (which controls access), llms.txt is a curated roadmap that helps AI systems understand your site's content, purpose, and key resources at inference time. OpenAI, Microsoft, and other major providers are actively crawling for these files. No major LLM has confirmed it as a ranking signal yet, but adoption is low-cost and forward-looking.
-
-Two files are checked relative to the signals base URL (same behavior as `robots.txt` above):
-
-- `llms.txt` - a markdown document providing AI systems with a structured overview of the site's content and key pages
-- `llms-full.txt` - a comprehensive version with full content for deeper ingestion
-
-Scoring: both found = 6, one found = 4, neither = 0 (scored as `neutral`)
-
-**Image Accessibility** checks whether images have meaningful alt text and use semantic markup. Multimodal AI models (Gemini 2.5, GPT-4o) directly ingest images and rely on structured metadata for grounding. The AIVO Standard v2.2 establishes image readiness as a first-class AI visibility signal [[7]](#sources).
-
-Two sub-checks:
-
-1. Alt text coverage: what ratio of `<img>` elements have **meaningful** alt text? An alt value counts as meaningful when it is non-empty, under 200 characters, and not a generic placeholder (`"image"`, `"photo"`, `"logo"`, `"icon"`, `"picture"`, `"img"`, `"graphic"`, `"thumbnail"`). A specific single word like a brand or product name counts.
-2. Semantic captions: are any images wrapped in `<figure>` with a `<figcaption>` child?
-
-Scoring:
-
-- 90%+ images have meaningful alt text = +5, 50-89% = +3, under 50% = +1
-- Any `<figcaption>` elements present = +3
-- No images on page = 0 (scored as `neutral`)
-
-### Why This Matters
-
-Generative engines start by fetching your page and extracting its text. If your page is slow to respond, returns errors, is mostly boilerplate, or has almost no content, it's effectively invisible. Beyond the page itself, AI crawlers need permission to access your content via robots.txt - blocking them means you don't exist to generative engines. The llms.txt standard is an emerging way to proactively help AI systems understand your site. As multimodal models become standard (Gemini 2.5, GPT-4o), image accessibility also matters - images without alt text are content that AI cannot understand or reference. This category is the foundation everything else builds on.
-
----
-
-## 2. Content Structure for Reuse
-
-**Question:** Is the content organized in a way that engines can segment, chunk, and reuse?
-
-This category is purely structural. It checks whether the right HTML elements exist, in the right quantities, at the right sizes. It does not evaluate the quality of what's inside them. Content quality is assessed separately: [Answerability](#3-answerability) checks whether the text contains answer patterns and definitions, [Entity Clarity](#4-entity-clarity) checks for named entities, [Grounding Signals](#5-grounding-signals) checks for citations and evidence, and [Readability for Compression](#7-readability-for-compression) checks sentence structure and vocabulary.
-
-### Factors
-
-| Factor              | Max | What It Measures                                        |
-| ------------------- | --- | ------------------------------------------------------- |
-| Heading Hierarchy   | 11  | H1/H2/H3 presence and nesting                           |
-| Lists Presence      | 11  | Bulleted and numbered list items                        |
-| Tables Presence     | 8   | Data tables on the page                                 |
-| Paragraph Structure | 11  | Paragraph count and average length                      |
-| Scannability        | 11  | Bold text, short paragraphs, heading-to-paragraph ratio |
-| Section Length      | 12  | Average word count between consecutive headings         |
-
-### Scoring Details
-
-**Heading Hierarchy** awards points additively:
-
-- Exactly 1 H1 = +4 (multiple H1s = +2)
-- 2+ H2s = +4 (1 H2 = +2)
-- Any H3s = +3
-
-**Lists Presence** counts total `<li>` elements:
-
-- 10+ items = 11
-- 5-9 items = 8
-- 1-4 items = 4
-- None = 0
-
-**Tables Presence** counts `<table>` elements:
-
-- 2+ tables = 8
-- 1 table = 5
-- No tables = 0 (scored as `neutral`, not penalized)
-
-**Paragraph Structure** looks at average words per paragraph:
-
-- 30-150 words/paragraph = 11 (ideal)
-- 1-199 words = 7
-- Over 200 = 2
-- No paragraphs = 0
-
-**Scannability** is a composite of three sub-checks:
-
-- Bold text (`<strong>` or `<b>`) present = +4
-- At most 150 words per visual break (headings, lists, tables, and images all count as breaks) = +4
-- Heading-to-paragraph ratio >= 0.1 = +3
-
-Paragraph length itself is scored by the separate Paragraph Structure factor; scannability measures how often ANY visual anchor interrupts the text.
-
-**Section Length** measures the average number of words between consecutive heading elements (H1-H6). Pages using 120-180 words between headings receive 70% more AI citations [[1]](#sources):
-
-- 120-180 words = 12 (sweet spot)
-- 80-119 or 181-250 words = 8 (acceptable)
-- Outside those ranges = 4 (too short or too long)
-- No headed sections = 0 (scored as `neutral`)
-
-### Why This Matters
-
-Generative engines don't use your whole page as one blob. They chunk it by headings, extract lists as standalone snippets, and pull table data into structured answers. Each section between headings is a potential extractable unit. 120-180 words per section is the citation sweet spot [[1]](#sources). Pages that are one giant wall of text with no structural markers give engines very little to work with.
-
----
-
-## 3. Answerability
-
-**Question:** Does this content directly answer the kinds of questions people ask generative engines?
-
-### Factors
-
-| Factor                   | Max | What It Measures                                          |
-| ------------------------ | --- | --------------------------------------------------------- |
-| Definition Patterns      | 10  | Phrases like "X is defined as...", "X refers to..."       |
-| Direct Answer Statements | 11  | Sentences that start with declarative statements          |
-| Answer Capsules          | 13  | Concise answers immediately after question-framed H2s     |
-| Step-by-Step Content     | 10  | Numbered steps, ordered lists, "how to" patterns          |
-| Q/A Patterns             | 11  | Questions in content + "what is", "how to" query patterns |
-| Summary/Conclusion       | 9   | "In summary", "key takeaways", "TL;DR" markers            |
-
-### Scoring Details
-
-**Definition Patterns** scans for these regex patterns:
-
-- `is defined as`
-- `refers to`
-- `means that`
-- `is a type of`
-- `can be described as`
-- `also known as`
-
-Scoring: 6+ matches = 10, 3-5 = 7, 1-2 = 4, none = 0
-
-**Direct Answer Statements** scans for:
-
-- Sentences starting with `The [word] is...` (start of text or after end punctuation)
-- Sentences starting with `It is...`, `This is...`, `They are...`
-- Phrases: `simply put`, `in short`
-
-Detection is sentence-boundary based because the analyzed text is whitespace-normalized; line anchors would never match.
-
-Scoring: 5+ = 11, 2-4 = 8, 1 = 4, none = 0
-
-**Answer Capsules** detects the "answer capsule" pattern: 72% of AI-cited content has a concise answer (under 200 characters) placed immediately after a question-framed H2 [[1]](#sources). The check:
-
-1. Finds all H2 elements framed as questions (contains `?` or starts with what/how/why/when/where/which/who/can/do/does/is/are/should/will)
-2. Finds the answering paragraph: the first `<p>` among the heading's following siblings (looking inside wrapper `<div>`s, stopping at the next heading)
-3. Checks if the first sentence of that paragraph is <= 200 characters (a concise answer capsule)
-4. Scores based on the ratio of question H2s with proper capsules
-
-Scoring: 70%+ have capsules = 13, 40-69% = 9, some = 5, question H2s but no capsules = 2, no question H2s = 0 (scored as `neutral`)
-
-**Step-by-Step Content** combines two detection methods:
-
-Pattern matching scans for:
-
-- `step 1`, `step 2`, etc.
-- Literal numbered sequences like `1. Install the package 2. Configure ...` anywhere in the text
-- `firstly`, `secondly`, `finally`
-- `how to`
-- Presence of `<ol>` elements (adds +2 to count)
-
-NLP-based detection (via `compromise`) additionally counts imperative verbs: instruction-mode verbs like "install", "configure", "click", "open", "run". These are semantically step-like even when not numbered, and are missed by pattern matching alone.
-
-Both counts are summed. Scoring: 5+ = 10, 2-4 = 7, 1 = 3, none = 0
-
-**Q/A Patterns** combines two counts:
-
-1. Sentences ending in `?` (question marks in content)
-2. Query pattern matches: `what is`, `what are`, `how to`, `how do`, `why is`, `why do`, `when to`, `where to`, `which is`, `who is`
-
-Sum of both counts is scored: 10+ = 11, 5-9 = 8, 2-4 = 5, 1 = 2, none = 0
-
-**Summary/Conclusion** scans for:
-
-- `in summary`, `in conclusion`, `to summarize`
-- `key takeaways`, `bottom line`, `TL;DR`
-
-Scoring: 2+ = 9, 1 = 5, none = 0
-
-### Why This Matters
-
-When someone asks ChatGPT "what is X?" or "how do I do Y?", the engine looks for content that directly answers that question. Pages that define terms, provide step-by-step instructions, and include Q/A sections give engines ready-made answer material. The answer capsule pattern is the single most predictive formatting trait for AI citations. 72% of cited content uses it and answer-first formatting increased citations by 140% [[1]](#sources).
-
----
-
-## 4. Entity Clarity
-
-**Question:** Does this content contain clear, recognizable entities that engines can use to understand what it's about?
-
-This category uses a hybrid NLP approach for entity extraction: [compromise](https://github.com/spencermountain/compromise) for base NER (people, organizations, places), supplemented by pattern-based extractors for acronym entities, title-case compound names, and organization/person classification via suffix and honorific matching. A name recognized as a person or place is never double-counted as an organization. Topics are extracted by frequency analysis over noun terms (adjacent-word bigrams boosted, capped at 15 terms) and are reported separately from named entities. All entity lists are deduplicated case-insensitively with whole-word subphrase containment ("Smith" inside "John Smith" is subsumed; "ART" inside "Martha Stewart" is not). No external APIs.
-
-### Factors
-
-| Factor            | Max | What It Measures                                             |
-| ----------------- | --- | ------------------------------------------------------------ |
-| Entity Richness   | 20  | Total unique NAMED entities extracted (people, orgs, places) |
-| Topic Consistency | 25  | Do extracted topics align with the page title and H1?        |
-| Entity Density    | 15  | Entities per 100 words (sweet spot: 2-8)                     |
-
-### Scoring Details
-
-**Entity Richness** counts unique named entities (people, organizations, places; frequency-derived topics are excluded so long articles cannot max this factor on word counts alone):
-
-- 9+ entities = 20
-- 4-8 = 14
-- 1-3 = 7
-- None = 0 (scored as `neutral`)
-
-**Topic Consistency** extracts keywords from the page `<title>` and `<h1>` (words > 3 characters), then checks how many of those keywords appear among the extracted topics or are repeated frequently (3+ whole-word occurrences) in the body text:
-
-- 50%+ of title/H1 keywords found in topics = 25
-- Some overlap = 15
-- No overlap = 5
-
-**Entity Density** is `(namedEntities / wordCount) * 100`, with contiguous bands:
-
-- 2 to <8 per 100 words = 15 (ideal)
-- 1 to <2, or 8 and above = 10
-- Below 1 but some entities = 3
-- No entities = 0
-
-### Why This Matters
-
-Generative engines build knowledge graphs internally. When your page mentions specific people, companies, locations, and topics by name, engines can place your content in context and connect it to queries about those entities. Vague content that avoids naming anything specific is hard for engines to anchor to any particular query.
-
----
-
-## 5. Grounding Signals
-
-**Question:** Does this content back up its claims with external evidence?
-
-### Factors
-
-| Factor                 | Max | What It Measures                               |
-| ---------------------- | --- | ---------------------------------------------- |
-| External References    | 13  | Links to other domains                         |
-| Citation Patterns      | 13  | Formal citation indicators + blockquotes       |
-| Numeric Claims         | 13  | Percentages, dollar amounts, statistics        |
-| Attribution Indicators | 11  | "according to", "said", "reported" phrases     |
-| Quoted Attribution     | 10  | Quotes explicitly attributed to a named source |
-
-### Scoring Details
-
-**External References** counts `<a>` elements linking to domains other than the page's own domain:
-
-- 6+ external links = 13
-- 3-5 = 10
-- 1-2 = 6
-- None = 0
-
-**Citation Patterns** combines two counts:
-
-1. Text pattern matches: `[1]`, author-year citations like `(Smith, 2024)` (a capitalized author and a comma are required, so `(founded in 1999)` does not count), `research shows`, `studies indicate`, `data from`, `as reported by`. `according to` is counted by the Attribution Indicators factor instead, so one phrase never feeds two factors.
-2. HTML elements: `<blockquote>`, `<q>`, and standalone `<cite>` (a `<cite>` inside a `<blockquote>` counts once, not twice)
-
-Sum scored: 6+ = 13, 3-5 = 9, 1-2 = 5, none = 0
-
-**Numeric Claims** combines two detection methods:
-
-Pattern matching scans for:
-
-- Percentages: `42%`
-- Large numbers: `3 million`, `2 billion`
-- Currency: `$1,200`
-- Change indicators: `increased by`, `decreased by`, `grew by`
-
-NLP-based detection (via `compromise`) additionally counts written-out numbers like "five studies" or "three companies" that regex cannot reliably capture. Digit forms are counted only by the regexes, so `42%` is one signal, never two.
-
-Both counts are summed. Scoring: 9+ = 13, 4-8 = 9, 1-3 = 5, none = 0
-
-**Attribution Indicators** scans for:
-
-- `according to`
-- `said`, `stated`, `reported`
-- `cited by`
-
-Scoring: 5+ = 11, 2-4 = 8, 1 = 4, none = 0
-
-**Quoted Attribution** specifically detects the quote-with-attribution pattern that boosts visibility by 30-40% [[2]](#sources). Combines two checks:
-
-1. Text patterns for inline quoted attribution:
-   - `"quoted text" - Name` (straight or curly quotes, em/en dashes)
-   - `"quoted text," said Name`
-   - `"quoted text," according to Name`
-   - `According to Name, "quoted text"`
-
-2. HTML `<blockquote>` elements containing a `<cite>`, `<footer>`, or `<figcaption>` child (properly attributed quotes)
-
-Scoring: 4+ attributed quotes = 10, 2-3 = 7, 1 = 4, none = 0 (scored as `neutral`)
-
-### Why This Matters
-
-Generative engines are increasingly focused on grounding their responses in verifiable sources. Content that cites external references, includes statistics, and attributes claims to specific sources is more trustworthy to engines. Quotes with explicit attribution are especially powerful. The Princeton GEO paper ranked quotation addition alongside statistics and citations as the top methods for increasing generative visibility [[2]](#sources).
-
----
-
-## 6. Authority Context
-
-**Question:** Does this page provide the contextual signals that help engines evaluate who created it and whether to trust it?
-
-### Factors
-
-| Factor                | Max | What It Measures                                              |
-| --------------------- | --- | ------------------------------------------------------------- |
-| Author Attribution    | 10  | Byline, author meta tags, schema markup                       |
-| Organization Identity | 10  | Organization schema, og:site_name                             |
-| Contact/About Links   | 10  | Links to /about, /contact, /team pages                        |
-| Publication Date      | 8   | Publish/modified dates in HTML or schema (presence check)     |
-| Content Freshness     | 12  | How recent is the publication or modified date?               |
-| Structured Data       | 12  | JSON-LD, Open Graph tags, canonical URL                       |
-| Schema Completeness   | 10  | Do JSON-LD schemas have their recommended properties?         |
-| Entity Consistency    | 10  | Does the brand name appear consistently across page surfaces? |
-
-### Scoring Details
-
-**Author Attribution** checks these CSS selectors in order:
-
-- `[rel="author"]`, `.author`, `.byline`, `[itemprop="author"]`
-- `.post-author`, `.entry-author`, `meta[name="author"]`
-
-Found = 10, not found = 0
-
-**Organization Identity** checks for:
-
-- An `Organization` object in parsed JSON-LD (including inside `@graph` envelopes and `@type` arrays, as emitted by Yoast and most WordPress SEO plugins)
-- `<meta property="og:site_name">` with content
-
-Either found = 10, neither = 0
-
-**Contact/About Links** checks for `<a>` elements whose URL path contains `about`, `team`, `company`, or `contact` as a path segment (or whose link text is that word), plus `mailto:` links for contact. Plain substring matching would count `/blog/all-about-widgets` as an About page, so it is not used:
-
-- Both about-type AND contact found = 10
-- One of the two = 5
-- Neither = 0
-
-**Publication Date** checks these publish-date selectors in order (presence only; modified dates are evaluated by the separate Content Freshness factor):
-
-- `<time datetime>`, `[itemprop="datePublished"]`
-- `.published`, `.post-date`, `.entry-date`
-- `meta[property="article:published_time"]`
-
-Found = 8, not found = 0
-
-**Content Freshness** goes beyond date presence to evaluate how recent the content actually is. 65% of AI crawler hits target content less than 1 year old, and freshness acts as a hard gate: stale content loses visibility regardless of quality [[3]](#sources).
-
-The check:
-
-1. Looks for `dateModified` first (stronger signal), then falls back to `datePublished`
-2. Parses the date and calculates age in months from today
-3. Having a `dateModified` at all provides a +2 bonus (shows active maintenance)
-
-Scoring:
-
-- Under 6 months old = 12 (fresh, ideal)
-- 6-12 months = 9 (still current)
-- 12-24 months = 5 (getting stale)
-- Over 24 months = 2 (outdated for generative engines)
-- Modified date present bonus: +2 (capped at 12)
-- No parseable date = 0
-
-**Structured Data** awards points additively:
-
-- JSON-LD `<script type="application/ld+json">` with `@type` present = +4
-- 3+ Open Graph tags (og:title, og:description, og:image, og:type) = +4 (1-2 tags = +2)
-- `<link rel="canonical">` present = +4
-
-**Schema Completeness** goes beyond schema presence to evaluate whether recognized JSON-LD types have their recommended properties populated. LLMs use schema completeness to ground citations, not just presence [[4]](#sources) [[5]](#sources).
-
-Recognized types and their recommended properties:
-
-- `Article` / `NewsArticle` / `BlogPosting`: `headline`, `author`, `datePublished`
-- `FAQPage`: `mainEntity`
-- `HowTo`: `name`, `step`
-- `Organization`: `name`, `url`
-- `LocalBusiness`: `name`, `address`
-- `Product`: `name`
-- `WebPage`: `name`
-
-For each recognized schema, the check computes what percentage of recommended properties are present, then averages across all schemas on the page. Multi-typed objects (`"@type": ["BlogPosting", "Article"]`) are graded against their first recognized type, and `@graph` envelopes are flattened before evaluation.
-
-Scoring:
-
-- 80%+ average completeness = 10
-- 50-79% = 7
-- Under 50% (but some properties) = 4
-- No recognized schema types = 0 (scored as `neutral`)
-
-**Entity Consistency** checks whether the brand or organization name appears consistently across multiple page surfaces. Brand-controlled sources account for ~86% of AI citations, and consistent entity identification is what makes a source "brand-controlled" to a model [[6]](#sources).
-
-The check:
-
-1. Resolves the entity name from `og:site_name` or `Organization` schema `name` or `publisher.name`
-2. Checks 4 surfaces for the entity name: page title, OG title, footer text, header/copyright text
-3. Scores based on how many surfaces contain the name
-
-Scoring:
-
-- 4/4 surfaces = 10
-- 3/4 = 7
-- 2/4 = 4
-- 1/4 = 2
-- No identifiable entity name = 0 (scored as `neutral`)
-
-### Why This Matters
-
-When a generative engine decides which sources to cite or pull from, context matters. Who wrote it? What organization published it? When was it last updated? Is there structured data that makes the content machine-readable? Content freshness is especially critical. ChatGPT cites URLs that are 393-458 days newer than what Google ranks organically, and content lifespans have compressed from 24-36 months to 6-9 months for generative engines [[3]](#sources). Beyond presence, schema completeness matters. An Article schema with `headline`, `author`, and `datePublished` gives models far more grounding confidence than an empty shell [[4]](#sources) [[5]](#sources). Brand-controlled sources dominate AI citations (~86%) [[6]](#sources). Consistent entity naming across title, OG tags, schema, and footer is what makes a source "brand-controlled" to a model.
-
----
-
-## 7. Readability for Compression
-
-**Question:** Is this content written in a way that compresses well when engines summarize it?
-
-### Factors
-
-| Factor           | Max | What It Measures                               |
-| ---------------- | --- | ---------------------------------------------- |
-| Sentence Length  | 15  | Average words per sentence (sweet spot: 12-22) |
-| Readability      | 15  | Flesch Reading Ease score                      |
-| Jargon Density   | 15  | Percentage of 4+ syllable words                |
-| Transition Usage | 15  | Variety of transition words used               |
-
-### Scoring Details
-
-**Sentence Length** computes `totalWords / totalSentences`:
-
-- 12-22 words/sentence = 15 (ideal)
-- 8-11 or 23-29 = 10
-- Anything else (but > 0) = 5
-- No sentences = 0
-
-**Readability** uses the Flesch Reading Ease formula:
-
-```
-FRE = 206.835 - (1.015 * avgWordsPerSentence) - (84.6 * avgSyllablesPerWord)
-```
-
-Scoring:
-
-FRE is a continuous value, so the bands are contiguous with exclusive upper bounds:
-
-- FRE 60 to <71 = 15 (ideal for broad audiences)
-- FRE 71 and above = 13 (very easy, good)
-- FRE 50 to <60 = 10
-- FRE 30 to <50 = 6
-- FRE below 30 = 0 (very difficult to read)
-
-Syllable counting uses a heuristic: count vowel groups, adjust for silent-e and common suffixes.
-
-**Jargon Density** is the ratio of complex words (4+ syllables) to total words:
-
-- Under 2% = 15 (very accessible)
-- 2-5% = 12
-- 5-10% = 8
-- Over 10% = 0
-
-**Transition Usage** counts how many distinct transition words from a list of 20 appear in the text (whole-word matches, so "dissimilarly" does not count as "similarly"):
-
-- `however`, `therefore`, `moreover`, `furthermore`, `consequently`, `additionally`, `in contrast`, `similarly`, `as a result`, `for example`, `for instance`, `on the other hand`, `nevertheless`, `meanwhile`, `likewise`, `in addition`, `specifically`, `in particular`, `notably`, `importantly`
-
-Scoring: 10+ types = 15, 5-9 = 11, 2-4 = 7, 1 = 3, none = 0
-
-### Why This Matters
-
-Generative engines don't quote your content verbatim - they compress, summarize, and rephrase it. Content that uses clear sentence structure, accessible vocabulary, and logical transitions compresses cleanly. Dense academic prose with 40-word sentences and heavy jargon is harder for engines to distill into useful answers without losing meaning.
-
----
-
-## Grading Scale
+### Grading scale
 
 | Score  | Grade |
 | ------ | ----- |
@@ -600,18 +102,530 @@ Generative engines don't quote your content verbatim - they compress, summarize,
 
 ---
 
+## Pipeline Stages
+
+Stages mirror how a generative engine actually processes a page: it must be fetchable, then retrieved, then cited, and its provenance shapes trust. Definitions match [EVIDENCE.md](EVIDENCE.md):
+
+| Stage  | Name                           | What it covers                                                                             |
+| ------ | ------------------------------ | ------------------------------------------------------------------------------------------ |
+| **TE** | Technical eligibility          | Fetch, extraction, crawler access: can engines get usable text at all                      |
+| **RA** | Retrieval alignment            | Structural fields, terms, and entities that get a page retrieved and reranked into context |
+| **CF** | Citation and synthesis fitness | Content properties that make an in-context page get cited and used                         |
+| **PR** | Provenance and fidelity        | Authorship, organizational identity, attribution hygiene                                   |
+
+Each stage percentage is the sum of its scorable factors' scores over their maxScores. Diagnostics contribute to no stage score. The scored rollup, from `FACTOR_REGISTRY`:
+
+| Stage                     | Scored factors                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Technical eligibility** | Fetch Success, Text Extraction Quality, Boilerplate Ratio, AI Crawler Access, Paywall Signals                                                                                                                                                                                                                                                                                                                   |
+| **Retrieval alignment**   | Title Entity Alignment, Meta Description Alignment, Heading Entity Alignment, Structured Data Alignment, Heading Hierarchy, Entity Richness, Topic Consistency, Term Repetition Balance, Structured Data, Schema Completeness, Entity Consistency, Jargon Density, Query Term Coverage (Structural)                                                                                                             |
+| **Citation fitness**      | Lead Summary, Definition Patterns, Direct Answer Statements, Step-by-Step Content, Summary/Conclusion, Explanatory Depth, Query Term Coverage (Body), Query Aspect Coverage, External References, Citation Patterns, Numeric Claims, Attribution Indicators, Quoted Attribution, Hedged Language, Content Freshness, Sentence Length, Readability, Price Presence, Technical Specifications, Comparison Content |
+| **Provenance**            | Author Attribution, Organization Identity, Contact/About Links                                                                                                                                                                                                                                                                                                                                                  |
+
+Technical eligibility additionally carries a pass/fail **status** with named **blockers**: any blocking factor at `critical` (Fetch Success, Text Extraction Quality), or `AI Crawler Access` when robots.txt blocks every known AI crawler (none resolves as allowed or unknown, so a single blocked crawler alone never fails eligibility). A failed status suppresses the three downstream stage percentages and caps the overall score at 25 (see [How Scoring Works](#how-scoring-works)).
+
+### Evidence Gates
+
+Gates encode near-deterministic negative findings from [What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md) as **caps on the citation-fitness stage percentage**. Gates never add points; a tripped gate caps `citationFitness.pct` at its cap value (the lowest tripped cap wins, and the uncapped value is preserved as `uncappedPct` for transparency). Cap values are expert-set heuristics.
+
+| Gate                  | Cap | Applies when                                                   | Trips when                                                               |
+| --------------------- | --- | -------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `staleVisibleDate`    | 50  | Product (non-informational) page with a parseable visible date | The date is older than 24 months                                         |
+| `offTopicForQueries`  | 50  | Target queries supplied and query alignment measured           | Every query's best coverage (structural or body) is below 0.2            |
+| `missingPriceProduct` | 60  | Product page with price detection performed                    | No price signal found (neither JSON-LD offers nor visible currency text) |
+
+---
+
+## Domain Profiles
+
+Pages are audited under one of two domain profiles: **product** or **informational**. Set it with `--domain` (or `domain` in config); the default is `auto`, which detects product pages by, in order:
+
+1. JSON-LD declaring a `Product`, `Offer`, or `AggregateOffer` type
+2. `og:type` containing `product`
+3. Three or more visible prices (currency symbol or ISO code patterns) combined with cart vocabulary ("add to cart", "buy now", "in stock")
+
+Anything else is informational.
+
+**Product pages** get the [Product Fit](#9-product-fit) category (price, specifications, comparisons), are subject to the `missingPriceProduct` and `staleVisibleDate` gates, and have Explanatory Depth marked neutral (excluded from denominators). Product-page reports carry a standing warning grounded in end-to-end shopping-domain results ([SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md)): generic content optimization measurably hurt product pages; prioritize price, specs, and comparisons over rewriting.
+
+**Informational pages** score Explanatory Depth and omit the Product Fit category entirely; product factors are absent, not zeroed.
+
+---
+
+## Query Alignment
+
+Query Alignment is a **conditional category**: it exists only when you supply target queries via `--query` (repeatable) or the `queries` config array. Maximum 10 queries; supply about 5 for stable coverage measurement.
+
+Its factors use **worst-case-query scoring**: each factor scores the weakest of your queries, not the average. A page that fully serves four queries and ignores a fifth scores as a page that ignores a query, because per-query citation is what the evidence measures. The report names the weakest query and how many queries are adequately served.
+
+Two coverage surfaces are measured for each query's content terms (lowercased, stopwords and words under 3 characters removed):
+
+- **Structural coverage**: share of query terms appearing in the title, meta description, H1-H3 headings, and JSON-LD text fields. Validated retrieval lever ([SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md): structural-field optimization +22% retrieval hit rate).
+- **Body coverage**: share of query terms appearing in the body text. Causally validated citation lever ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md): query terms present vs missing, odds ratios 5.99 to 40.0).
+
+Both use the same bands on the worst query: 60%+ coverage = full points, 35% to <60% = 60% of max, 15% to <35% = 30% of max, below 15% = 0.
+
+**Aspect coverage** approximates demand decomposition ([Mind Reader](paper-reviews/mind-reader-acl-2026.md)): each query is split into aspects (its named entities, falling back to its content terms), the page is split into headed sections, and an aspect counts as covered when some section's BM25 score for it reaches 0.5. This is a deliberately weaker static approximation of the paper's LLM-based method.
+
+If every supplied query's best coverage stays below 0.2, the `offTopicForQueries` gate caps citation fitness at 50 (see [Evidence Gates](#evidence-gates)).
+
+Factor table and exact bands: [5. Query Alignment (Factors)](#5-query-alignment-factors).
+
+---
+
+## 1. Content Extractability
+
+**Question:** Can a generative engine fetch this page and pull out meaningful text at all?
+
+### Factors
+
+| Factor                  | Max | Stage | Evidence                                                                                              | What It Measures                                               |
+| ----------------------- | --- | ----- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Fetch Success           | 12  | TE    | supported ([EVIDENCE.md](EVIDENCE.md)); blocking                                                      | HTTP status of the page fetch                                  |
+| Text Extraction Quality | 12  | TE    | supported ([EVIDENCE.md](EVIDENCE.md)); blocking                                                      | Ratio of clean text bytes to raw HTML bytes                    |
+| Boilerplate Ratio       | 12  | TE    | conditional ([AutoGEO](paper-reviews/autogeo-iclr-2026.md))                                           | Share of the page that is nav/footer/scripts vs actual content |
+| AI Crawler Access       | 10  | TE    | supported ([Characterizing Web Search](paper-reviews/characterizing-web-search-findings-acl-2026.md)) | Are the 13 documented AI crawler tokens allowed in robots.txt? |
+| Paywall Signals         | 8   | TE    | heuristic ([AutoGEO](paper-reviews/autogeo-iclr-2026.md))                                             | Paywall/login barriers in JSON-LD, DOM markers, or text        |
+| Word Count Adequacy     | 0   | none  | diagnostic ([SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md))                                     | Word count, reported without a scored optimum                  |
+| LLMs.txt Presence       | 0   | none  | experimental ([C-SEO Bench](paper-reviews/c-seo-bench-neurips-2025.md))                               | llms.txt / llms-full.txt at the signals base                   |
+| Image Accessibility     | 0   | none  | diagnostic ([EVIDENCE.md](EVIDENCE.md))                                                               | Alt-text coverage and figcaption count                         |
+
+Factors with Max 0 are unscored diagnostics (excluded from denominators): they appear in reports but contribute nothing to category or stage scores.
+
+### Scoring Details
+
+**Fetch Success** (blocking):
+
+- HTTP 200 = 12
+- Any status below 400 = 8
+- 400+ = 0 (critical, fails technical eligibility)
+
+**Text Extraction Quality** (blocking) measures `cleanTextLength / rawByteLength` in contiguous bands (upper bounds exclusive):
+
+- 5% to <16% = 12 (ideal for a normal web page)
+- 16% and above = 10 (text-heavy, fine but less structured)
+- 1% to <5% = 8
+- 0.01% to <1% = 2 (critical, fails technical eligibility)
+- Below that = 0 (critical, fails technical eligibility)
+
+**Boilerplate Ratio** scores the content share (1 minus boilerplate ratio):
+
+- 70%+ content (under 30% boilerplate) = 12
+- 50-69% content = 9
+- 30-49% content = 6
+- 1-29% content = 2
+- Under 1% content = 0
+
+**AI Crawler Access** parses robots.txt (wildcards, `$` anchors, longest-path-wins, `Allow` overrides at equal length) for 13 documented crawler tokens: GPTBot, OAI-SearchBot, ChatGPT-User, ClaudeBot, Claude-User, Claude-SearchBot, PerplexityBot, Perplexity-User, Google-Extended, Applebot-Extended, CCBot, Bytespider, meta-externalagent. Path-level partial blocks are surfaced separately as `partiallyBlocked` without counting as site blocks. Scoring by fully blocked crawlers:
+
+- 0 blocked = 10
+- 1-2 blocked = 6
+- 3-4 blocked = 3
+- 5+ blocked = 0
+
+When every known crawler is blocked, `AI Crawler Access` becomes an eligibility blocker (see [Pipeline Stages](#pipeline-stages)). The factor only appears when domain signals were fetched.
+
+**Paywall Signals**:
+
+- JSON-LD `isAccessibleForFree: false` (top level or in `hasPart`), or 2+ paywall markers = 0/8
+- Exactly 1 marker = 4/8
+- No markers = 8/8
+
+Markers are paywall DOM selectors (`#paywall`, `.paywall`, Piano/metered/regwall class patterns) plus one marker if body text matches phrases like "subscribe to continue" or "sign in to read".
+
+**Diagnostics.** Word Count Adequacy reports the raw count; no band is scored because short keyword-dense pages win retrieval while substantive pages win reranking, so no word-count optimum is validated ([SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md)). LLMs.txt Presence reports found/not found with an explicit "no outcome evidence" label. Image Accessibility reports alt-text coverage and figcaption counts as accessibility information.
+
+### Why This Matters
+
+Technical eligibility is a prerequisite by construction: a page that cannot be fetched, or that yields no usable text, enters no retrieval pipeline and can never be cited, which is why its two core factors are the audit's only blocking factors. Crawler blocks are exclusion, not degradation ([Characterizing Web Search](paper-reviews/characterizing-web-search-findings-acl-2026.md) documents how AI engines source pages; [SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md) shows pages outside the retrieved context receive zero citations). Full-text accessibility without logins or paywalls appears as a learned engine preference in [AutoGEO](paper-reviews/autogeo-iclr-2026.md). The v1 word-count band was demoted to a diagnostic because the evidence pulls in both directions, and llms.txt remains experimental with no outcome evidence in any reviewed paper.
+
+---
+
+## 2. Structural Alignment
+
+**Question:** Do the page's structural fields (title, meta description, headings, JSON-LD) carry the same key terms as its body?
+
+New in 2.0. Retrieval systems weight structural fields heavily; [SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md) measured +22% retrieval hit rate and +2.72 average rank positions for structural-field optimization over body-only editing.
+
+### Factors
+
+| Factor                     | Max | Stage | Evidence                                                           | What It Measures                                     |
+| -------------------------- | --- | ----- | ------------------------------------------------------------------ | ---------------------------------------------------- |
+| Title Entity Alignment     | 12  | RA    | conditional ([SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md)) | Salient body terms appearing in the `<title>`        |
+| Meta Description Alignment | 8   | RA    | conditional ([SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md)) | Salient body terms appearing in the meta description |
+| Heading Entity Alignment   | 10  | RA    | conditional ([SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md)) | Salient body terms appearing in H1-H3 text           |
+| Structured Data Alignment  | 6   | RA    | conditional ([SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md)) | Salient body terms in JSON-LD text fields            |
+
+### Scoring Details
+
+The body's salient terms (top entities plus salient terms from NLP extraction) are matched against each structural field. All four factors use the same coverage bands (upper bounds exclusive), with midpoints rounded per factor:
+
+- 60%+ coverage = full points
+- 35% to <60% = 60% of max (Title 7, Meta 5, Heading 6, Structured Data 4)
+- 15% to <35% = 30% of max (Title 4, Meta 2, Heading 3, Structured Data 2)
+- Below 15% = 0
+
+An empty field (no title, no meta description, no headings) scores 0. Neutral cases (excluded from denominators): no salient body terms to align against (all four factors), and no JSON-LD text fields present (Structured Data Alignment only). JSON-LD text fields checked: `headline`, `description`, `about`, `keywords`, `name`. The report also notes when the field carries the body's key figures.
+
+### Why This Matters
+
+Retrieval happens before citation, and it happens substantially on structural fields. [SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md) is the only reviewed benchmark that isolates the retrieval stage end-to-end, and its clearest result is that aligning title, headings, and metadata with the page's actual content moves retrieval more than body rewrites do. The factors are conditional rather than supported because the effect is measured on retrieval metrics in one benchmark's domains, not as a universal citation gain.
+
+---
+
+## 3. Content Structure for Reuse
+
+**Question:** Is the content organized so engines can segment and chunk it?
+
+### Factors
+
+| Factor              | Max | Stage | Evidence                                                                    | What It Measures                               |
+| ------------------- | --- | ----- | --------------------------------------------------------------------------- | ---------------------------------------------- |
+| Heading Hierarchy   | 11  | RA    | heuristic ([SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md))            | H1/H2/H3 presence and nesting                  |
+| Lists Presence      | 0   | none  | diagnostic ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md)) | List item count                                |
+| Tables Presence     | 0   | none  | diagnostic ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md)) | Table count                                    |
+| Paragraph Structure | 0   | none  | diagnostic ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md)) | Paragraph count and average length             |
+| Scannability        | 0   | none  | diagnostic ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md)) | Bold text presence, heading-to-paragraph ratio |
+| Section Length      | 0   | none  | diagnostic ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md)) | Words between consecutive headings             |
+
+Factors with Max 0 are unscored diagnostics (excluded from denominators).
+
+### Scoring Details
+
+**Heading Hierarchy** awards points additively:
+
+- Exactly 1 H1 = +4 (any other nonzero H1 count = +2)
+- 2+ H2s = +4 (1 H2 = +2)
+- Any H3s = +3
+
+**Diagnostics** report list item count, table count, paragraph count with average words per paragraph, bold presence with heading-to-paragraph ratio, and headed-section count with average words per section. None are scored.
+
+### Why This Matters
+
+This category shrank the most from v1, on purpose. [What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md) causally isolated formatting-only manipulations (lists, tables, dense vs structured presentation) with matched page pairs and found no consistent cross-model effect on first-citation odds; the v1 claims of a 120-180 word section sweet spot and citation-boosting lists did not survive contact with that design. Heading hierarchy stays scored at low weight as a heuristic because heading _content_ is a structural retrieval field ([SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md)); heading _counts_ are the unvalidated part. The diagnostics remain visible so structural extremes are still surfaced to a human.
+
+---
+
+## 4. Answerability
+
+**Question:** Does this content state its answers directly, early, and in extractable form?
+
+### Factors
+
+| Factor                   | Max | Stage | Evidence                                                                                                                                                                    | What It Measures                                       |
+| ------------------------ | --- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Lead Summary             | 13  | CF    | conditional ([C-SEO Bench](paper-reviews/c-seo-bench-neurips-2025.md), [AutoGEO](paper-reviews/autogeo-iclr-2026.md), [SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md)) | Does the page state its conclusion first?              |
+| Definition Patterns      | 10  | CF    | heuristic ([EVIDENCE.md](EVIDENCE.md))                                                                                                                                      | "is defined as", "refers to", "also known as" phrasing |
+| Direct Answer Statements | 11  | CF    | conditional ([C-SEO Bench](paper-reviews/c-seo-bench-neurips-2025.md), [AutoGEO](paper-reviews/autogeo-iclr-2026.md), [SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md)) | Declarative sentence openings ("The X is", "It is")    |
+| Step-by-Step Content     | 10  | CF    | heuristic ([AutoGEO](paper-reviews/autogeo-iclr-2026.md))                                                                                                                   | Numbered steps, ordered lists, instruction verbs       |
+| Summary/Conclusion       | 9   | CF    | heuristic ([AutoGEO](paper-reviews/autogeo-iclr-2026.md))                                                                                                                   | "in summary", "key takeaways", "TL;DR" markers         |
+| Explanatory Depth        | 10  | CF    | heuristic ([AutoGEO](paper-reviews/autogeo-iclr-2026.md))                                                                                                                   | Causal/mechanism markers and how/why headings          |
+| Answer Capsules          | 0   | none  | diagnostic ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md), [Mind Reader](paper-reviews/mind-reader-acl-2026.md))                                           | Concise answers after question-framed H2s              |
+| Q/A Patterns             | 0   | none  | diagnostic ([Mind Reader](paper-reviews/mind-reader-acl-2026.md))                                                                                                           | Questions in content and query-shaped phrasing         |
+
+Factors with Max 0 are unscored diagnostics (excluded from denominators).
+
+### Scoring Details
+
+**Lead Summary** (new in 2.0) awards points additively for conclusion-first structure:
+
+- +5: an intro paragraph directly under the H1, 30-150 words long
+- +5: an explicit summary marker (`TL;DR`, `key takeaways`, `overview`, `at a glance`, `summary`, `in brief`) within the first 150 words or in one of the first two H2/H3 headings
+- +3: the first paragraph states the main claim (mentions a salient entity and uses a direct-answer pattern)
+
+**Definition Patterns** counts matches of: `is defined as`, `refers to`, `means that`, `is a type of`, `can be described as`, `also known as`. Scoring: 6+ = 10, 3-5 = 7, 1-2 = 4, 0 = 0.
+
+**Direct Answer Statements** counts sentence-boundary matches of `The [word] is`, `It is`, `This is`, `They are`, plus `simply put` and `in short`. Scoring: 5+ = 11, 2-4 = 8, 1 = 4, 0 = 0.
+
+**Step-by-Step Content** sums step patterns (`step N`, numbered sequences, `firstly`/`secondly`/`finally`, `how to`), NLP-detected imperative instruction verbs, and +2 when any `<ol>` exists. Scoring: 5+ = 10, 2-4 = 7, 1 = 3, 0 = 0.
+
+**Summary/Conclusion** counts markers (`in summary`, `in conclusion`, `to summarize`, `key takeaways`, `bottom line`, `TL;DR`). Scoring: 2+ = 9, 1 = 5, 0 = 0.
+
+**Explanatory Depth** (new in 2.0) sums explanatory markers (`because`, `this means`, `the reason`, `which is why`, `how it works`, `works by`, `as a consequence`, `leads to`) and H2/H3 headings starting with "how" or "why". Scoring: 6+ = 10, 3-5 = 7, 1-2 = 3, 0 = 0. **Neutral on product pages** (excluded from denominators); generic depth optimization measurably hurt product content.
+
+**Diagnostics.** Answer Capsules reports how many question-framed H2s are followed by a concise first sentence (200 characters or less); the v1 "72% of cited content" claim behind scoring it was an unverified vendor number, and formatting-only effects are causally null ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md)). Q/A Patterns reports question counts without scoring them; question framing is not a substitute for covering the query's actual demands ([Mind Reader](paper-reviews/mind-reader-acl-2026.md)).
+
+### Why This Matters
+
+Early, direct answers are the best-replicated content finding in the reviewed literature: [C-SEO Bench](paper-reviews/c-seo-bench-neurips-2025.md) found LLM Guidance (a lead summary block) the only content method with significant citation-rank gains, [AutoGEO](paper-reviews/autogeo-iclr-2026.md) learned "Conclusion First" as a rule on all three engines it studied, and [SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md)'s reranker case study shows early answer placement improving position. That is why Lead Summary is the category's largest factor. The remaining scored factors are heuristics adjacent to that evidence (definitions, steps, summaries, explanatory depth as an AutoGEO learned rule), scored modestly and labeled as such.
+
+---
+
+## 5. Query Alignment (Factors)
+
+Scored only when target queries are supplied; see [Query Alignment](#query-alignment) for semantics, guidance, and the off-topic gate.
+
+### Factors
+
+| Factor                           | Max | Stage | Evidence                                                                                                                         | What It Measures                                           |
+| -------------------------------- | --- | ----- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Query Term Coverage (Structural) | 15  | RA    | supported ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md), [SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md)) | Worst query's term coverage in title/meta/headings/JSON-LD |
+| Query Term Coverage (Body)       | 15  | CF    | supported ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md))                                                       | Worst query's term coverage in body text                   |
+| Query Aspect Coverage            | 10  | CF    | heuristic ([Mind Reader](paper-reviews/mind-reader-acl-2026.md))                                                                 | Worst query's aspects addressed by a dedicated section     |
+
+### Scoring Details
+
+**Query Term Coverage (Structural and Body)**, worst query, contiguous bands (upper bounds exclusive):
+
+- 60%+ of the query's terms covered = 15
+- 35% to <60% = 9
+- 15% to <35% = 5
+- Below 15% = 0
+
+**Query Aspect Coverage**, worst query's share of aspects with a BM25-matching section (score floor 0.5):
+
+- 70%+ of aspects covered = 10
+- 40-69% = 6
+- At least one aspect covered = 3
+- None = 0
+
+---
+
+## 6. Entity Clarity
+
+**Question:** Does this content name what it is about, consistently and without over-repeating it?
+
+Entity extraction is hybrid NLP ([compromise](https://github.com/spencermountain/compromise) NER plus pattern-based extractors), local, with no external APIs.
+
+### Factors
+
+| Factor                  | Max | Stage | Evidence                                                                                                                                                                                                              | What It Measures                                      |
+| ----------------------- | --- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Entity Richness         | 12  | RA    | heuristic ([SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md))                                                                                                                                                      | Unique named entities (people, orgs, places)          |
+| Topic Consistency       | 18  | RA    | conditional ([AutoGEO](paper-reviews/autogeo-iclr-2026.md), [SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md))                                                                                                     | Title/H1 keywords aligning with body topics           |
+| Term Repetition Balance | 8   | RA    | conditional ([AutoGEO](paper-reviews/autogeo-iclr-2026.md), [Mind Reader](paper-reviews/mind-reader-acl-2026.md), [FeatGEO](paper-reviews/featgeo-acl-2026.md), [SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md)) | Leading term's share of the text (over-optimization)  |
+| Pronoun Ambiguity       | 0   | none  | diagnostic ([SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md))                                                                                                                                                     | Substantial paragraphs opening with a pronoun subject |
+
+Factors with Max 0 are unscored diagnostics (excluded from denominators).
+
+### Scoring Details
+
+**Entity Richness** counts unique named entities (people + organizations + places; frequency topics excluded):
+
+- 9+ = 12
+- 4-8 = 8
+- 1-3 = 4
+- 0 = neutral (excluded from denominators)
+
+**Topic Consistency** takes keywords (over 3 characters) from the title and H1, then checks how many appear among extracted topics or recur 3+ times as whole words in the body:
+
+- 50%+ aligned = 18
+- Any alignment = 11
+- No alignment = 0
+- No title/H1 keywords at all = neutral
+
+**Term Repetition Balance** (replaces v1's Entity Density, with the direction reversed) measures the leading salient term's share of total words (`occurrences x term word count / word count`):
+
+- 2.5% or less = 8 (balanced)
+- Over 2.5% up to 4% = 4 (approaching over-optimization)
+- Over 4% = 0 (over-optimization risk)
+- No salient terms = neutral
+
+**Pronoun Ambiguity** (diagnostic) reports how many paragraphs over 25 words open with a pronoun subject (it, this, that, these, those, they, he, she).
+
+### Why This Matters
+
+Entities and topic terms are retrieval anchors, but the v1 assumption that more density is better was contradicted across four benchmarks: keyword stuffing was learned as a negative rule ([AutoGEO](paper-reviews/autogeo-iclr-2026.md)), keyword-focus edits underperformed ([FeatGEO](paper-reviews/featgeo-acl-2026.md)), added density caused dilution and lexical mismatch ([SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md)), and keyword forcing drew a hallucination penalty ([MAGEO](paper-reviews/mageo-findings-acl-2026.md)). 2.0 therefore scores balance with an explicit over-repetition warning band instead of rewarding density. Topic consistency stays scored because on-topic vs off-topic is the strongest causal effect in [What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md). Pronoun-explicit openings are part of a winning bundle in SAGEO Arena but were not individually ablated, so they stay diagnostic.
+
+---
+
+## 7. Grounding Signals
+
+**Question:** Does this content back its claims with evidence, attribution, and confident language?
+
+### Factors
+
+| Factor                 | Max | Stage | Evidence                                                                                                                               | What It Measures                               |
+| ---------------------- | --- | ----- | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| External References    | 13  | CF    | heuristic ([AutoGEO](paper-reviews/autogeo-iclr-2026.md))                                                                              | Links to other domains                         |
+| Citation Patterns      | 13  | CF    | conditional ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md), [C-SEO Bench](paper-reviews/c-seo-bench-neurips-2025.md)) | Formal citation indicators plus quote elements |
+| Numeric Claims         | 13  | CF    | conditional ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md), [C-SEO Bench](paper-reviews/c-seo-bench-neurips-2025.md)) | Statistics, percentages, written-out numbers   |
+| Attribution Indicators | 11  | CF    | conditional ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md))                                                           | "according to", "said", "reported" phrases     |
+| Quoted Attribution     | 10  | CF    | heuristic ([C-SEO Bench](paper-reviews/c-seo-bench-neurips-2025.md))                                                                   | Quotes explicitly attributed to a named source |
+| Hedged Language        | 10  | CF    | conditional ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md))                                                           | Share of sentences containing hedge words      |
+
+### Scoring Details
+
+**External References** counts links to other domains: 6+ = 13, 3-5 = 10, 1-2 = 6, 0 = 0.
+
+**Citation Patterns** sums citation indicators (`[1]`, author-year, `research shows`, ...) and quote elements (`<blockquote>`, `<q>`, standalone `<cite>`): 6+ = 13, 3-5 = 9, 1-2 = 5, 0 = 0.
+
+**Numeric Claims** sums statistical pattern matches (percentages, large numbers, currency, change verbs) and NLP-detected written-out numbers: 9+ = 13, 4-8 = 9, 1-3 = 5, 0 = 0.
+
+**Attribution Indicators** counts attribution phrases: 5+ = 11, 2-4 = 8, 1 = 4, 0 = 0.
+
+**Quoted Attribution** sums inline attributed-quote patterns and `<blockquote>` elements containing `<cite>`/`<footer>`/`<figcaption>`: 4+ = 10, 2-3 = 7, 1 = 4, 0 = neutral (excluded from denominators).
+
+**Hedged Language** (new in 2.0) measures the share of sentences containing a hedge from the [hedges](https://github.com/words/hedges) lexicon:
+
+- 5% or less = 10 (confident)
+- Over 5% up to 12% = 6
+- Over 12% up to 20% = 3
+- Over 20% = 0
+- No sentences = neutral
+
+### Why This Matters
+
+The strongest causal result in [What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md) after topicality is language confidence: confident vs hedged framing produced first-citation odds ratios of 599 and 754 on Gemini and Claude (2.67 to 10.6 elsewhere), which is why Hedged Language is scored despite being a 2.0 newcomer. Evidence-bearing claims (statistics, attribution adjacent to claims) also differentiate causally there. The caution baked into these factors comes from [C-SEO Bench](paper-reviews/c-seo-bench-neurips-2025.md): mechanically adding statistics reduced citation rank in 19 of 24 settings, and quotation/cite-sources transformations were null-to-negative on citation rank. The recommendation texts therefore push real, verifiable evidence, not decoration. The v1 claim that quotes boost visibility 30-40% traced to word-count metrics in the foundational GEO paper, not citation odds, and was dropped.
+
+---
+
+## 8. Authority Context
+
+**Question:** Does this page carry the provenance and identity signals engines use to evaluate sources?
+
+### Factors
+
+| Factor                 | Max | Stage | Evidence                                                                                                                                                                | What It Measures                                        |
+| ---------------------- | --- | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Author Attribution     | 10  | PR    | heuristic ([Authority-Aware GenIR](paper-reviews/authority-aware-genir-acl-2026.md))                                                                                    | Byline, author meta tags, schema markup                 |
+| Organization Identity  | 10  | PR    | heuristic ([Authority-Aware GenIR](paper-reviews/authority-aware-genir-acl-2026.md))                                                                                    | Organization schema or og:site_name                     |
+| Contact/About Links    | 10  | PR    | heuristic ([Authority-Aware GenIR](paper-reviews/authority-aware-genir-acl-2026.md))                                                                                    | Links to about/team/company and contact pages           |
+| Content Freshness      | 12  | CF    | conditional ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md), [Characterizing Web Search](paper-reviews/characterizing-web-search-findings-acl-2026.md)) | Content age, scored only on time-sensitive topics       |
+| Structured Data        | 12  | RA    | conditional ([SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md))                                                                                                      | JSON-LD, Open Graph tags, canonical URL                 |
+| Schema Completeness    | 10  | RA    | heuristic ([SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md))                                                                                                        | Expected properties present on recognized JSON-LD types |
+| Entity Consistency     | 10  | RA    | conditional ([SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md), [Authority-Aware GenIR](paper-reviews/authority-aware-genir-acl-2026.md))                            | Brand name consistent across page surfaces              |
+| Date Markup            | 0   | none  | diagnostic ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md))                                                                                             | Machine-readable date presence                          |
+| Topic Time Sensitivity | 0   | none  | diagnostic ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md), [Characterizing Web Search](paper-reviews/characterizing-web-search-findings-acl-2026.md))  | Whether the topic is time-sensitive at all              |
+| Promotional Language   | 0   | none  | diagnostic ([Authority-Aware GenIR](paper-reviews/authority-aware-genir-acl-2026.md), [AutoGEO](paper-reviews/autogeo-iclr-2026.md))                                    | Promotional phrases and exclamations per 1,000 words    |
+| Affiliate Link Density | 0   | none  | diagnostic ([Authority-Aware GenIR](paper-reviews/authority-aware-genir-acl-2026.md))                                                                                   | Share of external links carrying affiliate markers      |
+| Ad Slot Markers        | 0   | none  | diagnostic ([Authority-Aware GenIR](paper-reviews/authority-aware-genir-acl-2026.md))                                                                                   | Ad slot elements in the DOM                             |
+| Site Type              | 0   | none  | diagnostic ([Characterizing Web Search](paper-reviews/characterizing-web-search-findings-acl-2026.md))                                                                  | Forum / user-generated-content signals                  |
+
+Factors with Max 0 are unscored diagnostics (excluded from denominators).
+
+### Scoring Details
+
+**Author Attribution**: any author selector match (rel=author, .byline, meta author, itemprop, ...) = 10, none = 0.
+
+**Organization Identity**: `Organization` JSON-LD (including `@graph` envelopes) or `og:site_name` = 10, neither = 0.
+
+**Contact/About Links**: about-type link (path segment or link text `about`/`team`/`company`) AND contact link (`contact` or `mailto:`) = 10; one of the two = 5; neither = 0.
+
+**Content Freshness** is scored only for time-sensitive topics (see Topic Time Sensitivity below). It prefers `dateModified` over `datePublished` and computes age in calendar months:
+
+- 24 months old or less = 12
+- Older than 24 months = 0 (visibly stale)
+- Time-sensitive but no parseable date = neutral (an absent date measurably outperforms a visibly stale one)
+- Evergreen topic = neutral (age is not scored at all)
+
+**Structured Data** awards points additively: any JSON-LD `@type` = +4; 3+ of the four OG tags (og:title, og:description, og:image, og:type) = +4 (1-2 tags = +2); canonical link = +4.
+
+**Schema Completeness** checks recognized JSON-LD types for the properties engines expect (Article/NewsArticle/BlogPosting: headline, author, datePublished; FAQPage: mainEntity; HowTo: name, step; Organization: name, url; LocalBusiness: name, address; Product: name; WebPage: name), averaged across recognized schemas:
+
+- 80%+ average completeness = 10
+- 50-79% = 7
+- Above 0% = 4
+- Recognized types with no expected properties = 0
+- No recognized types = neutral
+
+**Entity Consistency** resolves the brand name (og:site_name, else Organization name, else publisher name) and checks 4 surfaces (title, og:title, footer, header/copyright):
+
+- 4/4 surfaces = 10, 3 = 7, 2 = 4, 1 = 2, 0 = 0
+- No identifiable entity name = neutral
+
+**Diagnostics.** Date Markup reports machine-readable date presence without scoring it (date presence is not independently positive). Topic Time Sensitivity reports whether the topic looks time-sensitive (NewsArticle/Event/LiveBlogPosting schema, a year in the title or H1, trend vocabulary, or a /news/ or /blog/ URL path) and gates whether freshness is scored at all. Promotional Language, Affiliate Link Density, and Ad Slot Markers report commercial-intent intensity. Site Type flags forum or user-generated-content signals, with a note that GPT-family engines cite such sources measurably less than classic search surfaces them.
+
+### Why This Matters
+
+Authority is a validated objective for a production engine: [Authority-Aware GenIR](paper-reviews/authority-aware-genir-acl-2026.md) documents a deployed system explicitly reranking for authority, with a rubric that penalizes commercial aggressiveness. But no reviewed paper validates page-level provenance markers (bylines, about pages) as ranking signals, and authority operates largely at host level, so those factors stay heuristic at modest weight. Freshness follows the causal ordering in [What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md): recent beats none beats visibly stale, so evergreen pages and pages without dates are neutral rather than penalized, and only visible staleness costs points (and can trip a [gate](#evidence-gates) on product pages). Structured data and entity consistency are scored as retrieval-alignment mechanisms per [SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md), not as trust badges.
+
+---
+
+## 9. Product Fit
+
+**Question:** Does this product page carry the content that decides product citations: price, specs, comparisons?
+
+Scored **only on product pages** (see [Domain Profiles](#domain-profiles)). All three factors derive from [What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md), the one reviewed benchmark with causal product-domain results.
+
+### Factors
+
+| Factor                   | Max | Stage | Evidence                                                                                   | What It Measures                             |
+| ------------------------ | --- | ----- | ------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| Price Presence           | 15  | CF    | supported, product domain ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md)) | Price in JSON-LD offers or visible text      |
+| Technical Specifications | 10  | CF    | conditional ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md))               | Spec rows, labeled attributes, model numbers |
+| Comparison Content       | 8   | CF    | conditional ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md))               | "vs", "compared to", comparison tables       |
+
+### Scoring Details
+
+**Price Presence**: price found in JSON-LD (`price`, or `offers` carrying `price`/`lowPrice`) or as visible currency text = 15; none = 0. A missing price also trips the `missingPriceProduct` [gate](#evidence-gates) (citation fitness capped at 60).
+
+**Technical Specifications** sums: table rows containing digits, `<dl><dt>` pairs, list items with spec labels (`weight:`, `dimensions:`, `battery:`, ...), and model-number matches (capped at 5). Scoring: 6+ = 10, 3-5 = 7, 1-2 = 3, 0 = 0.
+
+**Comparison Content** sums comparison language hits (`vs`, `compared to/with`, `alternatives to`, `better than`, `pros and cons`) plus 2 points per comparison-flavored table. Scoring: 5+ = 8, 2-4 = 5, 1 = 2, 0 = 0.
+
+### Why This Matters
+
+In [What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md)'s product-domain experiments, explicit price acted as a near-deterministic citation gatekeeper, and specifications were a consistent differentiator, with comparison content a weaker one. These effects are explicitly domain-specific, which is why the category exists only under the product profile and why product reports carry the warning that generic content optimization measurably hurt product pages in end-to-end tests ([SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md)).
+
+---
+
+## 10. Readability for Compression
+
+**Question:** Is the prose above the floor where engines stop reusing it?
+
+### Factors
+
+| Factor           | Max | Stage | Evidence                                                                                                              | What It Measures                     |
+| ---------------- | --- | ----- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Sentence Length  | 10  | CF    | heuristic, floor ([FeatGEO](paper-reviews/featgeo-acl-2026.md))                                                       | Average words per sentence           |
+| Readability      | 10  | CF    | heuristic, floor ([FeatGEO](paper-reviews/featgeo-acl-2026.md), [Mind Reader](paper-reviews/mind-reader-acl-2026.md)) | Flesch Reading Ease                  |
+| Jargon Density   | 10  | RA    | conditional, floor ([SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md))                                             | Share of complex (4+ syllable) words |
+| Transition Usage | 0   | none  | diagnostic ([What Gets Cited](paper-reviews/what-gets-cited-sigir-2026.md))                                           | Distinct transition words used       |
+
+Factors with Max 0 are unscored diagnostics (excluded from denominators).
+
+### Scoring Details
+
+v1's graded readability bands are gone. Each factor is now a pass/fail **floor**: full points unless the page falls below a threshold no reasonable page should cross.
+
+- **Sentence Length**: 10 unless the average exceeds 35 words per sentence, then 0.
+- **Readability**: 10 unless Flesch Reading Ease is below 30, then 0.
+- **Jargon Density**: 10 unless complex words (4+ syllables) exceed 10% of all words, then 0.
+- **Transition Usage** (diagnostic): reports how many distinct transition words appear; no evidence in any reviewed paper.
+
+### Why This Matters
+
+Readability helps only below a floor, and polishing already-fluent prose backfires: [FeatGEO](paper-reviews/featgeo-acl-2026.md) found fluency edits reduced visibility on already-fluent pages, [Mind Reader](paper-reviews/mind-reader-acl-2026.md) measured its Easy-to-Understand rewrite below vanilla (16.20 vs 19.85), and [C-SEO Bench](paper-reviews/c-seo-bench-neurips-2025.md) found fluency optimization null on citation rank. Jargon is scored as a retrieval problem, not a style problem: [SAGEO Arena](paper-reviews/sageo-arena-kdd-2026.md) measured -14% retrieval hit rate from added technical terms via lexical mismatch with query vocabulary. The same research powers the recommendation engine's [polish gate](#recommendations-engine), which suppresses simplify-direction advice on pages that already read as fluent.
+
+---
+
+## Recommendations Engine
+
+`recommendations/service.ts` drafts one recommendation per underperforming factor, then coordinates them.
+
+**Selection.** Every factor with status `neutral` or `info` is skipped (not applicable or diagnostic). Every remaining factor below 70% of its max gets a recommendation. Priority follows the factor status bands:
+
+| Factor Score | Priority |
+| ------------ | -------- |
+| Below 30%    | `high`   |
+| 30-49%       | `medium` |
+| 50-69%       | `low`    |
+
+**Builder registry.** `RECOMMENDATION_BUILDERS` in `recommendations/constants.ts` is a `Record<FactorNameType, RecommendationBuilder>`: the compiler forces a builder for every registered factor. Builders receive the audit's `rawData` and return text plus optional `direction`, `steps`, `codeExample`, and `learnMoreUrl` (static HTML examples live in `recommendations/examples.ts`). Each recommendation also carries the factor's **evidence tier and citations** straight from the registry, so every piece of advice is traceable to the same evidence row as the factor that produced it.
+
+**Polish gate.** When the page already reads as polished (Flesch Reading Ease 50-75, average sentence length 12-24 words, and at least one headed section), any recommendation whose builder carries the `simplify` direction is suppressed entirely, and style-rewrite factors (Readability, Sentence Length) carry an explicit suppression note. Rationale: stylistic rewriting of already-polished content measurably reduced visibility ([FeatGEO](paper-reviews/featgeo-acl-2026.md), [Mind Reader](paper-reviews/mind-reader-acl-2026.md)).
+
+**Direction conflicts.** Builders declare an optimization direction (`simplify`/`deepen`, `shorten`/`expand`, `add`/`remove`). When both sides of an opposing pair survive drafting, the engine collapses them into a single conflict item (priority = highest among the merged recommendations) that names both pulls and tells the user to pick the audience the page serves. The merged item cites [IF-GEO](paper-reviews/if-geo-findings-acl-2026.md), which showed that optimizing for one audience commonly degrades others.
+
+**Ordering and display.** Recommendations sort by priority, then alphabetically by factor. Human-readable reports show the **top 3** with a "N more in JSON output" note and a standing footer: apply the top items and re-measure before continuing, because gains do not stack additively and each addition competes for the same content budget.
+
+**auditPoints.** Each recommendation reports `auditPoints = maxScore - score`: the factor's remaining internal audit weight. These are ordering weights inside this tool, not additive citation-probability gains, and the reports say so explicitly.
+
+---
+
 ## Code Architecture
 
 ### Pipeline
 
-When you run `aiseo-audit https://example.com`, here's exactly what happens:
+When you run `aiseo-audit https://example.com`:
 
 ```
 cli.ts -> cli/program.ts        parses args with commander, owns exit codes
   |
   v
-config/service.ts               loads aiseo.config.json (if present), merges defaults via Zod
-  |
+config/service.ts               loads aiseo.config.json, merges defaults via Zod
+  |                             (queries, domain, engine, weights, stageWeights)
   v
 analyzer/service.ts             orchestrates the full pipeline:
   |
@@ -621,238 +635,102 @@ analyzer/service.ts             orchestrates the full pipeline:
   |
   +---> extractor/service.ts    cheerio.load -> clean text, stats, $ instance
   |
-  +---> audits/service.ts       runs all 7 categories against extracted page + domain signals
+  +---> audits/service.ts       detects the domain profile, runs the 8 core
+  |                             categories + conditional queryAlignment/productFit
   |
-  +---> scoring/service.ts      weighted average of category scores -> grade
+  +---> scoring/stages.ts       computeStages(): stage rollup, eligibility
+  |                             blockers, evidence gates, suppression
   |
-  +---> recommendations/        generates actionable recs from low-scoring factors
-  |     service.ts
+  +---> scoring/service.ts      computeScore(): weight renormalization over
+  |                             applicable categories (or stage weights),
+  |                             eligibility cap, grade
+  |
+  +---> recommendations/        builder registry, polish gate,
+  |     service.ts              direction-conflict merging
   |
   v
 report/service.ts               renders output (pretty, json, md, or html)
-  |
-  v
-stdout                          (or --out file)
-
-For sitemap audits, the pipeline diverges at the top:
-
-cli.ts (--sitemap flag)
-  |
-  v
-sitemap/service.ts              fetches + parses sitemap XML, runs analyzer pipeline
-  |                             once per URL with shared domain signals, aggregates results
-  +---> fetchDomainSignals()    called once for the sitemap URL (or --signals-base override)
-  |
-  +---> analyzeUrlWithSignals() called per URL with the shared domain signals
-  |
-  v
-report/service.ts               renders sitemap summary + per-URL results
 ```
+
+Sitemap audits (`--sitemap`) fetch domain signals once from the sitemap origin (or `--signals-base`) and run the analyzer pipeline per URL with shared signals.
 
 ### Module Pattern
 
-Every module follows the same structure:
+Every module keeps the same layout: `schema.ts` (contract types; Zod where data is parsed at a trust boundary), `service.ts` (pure logic, throws on failure), `constants.ts` (thresholds and display names), `support/` (private helpers). Error handling and exit codes live in `cli/program.ts` (0 success, 1 below `--fail-under`, 2 usage or runtime error).
+
+### The two choke points
+
+Everything score-related flows through two files:
+
+**`audits/stage.ts` (FACTOR_REGISTRY + CITATION_GATES).** The registry is the single source of truth for every factor's pipeline stage, evidence tier, citations, and blocking flag. `makeFactor`/`makeDiagnostic` read tier and citations from it, `computeStages` reads stages and blocking from it, and recommendations inherit evidence from it. The same file defines the evidence gates and `resolveDomain`. A factor cannot exist without a registry entry: `FACTOR_REGISTRY` is a `Record<FactorNameType, FactorMetaType>`, so a missing entry is a compile error.
+
+**`scoring/stages.ts` (computeStages).** The only place stage scores are computed: rolls scorable factors up by registry stage, derives eligibility status and blockers, evaluates gates against `rawData`, applies the lowest tripped cap to citation fitness, and suppresses downstream percentages on eligibility failure.
+
+Supporting that, `scoring/service.ts` owns `isScorable` (the denominator rule), `thresholdScore` (higher / lower / contiguous-range band evaluation), `makeFactor`/`makeDiagnostic`, and `computeScore`.
+
+### Adding a factor (compiler-enforced path)
+
+1. Add the display name to `audits/factor-names.ts` under its category. This immediately breaks the build until steps 2 and 4 are done.
+2. Add its registry entry (stage, evidence tier, citations, optional blocking) in `audits/stage.ts`.
+3. Emit it from the category module via `makeFactor` (scored) or `makeDiagnostic` (unscored).
+4. Add its builder to `RECOMMENDATION_BUILDERS` in `recommendations/constants.ts`.
+5. Add its row to [EVIDENCE.md](EVIDENCE.md) with tier, stage, evidence links, regime, and metric. A factor without an EVIDENCE row is undocumented and blocked from release (see the maintenance rule in that file).
+
+Steps 1-4 are enforced by the type system; step 5 is enforced by review.
+
+### Category modules
+
+Each category is a top-level module with an `audit<Category>()` entry point and colocated helpers:
 
 ```
-module/
-  schema.ts       Contract types; Zod schemas where data is actually parsed
-  service.ts      Pure business logic (throws on failure)
-  constants.ts    Thresholds, config defaults, display names
-  support/        Private helpers only used inside this module
+content-extractability/   index.ts, robots.ts (robots parser), paywall.ts
+structural-alignment/     index.ts (salience coverage of structural fields)
+content-structure/        index.ts, sections.ts
+answerability/            index.ts, lead-summary.ts, capsules.ts, patterns.ts, questions.ts
+query-alignment/          index.ts, coverage.ts (term coverage), aspects.ts (BM25 sections)
+entity-clarity/           index.ts, pronouns.ts
+grounding-signals/        index.ts, hedging.ts, patterns.ts
+authority-context/        index.ts, freshness.ts, time-sensitivity.ts, commercial.ts,
+                          site-type.ts, entity.ts, schema-analysis.ts, selectors.ts
+product-fit/              index.ts (price, specs, comparisons)
+readability/              index.ts, transition-words.ts
+domain-profile/           index.ts (detectDomain)
 ```
 
-**Schemas** define the contract. Zod schemas exist where data crosses a trust boundary and is parsed at runtime (config files, fetch options, baseline audit JSON); purely internal shapes are plain TypeScript types so a reader can tell at a glance which validation is load-bearing.
-
-**Services** contain the actual logic. They take validated inputs, do work, and return typed results. They throw on failure (the HTTP layer throws typed `FetchError` instances with a `code` field for classified network errors). Error handling lives in the CLI entry point (`cli/program.ts`), which maps outcomes to the documented exit codes: 0 success, 1 below `--fail-under`, 2 usage or runtime error.
-
-### Audits Module in Detail
-
-The audits module is the largest and most important module. Here's how it's organized:
-
-```
-audits/
-  schema.ts              CategoryResult, FactorResult, AuditResult, AuditRawData types
-  service.ts             runAudits() orchestrator - imports and calls all 7 category audits
-  constants.ts           CATEGORY_DISPLAY_NAMES
-  category.ts            buildCategoryOutput() - shared category assembly
-  factor-names.ts        Canonical registry of all factor display names
-
-Each audit category is its own top-level module with the pattern:
-  <category>/index.ts    audit<Category>() entry point
-  <category>/*.ts        category-specific helpers (regex lists, selectors,
-                         parsers such as answerability/capsules.ts,
-                         authority-context/json-ld.ts, content-extractability/robots.ts)
-
-nlp/
-  schema.ts              ExtractedEntitiesSchema and ExtractedEntitiesType
-  constants.ts           STOPWORDS, ACRONYM_STOPLIST, ORG_SUFFIXES, PERSON_HONORIFICS
-  service.ts             extractEntities() + re-exports from support/
-  support/
-    entities.ts          Acronym/title-case extractors, dedup, merge, classification
-    readability.ts       computeFleschReadingEase, countComplexWords, avgSentenceLength
-    topics.ts            extractTopics (frequency-based topic terms, capped at 15)
-    patterns.ts          countPatternMatches
-
-sitemap/
-  schema.ts              SitemapOptions, SitemapResult, SitemapUrlResult types
-  service.ts             analyzeSitemap() - fetches sitemap XML via xml-to-html-converter,
-                         recurses into sitemap indexes (cycle-safe, depth-capped),
-                         deduplicates URLs, records non-fatal problems as warnings,
-                         runs analyzer pipeline per URL with shared domain signals
-
-report/support/
-  view-model.ts          Presentation decisions shared by all four renderers
-                         (percentages, quality bands, priority labels, grouping,
-                         HTML/markdown escaping)
-```
-
-**`service.ts`** exports a single function `runAudits(page, fetchResult, domainSignals?)` that imports and calls the 7 category audit functions. It extracts entities once via `extractEntities(page.cleanText)` and passes the result to the three audits that need it, avoiding redundant NLP processing. Each audit returns a `CategoryAuditOutput` containing both its category result and its typed raw diagnostic data:
-
-```
-auditContentExtractability(page, fetchResult, domainSignals)
-auditContentStructure(page)
-auditAnswerability(page, entities?)
-auditEntityClarity(page, entities?)
-auditGroundingSignals(page, entities?)
-auditAuthorityContext(page)
-auditReadabilityForCompression(page)
-```
-
-The `entities?` parameter is optional for backward compatibility. When omitted, each audit extracts entities itself. `runAudits` is the single merge point - it sets the base `rawData` fields (`title`, `metaDescription`, `wordCount`) from the page, then spreads each audit function's partial raw data together into a typed `AuditRawDataType`. No audit function mutates external state.
-
-The `domainSignals` parameter is a `DomainSignalsType` object containing: `signalsBase` (the URL domain signals were fetched from), `robotsTxt` (raw content or null), `llmsTxtExists`, and `llmsFullTxtExists`. It is fetched by the analyzer orchestrator before audits run. For sitemap audits it is fetched once and passed to every per-URL audit.
-
-Each audit function follows the same pattern:
-
-1. Create an empty `factors[]` array
-2. Run each check, push a `FactorResult` via `makeFactor(name, score, maxScore, value)`
-3. Return via `buildCategoryOutput(key, factors, rawData)` (audits/category.ts), which assembles the display name, key, and score totals identically for every category
-
-Factor display names live in **`audits/factor-names.ts`**. `makeFactor` only accepts registered names, and `RECOMMENDATION_BUILDERS` must cover exactly that set, so renaming or adding a factor is a compile error everywhere it matters. Detection regexes live next to the category that uses them (e.g. `answerability/patterns.ts`, `grounding-signals/patterns.ts`).
-
-**`scoring/service.ts`** provides all scoring utilities in one place:
-
-- `thresholdScore(value, brackets, type?)` - maps a numeric value to a score using threshold brackets. Supports three modes via the `type` parameter: `"higher"` (default, the score of the highest threshold the value meets), `"lower"` (mirror image, for metrics where lower is better like jargon ratio), and `"range"` (contiguous [min, max) bands, min inclusive and max exclusive, for sweet-spot metrics like sentence length; contiguity guarantees a continuous value can never fall into a gap between bands)
-- `makeFactor(name, score, max, value)` - builds a `FactorResult` and auto-assigns status (`good` >= 70%, `needs_improvement` >= 30%, `critical` < 30%)
-- `sumFactors(factors)` / `maxFactors(factors)` - add up scores/maxScores
-- `computeScore(categories, weights)` - weighted average of category percentages
-- `computeGrade(score)` - maps 0-100 score to letter grade
-
-**`nlp/service.ts`** is the dedicated NLP module:
-
-- `extractEntities(text)` - hybrid entity extraction: compromise for base NER (people, orgs, places), supplemental pattern-based extractors for acronyms and title-case compounds, frequency-based topics (capped at 15), with word-bounded deduplication and cross-list person/org disambiguation
-- `computeFleschReadingEase(text)` - standard Flesch formula using heuristic syllable counting
-- `countComplexWords(text)` - words with 4+ syllables
-- `countPatternMatches(text, patterns)` - runs an array of regex patterns against text, sums all match counts
-
-(`countTransitionWords` lives with its word list in `readability/transition-words.ts`.)
-
-Category-specific helpers live inside their category module:
-
-- `answerability/capsules.ts` - finds question-framed H2s and checks for concise answer paragraphs
-- `authority-context/freshness.ts` - parses dateModified/datePublished and calculates content age in months
-- `content-structure/sections.ts` - walks DOM to count words between consecutive headings
-- `content-extractability/robots.ts` - parses robots.txt (wildcards, `$` anchors) for AI crawler allow/block status
-- `authority-context/json-ld.ts` - extracts all JSON-LD objects (flattens arrays and `@graph`, normalizes `@type` arrays)
-- `authority-context/schema-analysis.ts` - checks recommended properties for recognized schema types
-- `authority-context/entity.ts` - finds the primary brand/org name and checks its presence across page surfaces
+`audits/service.ts` (`runAudits`) extracts entities once, detects the domain profile, always runs the 8 core categories, and conditionally adds `queryAlignment` (queries supplied) and `productFit` (product domain). It is the single merge point for `rawData`, which downstream feeds gates, recommendations builders, and reports.
 
 ### Key Data Types
 
 ```typescript
-// What flows through the pipeline:
-FetchResult     -> fetcher produces this (html, status, timing)
-ExtractedPage   -> extractor produces this (cleanText, $, stats)
-AuditResult     -> audits produce this (7 categories, rawData)
-ScoreSummary    -> scoring produces this (overallScore, grade)
-Recommendation  -> recommendations produce this (priority, text, optional steps/codeExample/learnMoreUrl)
-AnalyzerResult  -> analyzer assembles all of the above into one object
+FetchResult     -> fetcher (html, status, timing)
+ExtractedPage   -> extractor (cleanText, $, stats)
+AuditResult     -> audits (categories, rawData)
+StageScores     -> scoring/stages (per-stage score/max/pct, blockers, gates)
+ScoreSummary    -> scoring (overallScore, grade, totalPoints, maxPoints)
+Recommendation  -> recommendations (priority, direction, evidence, citations,
+                   auditPoints, optional steps/codeExample/learnMoreUrl)
+AnalyzerResult  -> analyzer assembles all of the above
 ```
-
-### Extractor (Pre-Processing)
-
-Before audits run, the extractor does two important things:
-
-1. **Boilerplate removal** (`support/boilerplate.ts`) - strips `<script>`, `<style>`, `<nav>`, `<header>`, `<footer>`, `<aside>`, cookie banners, modals, ads, sidebars. This produces the "clean text" that audits run against.
-
-2. **Stats collection** (`service.ts`) - counts everything audits need: H1/H2/H3, paragraphs, links, images, image alt text, lists, list items, tables, external links. These stats are computed once and reused across all 7 audit categories.
-
-### Recommendations Engine
-
-`recommendations/service.ts` iterates every factor in every category. Any factor scoring below 70% of its max gets a recommendation, except factors marked `neutral` (not applicable to the page, e.g. Tables Presence on a page with no tabular data), which are never recommended. Priority is based on how low the score is:
-
-| Factor Score | Priority |
-| ------------ | -------- |
-| Below 30%    | `high`   |
-| 30-49%       | `medium` |
-| 50-69%       | `low`    |
-
-Recommendation content comes from two files in `recommendations/`:
-
-- `constants.ts` maps every factor name to a builder function. Most builders are dynamic: they receive `rawData` and personalize the output (e.g. using the detected organization name, first detected topic, or existing external links).
-- `examples.ts` holds static HTML code examples referenced by those builders. Separating them keeps builder logic readable and makes the examples easy to find and edit independently.
-
-Builder functions return a `RecommendationOutput`:
-
-```typescript
-interface RecommendationOutput {
-  text: string; // summary recommendation (always present)
-  steps?: string[]; // ordered implementation steps
-  codeExample?: string; // ready-to-use code snippet
-  learnMoreUrl?: string; // link to canonical spec or guide
-}
-```
-
-Every factor that falls below the 70% threshold now generates fully actionable output with implementation steps and a ready-to-use code example:
-
-| Factor                   | What It Generates                                                      |
-| ------------------------ | ---------------------------------------------------------------------- |
-| Structured Data          | Article or FAQPage JSON-LD from page title/description/questions       |
-| Schema Completeness      | Exact missing properties with placeholder values                       |
-| Answer Capsules          | Before/after heading-to-answer-capsule HTML transformation             |
-| AI Crawler Access        | robots.txt `Allow` rules for each blocked crawler                      |
-| LLMs.txt Presence        | Starter `llms.txt` or `llms-full.txt` content                          |
-| Author Attribution       | Byline HTML + JSON-LD author block using detected entities             |
-| Heading Hierarchy        | Recommended H1/H2/H3 structure from the page title                     |
-| Content Freshness        | `dateModified` markup for both HTML and JSON-LD                        |
-| Image Accessibility      | `alt` text patterns and `<figure>`/`<figcaption>` example              |
-| Lists Presence           | Before/after converting prose enumerations to `<ul>` and `<ol>`        |
-| Tables Presence          | Full `<table>` with `<caption>`, `<thead>`, and `<tbody>`              |
-| Definition Patterns      | Inline definition and `<dl>` example                                   |
-| Direct Answer Statements | Before/after moving the answer to the first sentence                   |
-| Summary/Conclusion       | `<h2>Key Takeaways</h2>` with bullet structure                         |
-| Attribution Indicators   | Before/after adding "According to [Source]" with a link                |
-| Citation Patterns        | In-text `[1]` markers, `<cite>` tags, and a References section         |
-| Quoted Attribution       | `<blockquote>` with `<footer>` and `<cite>` attribution                |
-| Transition Usage         | Before/after paragraph with contrast and conclusion transitions        |
-| Jargon Density           | Before/after defining a technical term on first use                    |
-| Organization Identity    | `og:site_name` meta tag + Organization JSON-LD using detected org name |
-| Publication Date         | `<time datetime>` element + JSON-LD `datePublished`                    |
-| Contact/About Links      | `<nav>` with About and Contact anchors                                 |
-| External References      | Linked citation example with anchor text guidance                      |
-| Entity Richness          | Steps for naming and linking key entities                              |
-
-The optional fields are absent (not `null`) when not populated, so existing JSON consumers are unaffected.
-
-### Scoring Aggregation
-
-`scoring/service.ts` takes all 7 category results and the weight config, then:
-
-1. Looks up each category's weight from the config (default: all `1`)
-2. Normalizes weights so they sum to 1.0
-3. Computes each category's percentage: `(score / maxScore) * 100`
-4. Weighted average: `sum(categoryPct * normalizedWeight)`
-5. Maps the result to a letter grade via threshold lookup
 
 ---
 
 ## Sources
 
-1. [How to Get Cited by ChatGPT: Content Traits LLMs Quote Most (Search Engine Land)](https://searchengineland.com/how-to-get-cited-by-chatgpt-the-content-traits-llms-quote-most-464868)
-2. [GEO: Generative Engine Optimization (Aggarwal et al., Princeton/KDD 2024)](https://arxiv.org/abs/2311.09735)
-3. [Study: AI Brand Visibility and Content Recency (Seer Interactive)](https://www.seerinteractive.com/insights/study-ai-brand-visibility-and-content-recency)
-4. [How We Built a Content Optimization Tool for AI Search (Semrush)](https://www.semrush.com/blog/content-optimization-for-ai-search/)
-5. [How Structured Data Helps Your Brand Get Cited in AI Results (WebFX)](https://www.webfx.com/blog/seo/structured-data-ai-citations/)
-6. [2026 AI Search Visibility Benchmark Report (KnewSearch)](https://knewsearch.com/benchmark-report)
-7. [AIVO Standard v2.2: Multi-Modal AI Visibility Framework (AIVO Journal)](https://aivojournal.com/standard/)
-8. [The llms.txt Specification (llmstxt.org)](https://llmstxt.org/)
+All scoring rationale in this document traces to ten peer-reviewed papers, each reviewed from the primary source in [paper-reviews/](paper-reviews/README.md):
+
+| Paper                                                 | Venue                | Review                                                                                                         |
+| ----------------------------------------------------- | -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| C-SEO Bench: Does Conversational SEO Work?            | NeurIPS 2025 D&B     | [c-seo-bench-neurips-2025.md](paper-reviews/c-seo-bench-neurips-2025.md)                                       |
+| What Generative Search Engines Like (AutoGEO)         | ICLR 2026            | [autogeo-iclr-2026.md](paper-reviews/autogeo-iclr-2026.md)                                                     |
+| SAGEO Arena                                           | KDD 2026             | [sageo-arena-kdd-2026.md](paper-reviews/sageo-arena-kdd-2026.md)                                               |
+| What Gets Cited: Competitive GEO in AI Answer Engines | SIGIR 2026           | [what-gets-cited-sigir-2026.md](paper-reviews/what-gets-cited-sigir-2026.md)                                   |
+| Think Before Writing (FeatGEO)                        | ACL 2026             | [featgeo-acl-2026.md](paper-reviews/featgeo-acl-2026.md)                                                       |
+| Mind Reader                                           | ACL 2026             | [mind-reader-acl-2026.md](paper-reviews/mind-reader-acl-2026.md)                                               |
+| IF-GEO                                                | Findings of ACL 2026 | [if-geo-findings-acl-2026.md](paper-reviews/if-geo-findings-acl-2026.md)                                       |
+| From Experience to Skill (MAGEO)                      | Findings of ACL 2026 | [mageo-findings-acl-2026.md](paper-reviews/mageo-findings-acl-2026.md)                                         |
+| Characterizing Web Search in the Age of Generative AI | Findings of ACL 2026 | [characterizing-web-search-findings-acl-2026.md](paper-reviews/characterizing-web-search-findings-acl-2026.md) |
+| From Relevance to Authority                           | ACL 2026 Industry    | [authority-aware-genir-acl-2026.md](paper-reviews/authority-aware-genir-acl-2026.md)                           |
+
+Per-factor evidence trails, tiers, regimes, and metrics: [EVIDENCE.md](EVIDENCE.md). Cross-paper synthesis: [EMERGING_RESEARCH.md](EMERGING_RESEARCH.md).
+
+The v1 document cited several vendor and industry sources (Search Engine Land, Semrush, WebFX, Seer Interactive, KnewSearch, AIVO); those claims did not survive the peer-review pass and are intentionally not carried forward. The original list is preserved in [archive/v1/AUDIT_BREAKDOWN.md](archive/v1/AUDIT_BREAKDOWN.md).

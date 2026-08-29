@@ -55,21 +55,21 @@ export const summaryStructureExample = `<h2>Key Takeaways</h2>
 <ul>
   <li>AI SEO focuses on being cited in generated answers, not ranked in link lists.</li>
   <li>Structured data, answer capsules, and clear entity attribution are the highest-impact factors.</li>
-  <li>Content freshness acts as a hard gate: AI engines strongly prefer content under 12 months old.</li>
+  <li>Keep displayed dates honest: a visible stale date measurably hurts more than no date.</li>
 </ul>
 
 <h2>Next Steps</h2>
 <p>Run an audit on your top pages to identify your highest-priority improvements.</p>`;
 
 export const attributionIndicatorExample = `<!-- Before: unattributed claim -->
-<p>72% of AI-cited content uses question-framed headings.</p>
+<p>Formatting alone showed no causal citation effect; give each real sub-question a specific answer.</p>
 
 <!-- After: attributed with a link -->
-<p>According to <a href="https://arxiv.org/abs/2311.09735">Princeton's GEO research</a>,
-72% of AI-cited content uses question-framed headings.</p>`;
+<p>According to <a href="https://arxiv.org/abs/2506.11097">C-SEO Bench (NeurIPS 2025)</a>,
+context position dominated every content rewriting method tested.</p>`;
 
 export const citationMarkupExample = `<!-- In-text citation with marker -->
-<p>AI engines prioritize structured content by a factor of 3x <a href="#ref-1">[1]</a>.</p>
+<p>Structural fields raised retrieval hit rate by 22% in end-to-end tests <a href="#ref-1">[1]</a>.</p>
 
 <!-- Cited title -->
 <p>As described in <cite>Generative Engine Optimization</cite>, answer density is key.</p>
@@ -86,11 +86,10 @@ export const citationMarkupExample = `<!-- In-text citation with marker -->
 </section>`;
 
 export const blockquoteAttributionExample = `<blockquote>
-  <p>"Structured content with clear attribution is 3x more likely to be cited
-  by generative AI engines than unstructured prose."</p>
+  <p>"[A real quote from a real source, reproduced accurately.]"</p>
   <footer>
-    - <cite>Dr. Jane Smith, AI Research Lead,
-    <a href="https://example.edu">Princeton University</a></cite>
+    - <cite>[Full Name], [Title],
+    <a href="https://example.com/source">[Organization]</a></cite>
   </footer>
 </blockquote>`;
 
@@ -132,7 +131,7 @@ export const imageAltTextExample = `<!-- Informational image with alt text -->
 <!-- Image with caption using figure/figcaption -->
 <figure>
   <img src="chart.png" alt="Bar chart comparing AI citation rates by content type">
-  <figcaption>AI engines cite structured content 3x more often than unstructured prose.</figcaption>
+  <figcaption>Bar chart comparing citation rates by content type in your own data.</figcaption>
 </figure>
 
 <!-- Decorative image: empty alt tells screen readers to skip it -->

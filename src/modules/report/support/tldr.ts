@@ -1,128 +1,82 @@
 import type { AnalyzerResultType } from "../../analyzer/schema.js";
-import type { CategoryResultType } from "../../audits/schema.js";
-import type { CategoryWeightType } from "../../config/schema.js";
-import { computeGrade, computeScore } from "../../scoring/service.js";
+import type { RecommendationType } from "../../recommendations/schema.js";
+import type { StageScoresType } from "../../scoring/schema.js";
 
-export type QuickWinType = {
+export type TopFixType = {
   factor: string;
   category: string;
-  expectedGain: number;
+  auditPoints: number;
+};
+
+export type TldrStagesType = {
+  technicalEligibility: { status: "pass" | "fail"; pct: number | null };
+  retrievalAlignment: { pct: number | null };
+  citationFitness: {
+    pct: number | null;
+    uncappedPct: number | null;
+    trippedGates: string[];
+  };
+  provenance: { pct: number | null };
 };
 
 export type TldrType = {
   score: number;
   grade: string;
-  projectedScore: number;
-  projectedGrade: string;
-  quickestWins: QuickWinType[];
+  topFixes: TopFixType[];
+  stages: TldrStagesType | undefined;
+  note: string;
 };
 
-const DEFAULT_MAX_WINS = 3;
+export const TLDR_NOTE =
+  "Audit points are internal audit weights, not additive citation-probability gains. Apply the top items, then re-measure.";
 
-export function buildTldr(
-  result: AnalyzerResultType,
-  maxWins: number = DEFAULT_MAX_WINS,
-): TldrType {
-  const weights = weightsTheResultWasScoredWith(result);
-  const quickestWins = selectQuickestWins(result, weights, maxWins);
-  const baseline = computeScore(result.categories, weights);
-  const projectedCategories = applyWinsToCategories(
-    result.categories,
-    quickestWins,
-  );
-  const projected = computeScore(projectedCategories, weights);
+const TOP_FIX_COUNT = 3;
 
-  const delta = projected.overallScore - baseline.overallScore;
-  const projectedScore = clampScore(result.overallScore + delta);
-
+export function buildTldr(result: AnalyzerResultType): TldrType {
   return {
     score: result.overallScore,
     grade: result.grade,
-    projectedScore,
-    projectedGrade: computeGrade(projectedScore),
-    quickestWins,
+    topFixes: selectTopFixes(result.recommendations),
+    stages: summarizeStages(result.stages),
+    note: TLDR_NOTE,
   };
 }
 
-function weightsTheResultWasScoredWith(
-  result: AnalyzerResultType,
-): CategoryWeightType {
-  return result.meta.weights ?? uniformWeights(result);
-}
+const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 } as const;
 
-function uniformWeights(result: AnalyzerResultType): CategoryWeightType {
-  return Object.fromEntries(
-    Object.keys(result.categories).map((key) => [key, 1]),
-  ) as CategoryWeightType;
-}
-
-function clampScore(score: number): number {
-  return Math.max(0, Math.min(100, Math.round(score)));
-}
-
-function selectQuickestWins(
-  result: AnalyzerResultType,
-  weights: CategoryWeightType,
-  maxWins: number,
-): QuickWinType[] {
-  const entries = Object.entries(result.categories);
-  const weightOf = (key: string) =>
-    weights[key as keyof CategoryWeightType] ?? 1;
-  const totalWeight = entries.reduce((sum, [key]) => sum + weightOf(key), 0);
-  const categoryByName = new Map(
-    entries.map(([key, cat]) => [cat.name, { key, cat }]),
-  );
-
-  return result.recommendations
-    .flatMap((r) => {
-      const found = categoryByName.get(r.category);
-      const gain = r.expectedGain ?? 0;
-      if (!found || gain <= 0 || found.cat.maxScore <= 0 || totalWeight <= 0) {
-        return [];
-      }
-      const overallImpact =
-        (gain / found.cat.maxScore) * (weightOf(found.key) / totalWeight) * 100;
-      return [
-        {
-          factor: r.factor,
-          category: r.category,
-          expectedGain: gain,
-          overallImpact,
-        },
-      ];
+function selectTopFixes(recommendations: RecommendationType[]): TopFixType[] {
+  return [...recommendations]
+    .sort((a, b) => {
+      const byPriority =
+        PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
+      if (byPriority !== 0) return byPriority;
+      return (b.auditPoints ?? 0) - (a.auditPoints ?? 0);
     })
-    .sort((a, b) => b.overallImpact - a.overallImpact)
-    .slice(0, maxWins)
-    .map(({ factor, category, expectedGain }) => ({
-      factor,
-      category,
-      expectedGain,
+    .slice(0, TOP_FIX_COUNT)
+    .map((rec) => ({
+      factor: rec.factor,
+      category: rec.category,
+      auditPoints: rec.auditPoints ?? 0,
     }));
 }
 
-function applyWinsToCategories(
-  categories: Record<string, CategoryResultType>,
-  wins: QuickWinType[],
-): Record<string, CategoryResultType> {
-  const cloned: Record<string, CategoryResultType> = {};
-  for (const [key, cat] of Object.entries(categories)) {
-    cloned[key] = {
-      ...cat,
-      factors: cat.factors.map((f) => ({ ...f })),
-    };
-  }
-
-  for (const win of wins) {
-    for (const cat of Object.values(cloned)) {
-      if (cat.name !== win.category) continue;
-      for (const factor of cat.factors) {
-        if (factor.name !== win.factor) continue;
-        const gain = Math.max(0, factor.maxScore - factor.score);
-        factor.score += gain;
-        cat.score = Math.min(cat.maxScore, cat.score + gain);
-      }
-    }
-  }
-
-  return cloned;
+function summarizeStages(
+  stages: StageScoresType | undefined,
+): TldrStagesType | undefined {
+  if (!stages) return undefined;
+  return {
+    technicalEligibility: {
+      status: stages.technicalEligibility.status,
+      pct: stages.technicalEligibility.pct,
+    },
+    retrievalAlignment: { pct: stages.retrievalAlignment.pct },
+    citationFitness: {
+      pct: stages.citationFitness.pct,
+      uncappedPct: stages.citationFitness.uncappedPct,
+      trippedGates: stages.citationFitness.gates
+        .filter((gate) => gate.status === "tripped")
+        .map((gate) => gate.label),
+    },
+    provenance: { pct: stages.provenance.pct },
+  };
 }
