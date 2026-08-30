@@ -1,4 +1,4 @@
-[< Back to Research & Gap Analysis](RESEARCH.md)
+[< Back to docs index](README.md)
 
 # Emerging Scientific Research on Generative Engine Optimization
 
