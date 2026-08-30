@@ -11,10 +11,10 @@ For current, evidence-checked material see [../EMERGING_RESEARCH.md](../EMERGING
 
 ## Contents
 
-| File                                           | What it is                                                             | Archived   |
-| ---------------------------------------------- | ---------------------------------------------------------------------- | ---------- |
-| [v1/AUDIT_BREAKDOWN.md](v1/AUDIT_BREAKDOWN.md) | The 1.x scoring model: 7 categories, 39 factors, weights, architecture | 2026-08-28 |
-| [v1/RESEARCH.md](v1/RESEARCH.md)               | The 1.x research rationale and tiered best-practice list               | 2026-08-28 |
+| File                                                     | What it is                                                                                                    | Archived   |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------- |
+| [v1/AUDIT_BREAKDOWN.md](v1/AUDIT_BREAKDOWN.md)           | The 1.x scoring model: 7 categories, 39 factors, weights, architecture                                        | 2026-08-28 |
+| [v1/RESEARCH.md](v1/RESEARCH.md)                         | The 1.x research rationale and tiered best-practice list                                                      | 2026-08-28 |
 | [2.0-implementation-plan.md](2.0-implementation-plan.md) | The working plan the 2.0.0 release was built from: scope decisions, factor dispositions, and release sequence | 2026-08-29 |
 
 Note: relative links inside archived files pointed at their original location (`docs/`) and may not resolve from this folder. That is expected; the files are kept as-is.
