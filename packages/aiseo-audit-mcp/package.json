@@ -4,7 +4,7 @@
   "mcpName": "io.github.agencyenterprise/aiseo-audit",
   "description": "Launcher for the aiseo-audit MCP server. Lets `npx -y aiseo-audit-mcp` work directly; all functionality lives in the aiseo-audit package.",
   "bin": {
-    "aiseo-audit-mcp": "./index.js"
+    "aiseo-audit-mcp": "index.js"
   },
   "files": [
     "index.js",
