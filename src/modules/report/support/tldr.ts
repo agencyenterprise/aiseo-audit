@@ -1,6 +1,7 @@
 import type { AnalyzerResultType } from "../../analyzer/schema.js";
 import type { RecommendationType } from "../../recommendations/schema.js";
 import type { StageScoresType } from "../../scoring/schema.js";
+import { compareRecommendations } from "../../recommendations/service.js";
 
 export type TopFixType = {
   factor: string;
@@ -42,16 +43,9 @@ export function buildTldr(result: AnalyzerResultType): TldrType {
   };
 }
 
-const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 } as const;
-
 function selectTopFixes(recommendations: RecommendationType[]): TopFixType[] {
   return [...recommendations]
-    .sort((a, b) => {
-      const byPriority =
-        PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
-      if (byPriority !== 0) return byPriority;
-      return (b.auditPoints ?? 0) - (a.auditPoints ?? 0);
-    })
+    .sort(compareRecommendations)
     .slice(0, TOP_FIX_COUNT)
     .map((rec) => ({
       factor: rec.factor,

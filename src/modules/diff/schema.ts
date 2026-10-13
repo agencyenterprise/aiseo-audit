@@ -35,6 +35,22 @@ export const DiffResultSchema = z.object({
   stageDeltas: z.record(z.string(), StageDeltaSchema).optional(),
   queryDeltas: z.array(QueryDeltaSchema).optional(),
   crossVersion: z.boolean().optional(),
+  comparison: z
+    .object({
+      comparable: z.boolean(),
+      reasons: z.array(z.string()),
+      warnings: z.array(z.string()),
+    })
+    .optional(),
+  newBlockers: z.array(z.string()).optional(),
+  resolvedBlockers: z.array(z.string()).optional(),
+  findingChanges: z
+    .object({
+      introduced: z.array(z.string()),
+      resolved: z.array(z.string()),
+      persisting: z.array(z.string()),
+    })
+    .optional(),
 });
 
 export type CategoryDeltaType = z.infer<typeof CategoryDeltaSchema>;

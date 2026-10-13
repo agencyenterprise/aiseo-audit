@@ -34,9 +34,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "benchmark": "npm run build && node scripts/benchmark.mjs",
+    "test:package": "npm run build && node scripts/test-package.mjs",
     "lint": "tsc --noEmit",
     "format:check": "prettier --check .",
-    "ci": "npm run format:check && npm run lint && npm run test:coverage && npm run build",
+    "ci": "npm run format:check && npm run lint && npm run test:coverage && npm run build && node scripts/test-package.mjs",
     "prepublishOnly": "npm run ci"
   },
   "repository": {

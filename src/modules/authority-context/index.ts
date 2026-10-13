@@ -57,6 +57,7 @@ function pathSegmentsOf(href: string): string[] {
 
 export function auditAuthorityContext(
   page: ExtractedPageType,
+  evaluationDate?: Date,
 ): CategoryAuditOutputType {
   const $ = page.$;
   const factors: FactorResultType[] = [];
@@ -128,7 +129,7 @@ export function auditAuthorityContext(
     ),
   );
 
-  const freshness = evaluateFreshness(page.$);
+  const freshness = evaluateFreshness(page.$, evaluationDate);
   factors.push(contentFreshnessFactor(freshness, timeSensitivity));
   rawData.freshness = freshness;
 

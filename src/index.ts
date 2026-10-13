@@ -1,4 +1,9 @@
-export { analyzeUrl } from "./modules/analyzer/service.js";
+export {
+  analyzeUrl,
+  analyzeHtml,
+  captureUrl,
+  analyzeSnapshot,
+} from "./modules/analyzer/service.js";
 export { loadConfig, loadConfigWithPath } from "./modules/config/service.js";
 export { loadBaselineResult } from "./modules/diff/history.js";
 export { orchestrateDiff } from "./modules/diff/orchestrate.js";
@@ -20,6 +25,8 @@ export { analyzeSitemap } from "./modules/sitemap/service.js";
 export type {
   AnalyzerOptionsType,
   AnalyzerResultType,
+  HtmlAnalyzerOptionsType,
+  AuditSnapshotType,
 } from "./modules/analyzer/schema.js";
 export type {
   AuditResultType,
@@ -32,6 +39,7 @@ export type {
 export type { StageNameType } from "./modules/audits/stage.js";
 export type {
   AiseoConfigType,
+  AiseoConfigInputType,
   CategoryWeightType,
   DiffEntryType,
   DomainOptionType,
@@ -67,3 +75,8 @@ export type {
 } from "./modules/sitemap/schema.js";
 export { FetchError } from "./utils/http.js";
 export type { FetchErrorCode } from "./utils/http.js";
+export { FindingSchema } from "./modules/findings/schema.js";
+export type {
+  FindingType,
+  FindingLocationType,
+} from "./modules/findings/schema.js";

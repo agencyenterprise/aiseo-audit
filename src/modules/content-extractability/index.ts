@@ -27,9 +27,12 @@ export function auditContentExtractability(
   factors.push(
     makeFactor(
       "Fetch Success",
-      fetchScore,
+      fetchResult.source === "html" ? 0 : fetchScore,
       12,
-      `HTTP ${fetchResult.statusCode} in ${fetchResult.fetchTimeMs}ms`,
+      fetchResult.source === "html"
+        ? "Not checked: supplied HTML"
+        : `HTTP ${fetchResult.statusCode} in ${fetchResult.fetchTimeMs}ms`,
+      fetchResult.source === "html" ? "neutral" : undefined,
     ),
   );
 
@@ -79,8 +82,18 @@ export function auditContentExtractability(
   factors.push(paywallSignalsFactor(page));
 
   if (domainSignals) {
-    const access = checkCrawlerAccess(domainSignals.robotsTxt);
+    const pageUrl = new URL(fetchResult.finalUrl || page.url);
+    const robotsTxt =
+      domainSignals.robotsStatus === "absent"
+        ? "User-agent: *\nAllow: /"
+        : domainSignals.robotsTxt;
+    const access = checkCrawlerAccess(
+      robotsTxt,
+      pageUrl.pathname + pageUrl.search,
+    );
     const blockedCount = access.blocked.length;
+    const accessUnknown =
+      access.allowed.length === 0 && access.blocked.length === 0;
     const crawlerScore = thresholdScore(
       blockedCount,
       [
@@ -93,11 +106,14 @@ export function auditContentExtractability(
     factors.push(
       makeFactor(
         "AI Crawler Access",
-        crawlerScore,
+        accessUnknown ? 0 : crawlerScore,
         10,
-        blockedCount === 0
-          ? `All major AI crawlers allowed`
-          : `${access.blocked.join(", ")} blocked in robots.txt`,
+        accessUnknown
+          ? "Crawler access unknown: robots.txt was unavailable or not checked"
+          : blockedCount === 0
+            ? `${access.allowed.length} crawlers allowed for this page${access.unknown.length > 0 ? `; ${access.unknown.length} unknown` : ""}`
+            : `${access.blocked.join(", ")} blocked in robots.txt`,
+        accessUnknown ? "neutral" : undefined,
       ),
     );
 
@@ -112,13 +128,15 @@ export function auditContentExtractability(
     factors.push(
       makeDiagnostic(
         "LLMs.txt Presence",
-        hasLlms && hasLlmsFull
-          ? "llms.txt + llms-full.txt found (experimental standard, no outcome evidence)"
-          : hasLlms
-            ? "llms.txt found (experimental standard, no outcome evidence)"
-            : hasLlmsFull
-              ? "llms-full.txt found (experimental standard, no outcome evidence)"
-              : "Not found (experimental standard, no outcome evidence)",
+        domainSignals.robotsStatus === "not_checked"
+          ? "Not checked: no domain signals supplied"
+          : hasLlms && hasLlmsFull
+            ? "llms.txt + llms-full.txt found (experimental standard, no outcome evidence)"
+            : hasLlms
+              ? "llms.txt found (experimental standard, no outcome evidence)"
+              : hasLlmsFull
+                ? "llms-full.txt found (experimental standard, no outcome evidence)"
+                : "Not found (experimental standard, no outcome evidence)",
       ),
     );
   }

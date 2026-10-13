@@ -23,7 +23,7 @@ describe("buildTldr", () => {
     expect(tldr.note).toContain("not additive");
   });
 
-  it("selects the top 3 fixes by priority then audit points", () => {
+  it("uses audit points to rank recommendations with equal evidence", () => {
     const result = makeResult({
       recommendations: [
         makeRecommendation({
@@ -52,8 +52,8 @@ describe("buildTldr", () => {
     const tldr = buildTldr(result);
 
     expect(tldr.topFixes).toHaveLength(3);
-    expect(tldr.topFixes[0].factor).toBe("High Priority Big Points");
-    expect(tldr.topFixes[1].factor).toBe("High Priority Small Points");
+    expect(tldr.topFixes[0].factor).toBe("Low Priority Big Points");
+    expect(tldr.topFixes[1].factor).toBe("High Priority Big Points");
     expect(tldr.topFixes[2].factor).toBe("Medium Priority");
   });
 

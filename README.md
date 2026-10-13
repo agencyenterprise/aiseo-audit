@@ -56,7 +56,7 @@ Install it as a regular dependency when using the [programmatic API](docs/API.md
 - **Content analysis, not tag detection.** Reads the page the way an engine would: does it name its subject consistently, answer questions directly, back claims with sources, and keep boilerplate out of the way? 50+ factors.
 - **Evidence-tiered scoring.** Every factor is labeled supported, conditional, heuristic, diagnostic, or experimental and mapped to the reviewed literature in [docs/EVIDENCE.md](docs/EVIDENCE.md).
 - **Pipeline-stage reporting.** See whether the main constraint is technical eligibility, retrieval alignment, citation fitness, or provenance.
-- **Deterministic and inspectable.** The same tool version, configuration, and fetched HTML produce the same score. Weights and thresholds are documented rather than hidden behind an external service.
+- **Deterministic and inspectable.** The same scoring version, configuration, fetched inputs, and evaluation date produce the same score. Weights and thresholds are documented rather than hidden behind an external service.
 - **Multiple ways to run.** Use the CLI, GitHub Action, MCP server, or typed TypeScript API; render terminal, JSON, Markdown, or standalone HTML reports.
 
 ## Common Workflows
@@ -107,7 +107,7 @@ npx aiseo-audit --diff --all
 npx aiseo-audit --sitemap https://example.com/sitemap.xml --out site-report.html
 ```
 
-The report includes the average score, site-wide category averages, a host-level provenance profile, and per-URL results. Sitemap indexes are supported. URLs run sequentially, so scope large sitemaps intentionally.
+The report includes the average score, site-wide category averages, a host-level provenance profile, and per-URL results. Sitemap indexes are supported. URLs run sequentially by default; use `--max-urls` and `--concurrency` to bound work.
 
 More recipes and every flag are documented in the [CLI guide](docs/CLI.md). For tutorials and practical implementation guidance, visit [aiseo-audit.com](https://aiseo-audit.com/).
 
@@ -198,6 +198,19 @@ The CLI searches upward from the current directory for `aiseo.config.json`, `.ai
 
 Missing weight keys default to `1`; set a category to `0` to exclude it. See [CLI configuration](docs/CLI.md#configuration) for all fields, defaults, and examples.
 
+## Offline audits, replay, and regression gates
+
+The next release after 2.0.2 adds supplied HTML, reproducible snapshots, stable findings,
+page-specific crawler checks, and explicit CI failure policies. See the
+[reliability and integration guide](docs/RELIABILITY.md) for migration details.
+
+```bash
+npx aiseo-audit --file ./dist/index.html --url https://example.com --out report.html
+npx aiseo-audit https://example.com --snapshot-out inputs.json --out baseline.json
+npx aiseo-audit --replay inputs.json --json
+npx aiseo-audit https://example.com --baseline baseline.json --fail-on-regression
+```
+
 ## Programmatic API
 
 ```typescript
@@ -218,7 +231,7 @@ The package supports ESM and CommonJS and exports the analyzer, sitemap, report,
 - **No visual or multimodal assessment.** Layout quality, intrusive ads, visual hierarchy, and information carried only in images are outside the audit. Image `alt` text can be inspected, but pixels are not.
 - **Public HTTP access is assumed.** Authentication, consent flows, personalization, bot mitigation, and geography can change what the audit receives.
 - **Network responses can vary.** Determinism applies to the scoring of identical fetched inputs; redirects, dynamic HTML, experiments, and server failures can change those inputs.
-- **Sitemap processing is sequential.** There is currently no CLI URL cap, so use intentionally scoped sitemaps when runtime matters.
+- **Sitemap processing is bounded explicitly.** Runs are sequential by default; use `--max-urls` and `--concurrency` for larger sites. Failed pages fail the CLI unless partial coverage is explicitly allowed.
 - **Engine behavior remains nondeterministic.** A readiness score cannot predict whether a deployed engine will retrieve or cite a page for a particular answer.
 
 ## Research and Methodology

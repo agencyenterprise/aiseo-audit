@@ -1,5 +1,6 @@
 import type { AnalyzerResultType } from "../../analyzer/schema.js";
 import type { StageScoresType } from "../../scoring/schema.js";
+import type { RecommendationType } from "../../recommendations/schema.js";
 import {
   isSuccessResult,
   type SitemapResultType,
@@ -891,14 +892,7 @@ function buildRecommendationsByCategory(
   return html;
 }
 
-function buildRecommendationRow(rec: {
-  priority: string;
-  factor: string;
-  recommendation: string;
-  steps?: string[];
-  codeExample?: string;
-  learnMoreUrl?: string;
-}): string {
+function buildRecommendationRow(rec: RecommendationType): string {
   const label = priorityLabel(rec.priority as "high" | "medium" | "low");
   const cls = {
     HIGH: "priority-high",
@@ -906,7 +900,9 @@ function buildRecommendationRow(rec: {
     LOW: "priority-low",
   }[label];
 
-  let detailHtml = "";
+  let detailHtml = rec.location
+    ? `<div class="rec-detail"><p>${escapeHtml(rec.location.selector ?? `${rec.location.scope} check`)}</p>${rec.location.excerpt ? `<blockquote><mark>${escapeHtml(rec.location.excerpt)}</mark></blockquote>` : ""}</div>`
+    : "";
   if (rec.steps || rec.codeExample || rec.learnMoreUrl) {
     let inner = "";
     if (rec.steps && rec.steps.length > 0) {
@@ -919,7 +915,7 @@ function buildRecommendationRow(rec: {
     if (rec.learnMoreUrl) {
       inner += `<a class="rec-learn-more" href="${escapeHtml(rec.learnMoreUrl)}" target="_blank" rel="noopener">Learn more &rarr;</a>`;
     }
-    detailHtml = `<div class="rec-detail">${inner}</div>`;
+    detailHtml += `<div class="rec-detail">${inner}</div>`;
   }
 
   return `

@@ -1,0 +1,155 @@
+{
+  "version": 1,
+  "license": "MIT",
+  "evaluationDate": "2026-01-01",
+  "cases": [
+    {
+      "id": "documentation",
+      "file": "pages/documentation.html",
+      "url": "https://benchmark.example/documentation",
+      "expectations": [
+        {
+          "ruleId": "query-alignment.query-term-coverage-body",
+          "expected": "clear",
+          "reason": "The body explicitly covers backup retention."
+        },
+        {
+          "ruleId": "grounding-signals.hedged-language",
+          "expected": "clear",
+          "reason": "Instructions are direct without hedging."
+        },
+        {
+          "ruleId": "content-structure.lists-presence",
+          "expected": "unscored",
+          "reason": "A useful prose guide should not lose points for omitting a list."
+        }
+      ],
+      "queries": ["backup retention"]
+    },
+    {
+      "id": "product",
+      "file": "pages/product.html",
+      "url": "https://benchmark.example/product",
+      "expectations": [
+        {
+          "ruleId": "product-fit.price-presence",
+          "expected": "clear",
+          "reason": "A numeric price is visible and declared in structured data."
+        },
+        {
+          "ruleId": "product-fit.technical-specifications",
+          "expected": "clear",
+          "reason": "The table presents specifications."
+        }
+      ],
+      "domain": "product"
+    },
+    {
+      "id": "product-missing-price",
+      "file": "pages/product-missing-price.html",
+      "url": "https://benchmark.example/product-missing-price",
+      "expectations": [
+        {
+          "ruleId": "product-fit.price-presence",
+          "expected": "issue",
+          "reason": "The page does not supply a numeric price."
+        }
+      ],
+      "domain": "product"
+    },
+    {
+      "id": "technical-writing",
+      "file": "pages/technical-writing.html",
+      "url": "https://benchmark.example/technical-writing",
+      "expectations": [
+        {
+          "ruleId": "readability-for-compression.sentence-length",
+          "expected": "clear",
+          "reason": "Technical vocabulary alone does not make these short sentences too long."
+        },
+        {
+          "ruleId": "query-alignment.query-term-coverage-body",
+          "expected": "clear",
+          "reason": "The requested topic is explicit."
+        }
+      ],
+      "queries": ["transaction isolation"]
+    },
+    {
+      "id": "spanish",
+      "file": "pages/spanish.html",
+      "url": "https://benchmark.example/spanish",
+      "expectations": [
+        {
+          "ruleId": "readability-for-compression.readability",
+          "expected": "unscored",
+          "reason": "The English readability formula is not validated for Spanish."
+        },
+        {
+          "ruleId": "query-alignment.query-term-coverage-body",
+          "expected": "unscored",
+          "reason": "English tokenization must not grade a Spanish query."
+        },
+        {
+          "ruleId": "grounding-signals.hedged-language",
+          "expected": "unscored",
+          "reason": "English hedging detection must not grade Spanish."
+        }
+      ],
+      "queries": ["copias de seguridad"]
+    },
+    {
+      "id": "japanese",
+      "file": "pages/japanese.html",
+      "url": "https://benchmark.example/japanese",
+      "expectations": [
+        {
+          "ruleId": "readability-for-compression.readability",
+          "expected": "unscored",
+          "reason": "English syllables and word boundaries do not apply to Japanese."
+        },
+        {
+          "ruleId": "answerability.definition-patterns",
+          "expected": "unscored",
+          "reason": "English phrase patterns are not evidence about this Japanese explanation."
+        }
+      ]
+    },
+    {
+      "id": "keyword-padding",
+      "file": "pages/keyword-padding.html",
+      "url": "https://benchmark.example/keyword-padding",
+      "expectations": [
+        {
+          "ruleId": "entity-clarity.term-repetition-balance",
+          "expected": "issue",
+          "reason": "Repeating the same query phrase is deliberate keyword padding."
+        },
+        {
+          "ruleId": "content-structure.lists-presence",
+          "expected": "unscored",
+          "reason": "Formatting presence must remain unscored even on padded content."
+        }
+      ],
+      "queries": ["backup retention"]
+    },
+    {
+      "id": "off-topic-padding",
+      "file": "pages/off-topic-padding.html",
+      "url": "https://benchmark.example/off-topic-padding",
+      "expectations": [
+        {
+          "ruleId": "query-alignment.query-term-coverage-body",
+          "expected": "issue",
+          "reason": "Canned answer phrases do not answer a backup-retention query."
+        },
+        {
+          "ruleId": "query-alignment.query-term-coverage-structural",
+          "expected": "issue",
+          "reason": "Neither title nor headings address the target query."
+        }
+      ],
+      "queries": ["backup retention"]
+    }
+  ]
+}

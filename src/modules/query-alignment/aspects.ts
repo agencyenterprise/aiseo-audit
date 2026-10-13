@@ -9,6 +9,7 @@ export type AspectCoverageType = {
 };
 
 const SECTION_SCORE_FLOOR = 0.5;
+const scoreSections = resolveBm25Scorer(BM25);
 
 export function measureAspectCoverage(
   query: string,
@@ -22,11 +23,20 @@ export function measureAspectCoverage(
   }
 
   const coveredAspects = aspects.filter((aspect) => {
-    const scores = BM25(sections, queryContentTerms(aspect)) as number[];
+    const scores = scoreSections(
+      sections,
+      queryContentTerms(aspect),
+    ) as number[];
     return Math.max(...scores) >= SECTION_SCORE_FLOOR;
   });
 
   return { aspects, coveredAspects };
+}
+
+function resolveBm25Scorer(
+  module: typeof BM25 | { default: typeof BM25 },
+): typeof BM25 {
+  return typeof module === "function" ? module : module.default;
 }
 
 function queryAspects(query: string): string[] {

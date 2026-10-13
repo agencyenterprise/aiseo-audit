@@ -7,33 +7,80 @@ import {
 } from "./constants.js";
 import { pageReadsAsPolished } from "./polish.js";
 import type { RecommendationType } from "./schema.js";
+import { FACTOR_REGISTRY } from "../audits/stage.js";
+import type { CategoryWeightType, StageWeightType } from "../config/schema.js";
+import type { StageScoresType } from "../scoring/schema.js";
+import type { ExtractedPageType } from "../extractor/schema.js";
+import { RULE_IDS } from "../findings/rules.js";
+import { locateFactor } from "../findings/locations.js";
+
+type RecommendationOptions = {
+  weights?: CategoryWeightType;
+  stageWeights?: StageWeightType;
+  stages?: StageScoresType;
+  page?: ExtractedPageType;
+};
 
 export function generateRecommendations(
   auditResult: AuditResultType,
+  options: RecommendationOptions = {},
 ): RecommendationType[] {
   const polished = pageReadsAsPolished(auditResult.rawData);
-  const drafted = draftRecommendations(auditResult, polished);
+  const drafted = draftRecommendations(auditResult, polished, options);
   const coordinated = mergeOpposingDirections(drafted);
 
-  const priorityOrder = { high: 0, medium: 1, low: 2 };
-  coordinated.sort((a, b) => {
-    const pd = priorityOrder[a.priority] - priorityOrder[b.priority];
-    if (pd !== 0) return pd;
-    return a.factor.localeCompare(b.factor);
-  });
+  coordinated.sort(compareRecommendations);
 
   return coordinated;
+}
+
+export function compareRecommendations(
+  a: RecommendationType,
+  b: RecommendationType,
+): number {
+  const blocker = Number(!!b.blocker) - Number(!!a.blocker);
+  if (blocker !== 0) return blocker;
+  const evidence = {
+    supported: 0,
+    conditional: 1,
+    heuristic: 2,
+    experimental: 3,
+    diagnostic: 4,
+  };
+  const evidenceDifference =
+    evidence[a.evidence ?? "heuristic"] - evidence[b.evidence ?? "heuristic"];
+  if (evidenceDifference !== 0) return evidenceDifference;
+  const points =
+    (b.weightedAuditPoints ?? b.auditPoints ?? 0) -
+    (a.weightedAuditPoints ?? a.auditPoints ?? 0);
+  if (points !== 0) return points;
+  const priorityOrder = { high: 0, medium: 1, low: 2 };
+  return (
+    priorityOrder[a.priority] - priorityOrder[b.priority] ||
+    a.factor.localeCompare(b.factor)
+  );
 }
 
 function draftRecommendations(
   auditResult: AuditResultType,
   polished: boolean,
+  options: RecommendationOptions,
 ): RecommendationType[] {
   const recommendations: RecommendationType[] = [];
 
   for (const category of Object.values(auditResult.categories)) {
     for (const factor of category.factors) {
       if (isNotApplicableToThisPage(factor)) continue;
+      const name = factor.name as FactorNameType;
+      const stage = FACTOR_REGISTRY[name]?.stage;
+      const blocker =
+        options.stages?.technicalEligibility.blockers.includes(factor.name) ??
+        false;
+      const weight =
+        options.stageWeights && stage
+          ? options.stageWeights[stage]
+          : (options.weights?.[category.key] ?? 1);
+      if (weight === 0 && !blocker) continue;
 
       const pct = factor.maxScore > 0 ? factor.score / factor.maxScore : 1;
       if (pct >= GOOD_FACTOR_PCT) continue;
@@ -59,6 +106,11 @@ function draftRecommendations(
         priority,
         recommendation: output.text,
         auditPoints,
+        weightedAuditPoints: auditPoints * weight,
+        ruleId: RULE_IDS[name],
+        stage,
+        blocker,
+        ...(options.page && { location: locateFactor(options.page, name) }),
         ...(output.direction && { direction: output.direction }),
         ...(factor.evidence && { evidence: factor.evidence }),
         ...(factor.citations &&

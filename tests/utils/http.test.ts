@@ -249,3 +249,27 @@ describe("httpProbe", () => {
     });
   });
 });
+
+describe("caller cancellation", () => {
+  it("distinguishes caller cancellation from a request timeout", async () => {
+    const controller = new AbortController();
+    const spy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async (_url, options) => {
+        return new Promise((_resolve, reject) =>
+          options!.signal!.addEventListener(
+            "abort",
+            () => reject(new DOMException("Aborted", "AbortError")),
+            { once: true },
+          ),
+        );
+      });
+    try {
+      const pending = httpGet({ ...BASE_OPTS, signal: controller.signal });
+      controller.abort();
+      await expect(pending).rejects.toMatchObject({ code: "ABORTED" });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});

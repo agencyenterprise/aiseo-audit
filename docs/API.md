@@ -51,7 +51,7 @@ const result = await analyzeSitemap(
 const report = renderSitemapReport(result, { format: "html" });
 ```
 
-Sitemap options also accept `signalsBase`, `timeout`, and `userAgent`. Processing is sequential and sitemap indexes are followed through five levels.
+Sitemap options also accept `signalsBase`, `timeout`, and `userAgent`. Processing is sequential by default and sitemap indexes are followed through five levels. Optional `maxUrls`, `concurrency`, `signal`, `evaluationDate`, and `onProgress` control larger runs.
 
 ## Compare Results
 
@@ -162,3 +162,8 @@ type RecommendationType = {
 Network failures from the HTTP layer can be identified with `FetchError` and its `FetchErrorCode`. Schema validation and configuration errors are regular errors. Applications should also account for response variability: deterministic scoring assumes identical fetched HTML, tool version, and configuration.
 
 The analyzer parses fetched HTML and does not execute client-side JavaScript or inspect a rendered browser layout. See the [README limitations](../README.md#limitations) before integrating it into a quality gate.
+
+## Offline analysis, snapshots, and findings
+
+See [Reliable audits and integrations](RELIABILITY.md) for `analyzeHtml`, `captureUrl`,
+`analyzeSnapshot`, versioned findings, comparison metadata, and cancellation.

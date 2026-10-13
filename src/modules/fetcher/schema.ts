@@ -7,7 +7,9 @@ export const FetchOptionsSchema = z.object({
   userAgent: z.string().default(`AISEOAudit/${VERSION}`),
 });
 
-export type FetchOptionsType = z.input<typeof FetchOptionsSchema>;
+export type FetchOptionsType = z.input<typeof FetchOptionsSchema> & {
+  signal?: AbortSignal;
+};
 
 export type FetchResultType = {
   url: string;
@@ -16,4 +18,6 @@ export type FetchResultType = {
   contentType: string | null;
   html: string;
   fetchTimeMs: number;
+  source?: "network" | "html";
+  headers?: Record<string, string>;
 };

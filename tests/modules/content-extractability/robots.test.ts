@@ -176,3 +176,26 @@ Allow: /private
     ).toBe(false);
   });
 });
+
+describe("page-specific robots rules", () => {
+  it("honors the most specific allow rule for the audited URL", () => {
+    const robots = "User-agent: *\nDisallow: /\nAllow: /public/";
+    expect(checkCrawlerAccess(robots, "/public/guide").blocked).toEqual([]);
+    expect(checkCrawlerAccess(robots, "/private/guide").allowed).toEqual([]);
+  });
+
+  it("matches query strings and end anchors", () => {
+    const robots = "User-agent: *\nDisallow: /*?draft=true$";
+    expect(
+      checkCrawlerAccess(robots, "/guide?draft=true").blocked.length,
+    ).toBeGreaterThan(0);
+    expect(checkCrawlerAccess(robots, "/guide?draft=false").blocked).toEqual(
+      [],
+    );
+  });
+
+  it("treats a fetched empty file differently from a failed request", () => {
+    expect(checkCrawlerAccess("").unknown).toEqual([]);
+    expect(checkCrawlerAccess(null).allowed).toEqual([]);
+  });
+});

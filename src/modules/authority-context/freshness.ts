@@ -6,7 +6,10 @@ import {
   PUBLISH_DATE_SELECTORS,
 } from "./selectors.js";
 
-export function evaluateFreshness($: CheerioAPI): FreshnessResultType {
+export function evaluateFreshness(
+  $: CheerioAPI,
+  evaluationDate = new Date(),
+): FreshnessResultType {
   const modifiedDate = firstSelectorValue($, MODIFIED_DATE_SELECTORS);
   const publishDate = firstSelectorValue($, PUBLISH_DATE_SELECTORS);
 
@@ -16,10 +19,11 @@ export function evaluateFreshness($: CheerioAPI): FreshnessResultType {
   if (mostRecent) {
     const parsed = new Date(mostRecent);
     if (!isNaN(parsed.getTime())) {
-      const now = new Date();
-      ageInMonths =
-        (now.getFullYear() - parsed.getFullYear()) * 12 +
-        (now.getMonth() - parsed.getMonth());
+      ageInMonths = Math.max(
+        0,
+        (evaluationDate.getUTCFullYear() - parsed.getUTCFullYear()) * 12 +
+          (evaluationDate.getUTCMonth() - parsed.getUTCMonth()),
+      );
     }
   }
 

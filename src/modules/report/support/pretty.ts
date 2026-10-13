@@ -99,6 +99,9 @@ export function renderPretty(result: AnalyzerResultType): string {
 
       lines.push(`  ${i + 1}. ${tag} ${chalk.bold(rec.factor)}`);
       lines.push(`     ${chalk.dim(rec.recommendation)}`);
+      if (rec.location?.selector)
+        lines.push(`     At ${rec.location.selector}`);
+      if (rec.location?.excerpt) lines.push(`     "${rec.location.excerpt}"`);
 
       if (rec.steps && rec.steps.length > 0) {
         lines.push("");
