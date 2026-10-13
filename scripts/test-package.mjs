@@ -11,21 +11,22 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readPackedFilename } from "./pack-output.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const temporary = mkdtempSync(join(tmpdir(), "aiseo-package-"));
 try {
   const npm = process.platform === "win32" ? "npm.cmd" : "npm";
-  const packed = JSON.parse(
+  const packedFilename = readPackedFilename(
     execFileSync(
       npm,
       ["pack", "--ignore-scripts", "--json", "--pack-destination", temporary],
       { cwd: root, encoding: "utf8" },
     ),
-  )[0];
+  );
   execFileSync("tar", [
     "-xzf",
-    join(temporary, packed.filename),
+    join(temporary, packedFilename),
     "-C",
     temporary,
   ]);
