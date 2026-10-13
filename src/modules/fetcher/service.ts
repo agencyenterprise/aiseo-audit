@@ -15,6 +15,7 @@ export async function fetchUrl(
     url: opts.url,
     timeout: opts.timeout,
     userAgent: opts.userAgent,
+    signal: options.signal,
   });
 
   return {
@@ -24,5 +25,7 @@ export async function fetchUrl(
     contentType: response.headers["content-type"] ?? null,
     html: response.data,
     fetchTimeMs: Date.now() - start,
+    source: "network",
+    headers: response.headers,
   };
 }

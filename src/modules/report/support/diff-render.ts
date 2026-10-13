@@ -9,6 +9,7 @@ const SPARK_LEVELS = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
 
 export function renderDiffBlockPretty(diff: DiffResultType): string[] {
   const lines: string[] = [];
+  lines.push(...comparisonNotes(diff).map((note) => `  ${note}`));
   lines.push(
     chalk.bold(
       `  Changes since baseline (${shortDate(diff.baselineAnalyzedAt)} → ${shortDate(diff.currentAnalyzedAt)})`,
@@ -33,6 +34,7 @@ export function renderDiffBlockPretty(diff: DiffResultType): string[] {
 
 export function renderDiffBlockMarkdown(diff: DiffResultType): string[] {
   const lines: string[] = [];
+  lines.push(...comparisonNotes(diff).map((note) => `> ${note}`), "");
   lines.push(
     `## Changes since ${shortDate(diff.baselineAnalyzedAt)} → ${shortDate(diff.currentAnalyzedAt)}`,
   );
@@ -59,6 +61,9 @@ export function renderDiffBlockHtml(diff: DiffResultType): string {
     .join("");
 
   return `<section class="diff-block">
+    ${comparisonNotes(diff)
+      .map((note) => `<p>${escapeHtml(note)}</p>`)
+      .join("")}
     <h2>Changes since ${escapeHtml(shortDate(diff.baselineAnalyzedAt))} → ${escapeHtml(shortDate(diff.currentAnalyzedAt))}</h2>
     <table class="diff-table">
       <thead><tr><th>Scope</th><th>Baseline</th><th>Current</th><th>Change</th></tr></thead>
@@ -68,6 +73,25 @@ export function renderDiffBlockHtml(diff: DiffResultType): string {
       </tbody>
     </table>
   </section>`;
+}
+
+function comparisonNotes(diff: DiffResultType): string[] {
+  if (!diff.comparison) return [];
+  return [
+    ...(diff.comparison.comparable
+      ? []
+      : [
+          "Not comparable: these deltas do not measure content improvement.",
+          ...diff.comparison.reasons,
+        ]),
+    ...diff.comparison.warnings,
+    ...(diff.newBlockers?.length
+      ? [`New blockers: ${diff.newBlockers.join(", ")}`]
+      : []),
+    ...(diff.resolvedBlockers?.length
+      ? [`Resolved blockers: ${diff.resolvedBlockers.join(", ")}`]
+      : []),
+  ];
 }
 
 export function renderTimelinePretty(

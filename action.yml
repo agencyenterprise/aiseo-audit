@@ -12,6 +12,30 @@ inputs:
   sitemap:
     description: Sitemap URL to audit every page. Either `url` or `sitemap` is required.
     required: false
+  file:
+    description: Local HTML file to audit offline. Supply url as the page identity.
+    required: false
+  baseline:
+    description: Path to a saved JSON report for comparison.
+    required: false
+  fail-on-regression:
+    description: Fail on a regression against the comparable baseline.
+    required: false
+  fail-on-new-blocker:
+    description: Fail on a newly introduced eligibility blocker.
+    required: false
+  failed-pages:
+    description: Sitemap failure policy, error (CLI default) or ignore.
+    required: false
+  max-urls:
+    description: Maximum sitemap pages to audit.
+    required: false
+  concurrency:
+    description: Concurrent sitemap page requests (1-16).
+    required: false
+  evaluation-date:
+    description: UTC freshness evaluation date (YYYY-MM-DD).
+    required: false
   fail-under:
     description: Exit with failure if the overall score is below this threshold (0-100).
     required: false
@@ -58,6 +82,14 @@ runs:
         INPUT_USER_AGENT: ${{ inputs.user-agent }}
         INPUT_TIMEOUT: ${{ inputs.timeout }}
         INPUT_VERSION: ${{ inputs.version }}
+        INPUT_FILE: ${{ inputs.file }}
+        INPUT_BASELINE: ${{ inputs.baseline }}
+        INPUT_FAIL_ON_REGRESSION: ${{ inputs.fail-on-regression }}
+        INPUT_FAIL_ON_NEW_BLOCKER: ${{ inputs.fail-on-new-blocker }}
+        INPUT_FAILED_PAGES: ${{ inputs.failed-pages }}
+        INPUT_MAX_URLS: ${{ inputs.max-urls }}
+        INPUT_CONCURRENCY: ${{ inputs.concurrency }}
+        INPUT_EVALUATION_DATE: ${{ inputs.evaluation-date }}
       run: |
         set -e
 
@@ -83,6 +115,14 @@ runs:
           if [ -n "$INPUT_CONFIG" ]; then ARGS+=("--config" "$INPUT_CONFIG"); fi
           if [ -n "$INPUT_USER_AGENT" ]; then ARGS+=("--user-agent" "$INPUT_USER_AGENT"); fi
           if [ -n "$INPUT_TIMEOUT" ]; then ARGS+=("--timeout" "$INPUT_TIMEOUT"); fi
+          if [ -n "$INPUT_FILE" ]; then ARGS+=("--file" "$INPUT_FILE"); fi
+          if [ -n "$INPUT_BASELINE" ]; then ARGS+=("--baseline" "$INPUT_BASELINE"); fi
+          if [ "$INPUT_FAIL_ON_REGRESSION" = "true" ]; then ARGS+=("--fail-on-regression"); fi
+          if [ "$INPUT_FAIL_ON_NEW_BLOCKER" = "true" ]; then ARGS+=("--fail-on-new-blocker"); fi
+          if [ -n "$INPUT_FAILED_PAGES" ]; then ARGS+=("--failed-pages" "$INPUT_FAILED_PAGES"); fi
+          if [ -n "$INPUT_MAX_URLS" ]; then ARGS+=("--max-urls" "$INPUT_MAX_URLS"); fi
+          if [ -n "$INPUT_CONCURRENCY" ]; then ARGS+=("--concurrency" "$INPUT_CONCURRENCY"); fi
+          if [ -n "$INPUT_EVALUATION_DATE" ]; then ARGS+=("--evaluation-date" "$INPUT_EVALUATION_DATE"); fi
           ARGS+=("--json" "--out" "$REPORT_PATH")
         }
 
@@ -139,6 +179,9 @@ runs:
             '',
             fixes ? 'Top fixes:' : '_No fixes identified. The page is already solid._',
             fixes,
+            ...(report.warnings ?? []).map((warning) => `> ${warning}`),
+            ...(report.diff?.comparison?.reasons ?? []).map((reason) => `> Not comparable: ${reason}`),
+            ...(report.diff?.comparison?.warnings ?? []).map((warning) => `> ${warning}`),
             '',
             tldr?.note ? `<sub>${tldr.note}</sub>` : '',
             `<sub>Posted by [aiseo-audit](https://github.com/agencyenterprise/aiseo-audit)</sub>`,

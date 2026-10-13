@@ -1,3 +1,4 @@
+import { normalizeEvaluationDate } from "../../utils/date.js";
 import { scaffold, type XmlNode } from "xml-to-html-converter";
 import { httpGet } from "../../utils/http.js";
 import { normalizeUrl, originOf } from "../../utils/url.js";
@@ -6,6 +7,7 @@ import {
   analyzeUrlWithSignals,
   fetchDomainSignals,
 } from "../analyzer/service.js";
+import type { DomainSignalsType } from "../audits/schema.js";
 import type { AnalyzerResultType } from "../analyzer/schema.js";
 import type { AiseoConfigType } from "../config/schema.js";
 import { fetchUrl } from "../fetcher/service.js";
@@ -27,44 +29,87 @@ export async function analyzeSitemap(
   const timeout = options.timeout ?? config.timeout;
   const userAgent = options.userAgent ?? config.userAgent;
 
+  const concurrency = options.concurrency ?? 1;
+  const maxUrls = options.maxUrls ?? Infinity;
+  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 16)
+    throw new Error("concurrency must be an integer from 1 to 16.");
+  if (maxUrls !== Infinity && (!Number.isInteger(maxUrls) || maxUrls < 1))
+    throw new Error("maxUrls must be a positive integer.");
+  const evaluationDate = normalizeEvaluationDate(options.evaluationDate);
   const context: SitemapWalkContext = {
     timeout,
     userAgent,
+    signal: options.signal,
     visited: new Set(),
+    urls: new Set(),
+    maxUrls,
     warnings: [],
+    failedSitemapCount: 0,
   };
-  const urls = [
-    ...new Set(await fetchSitemapUrls(options.sitemapUrl, context)),
-  ];
-
+  await collectSitemapUrls(options.sitemapUrl, context);
+  const urls = [...context.urls];
+  if (urls.length === maxUrls)
+    context.warnings.push(
+      `URL limit applied: auditing at most ${maxUrls} unique pages.`,
+    );
   const signalsBase = options.signalsBase ?? originOf(options.sitemapUrl);
-  const domainSignals = await fetchDomainSignals(
-    signalsBase,
-    timeout,
-    userAgent,
-  );
-
-  const urlResults: SitemapUrlResultType[] = [];
-
-  for (const rawUrl of urls) {
-    const url = normalizeUrl(rawUrl);
-    try {
-      const fetchResult = await fetchUrl({ url, timeout, userAgent });
-      const result = await analyzeUrlWithSignals(
-        url,
-        fetchResult,
-        domainSignals,
-        config,
+  const signalCache = new Map<string, Promise<DomainSignalsType>>();
+  const signalsFor = (base: string) => {
+    if (!signalCache.has(base))
+      signalCache.set(
+        base,
+        fetchDomainSignals(base, timeout, userAgent, options.signal),
       );
-      urlResults.push({ status: "success", result });
-    } catch (error) {
-      urlResults.push({
-        status: "failed",
-        url,
-        error: error instanceof Error ? error.message : String(error),
+    return signalCache.get(base)!;
+  };
+  const urlResults: SitemapUrlResultType[] = new Array(urls.length);
+  let nextIndex = 0;
+  let completed = 0;
+  const worker = async () => {
+    while (nextIndex < urls.length) {
+      options.signal?.throwIfAborted();
+      const index = nextIndex++;
+      const rawUrl = urls[index];
+      try {
+        const url = normalizeUrl(rawUrl);
+        const fetchResult = await fetchUrl({
+          url,
+          timeout,
+          userAgent,
+          signal: options.signal,
+        });
+        const base =
+          options.signalsBase ?? originOf(fetchResult.finalUrl || url);
+        const domainSignals = await signalsFor(base);
+        options.signal?.throwIfAborted();
+        const result = await analyzeUrlWithSignals(
+          url,
+          fetchResult,
+          domainSignals,
+          config,
+          evaluationDate,
+        );
+        urlResults[index] = { status: "success", result };
+      } catch (error) {
+        options.signal?.throwIfAborted();
+        urlResults[index] = {
+          status: "failed",
+          url: rawUrl,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+      completed += 1;
+      options.onProgress?.({
+        completed,
+        total: urls.length,
+        result: urlResults[index],
       });
     }
-  }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, urls.length) }, worker),
+  );
+  options.signal?.throwIfAborted();
 
   const successResults = urlResults
     .filter(isSuccessResult)
@@ -87,11 +132,12 @@ export async function analyzeSitemap(
 
   return {
     sitemapUrl: options.sitemapUrl,
-    signalsBase: domainSignals.signalsBase,
+    signalsBase,
     analyzedAt: new Date().toISOString(),
     totalUrls: urlResults.length,
     succeededCount,
     failedCount,
+    failedSitemapCount: context.failedSitemapCount,
     averageScore,
     averageGrade,
     categoryAverages,
@@ -108,54 +154,62 @@ export async function analyzeSitemap(
 type SitemapWalkContext = {
   timeout: number;
   userAgent: string;
+  signal?: AbortSignal;
   visited: Set<string>;
+  urls: Set<string>;
+  maxUrls: number;
   warnings: string[];
+  failedSitemapCount: number;
 };
 
-async function fetchSitemapUrls(
+async function collectSitemapUrls(
   sitemapUrl: string,
   context: SitemapWalkContext,
   depth = 0,
-): Promise<string[]> {
-  if (context.visited.has(sitemapUrl)) return [];
+): Promise<void> {
+  context.signal?.throwIfAborted();
+  if (context.visited.has(sitemapUrl) || context.urls.size >= context.maxUrls)
+    return;
+  if (context.visited.size >= 1000)
+    throw new Error(
+      "Sitemap document limit (1000) exceeded. Supply a more focused sitemap.",
+    );
   context.visited.add(sitemapUrl);
-
   const response = await httpGet({
     url: sitemapUrl,
     timeout: context.timeout,
     userAgent: context.userAgent,
+    signal: context.signal,
   });
-
-  if (response.status !== 200) {
+  if (response.status !== 200)
     throw new Error(`Failed to fetch sitemap: HTTP ${response.status}`);
-  }
-
   const nodes = scaffold(response.data);
-
   if (!hasSitemapIndexNode(nodes)) {
-    return extractLocUrls(nodes);
+    for (const url of extractLocUrls(nodes)) {
+      if (context.urls.size >= context.maxUrls) break;
+      context.urls.add(url);
+    }
+    return;
   }
-
   if (depth >= MAX_SITEMAP_INDEX_DEPTH) {
+    context.failedSitemapCount += 1;
     context.warnings.push(
       `Sitemap index nesting exceeded ${MAX_SITEMAP_INDEX_DEPTH} levels at ${sitemapUrl}; skipping deeper levels`,
     );
-    return [];
+    return;
   }
-
-  const allUrls: string[] = [];
   for (const childUrl of extractLocUrls(nodes)) {
+    if (context.urls.size >= context.maxUrls) break;
     try {
-      allUrls.push(...(await fetchSitemapUrls(childUrl, context, depth + 1)));
+      await collectSitemapUrls(childUrl, context, depth + 1);
     } catch (error) {
+      context.signal?.throwIfAborted();
+      context.failedSitemapCount += 1;
       context.warnings.push(
-        `Skipped child sitemap ${childUrl}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `Skipped child sitemap ${childUrl}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
-  return allUrls;
 }
 
 function hasSitemapIndexNode(nodes: XmlNode[]): boolean {

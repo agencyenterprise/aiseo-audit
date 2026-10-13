@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Transaction isolation</title>
+  </head>
+  <body>
+    <main>
+      <h1>Transaction isolation</h1>
+      <p>
+        Transaction isolation determines which committed changes a reader can
+        observe. Serializable execution rejects a transaction when concurrent
+        writes would violate the database consistency rules.
+      </p>
+      <h2>Retry a rejected transaction</h2>
+      <p>
+        Begin a new transaction and read the current values. Reapply the
+        operation after a short delay. Stop after the configured retry limit and
+        return an error to the caller.
+      </p>
+    </main>
+  </body>
+</html>

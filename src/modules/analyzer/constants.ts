@@ -1,3 +1,5 @@
 export const DOMAIN_SIGNAL_TIMEOUT_CAP = 5000;
 
 export const RESULT_SCHEMA_VERSION = 2;
+
+export const SCORING_VERSION = "2.1";

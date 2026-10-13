@@ -61,3 +61,4 @@ export type DomainOptionType = z.infer<typeof DomainOptionSchema>;
 export type EngineProfileType = z.infer<typeof EngineProfileSchema>;
 export type DiffEntryType = z.infer<typeof DiffEntrySchema>;
 export type AiseoConfigType = z.infer<typeof AiseoConfigSchema>;
+export type AiseoConfigInputType = z.input<typeof AiseoConfigSchema>;

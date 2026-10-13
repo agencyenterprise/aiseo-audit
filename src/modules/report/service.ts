@@ -33,6 +33,7 @@ import {
   renderPrettyTldr,
   renderSitemapPretty,
 } from "./support/pretty.js";
+import { escapeHtml } from "./support/view-model.js";
 
 type DiffMapType = NonNullable<AiseoConfigType["diff"]>;
 
@@ -41,7 +42,10 @@ export function renderReport(
   options: RenderOptionsType,
 ): string {
   const renderers = renderersFor(options.format);
-  return options.tldrOnly ? renderers.tldr(result) : renderers.report(result);
+  const report = options.tldrOnly
+    ? renderers.tldr(result)
+    : renderers.report(result);
+  return addAnalysisContext(report, result, options);
 }
 
 export function renderDiffReport(
@@ -50,10 +54,13 @@ export function renderDiffReport(
   options: RenderOptionsType,
 ): string {
   const renderers = renderersFor(options.format);
-  const base = options.tldrOnly
+  const rendered = options.tldrOnly
     ? renderers.tldr(result)
     : renderers.report(result);
-  return renderers.composeDiff(base, diff);
+  return renderers.composeDiff(
+    addAnalysisContext(rendered, result, options),
+    diff,
+  );
 }
 
 export function renderHistoryTimeline(
@@ -115,6 +122,45 @@ const RENDERERS: Record<ReportFormatType, RendererSetType> = {
 
 function renderersFor(format: ReportFormatType | undefined): RendererSetType {
   return RENDERERS[format ?? "pretty"] ?? RENDERERS.pretty;
+}
+
+function addAnalysisContext(
+  report: string,
+  result: AnalyzerResultType,
+  options: RenderOptionsType,
+): string {
+  if (options.format === "json") return report;
+  const notes = [
+    ...(result.meta.evaluationDate
+      ? [`Freshness evaluated on ${result.meta.evaluationDate} (UTC).`]
+      : []),
+    ...(result.warnings ?? []),
+  ];
+  if (options.format === "html") {
+    const context = notes.length
+      ? `<aside aria-label="Audit context">${notes.map((note) => `<p>${escapeHtml(note)}</p>`).join("")}</aside>`
+      : "";
+    const findings = options.tldrOnly ? "" : renderFindingEvidence(result);
+    return report
+      .replace("<body>", () => `<body>${context}`)
+      .replace("</body>", () => `${findings}</body>`);
+  }
+  if (!notes.length) return report;
+  const prefix =
+    options.format === "md"
+      ? notes.map((note) => `> ${note}`).join("\n")
+      : notes.join("\n");
+  return `${prefix}\n\n${report}`;
+}
+
+function renderFindingEvidence(result: AnalyzerResultType): string {
+  const findings =
+    result.findings?.filter(
+      (finding) =>
+        finding.severity === "error" || finding.severity === "warning",
+    ) ?? [];
+  if (!findings.length) return "";
+  return `<section aria-label="Finding evidence"><h2>Finding evidence</h2>${findings.map((finding) => `<details id="${escapeHtml(finding.ruleId)}"><summary>${escapeHtml(finding.factor)}: ${escapeHtml(finding.measured)}</summary><p>${escapeHtml(finding.message)}</p><p><code>${escapeHtml(finding.location.selector ?? `${finding.location.scope} check`)}</code></p>${finding.location.excerpt ? `<blockquote><mark>${escapeHtml(finding.location.excerpt)}</mark></blockquote>` : ""}<p>Evidence: ${escapeHtml(finding.evidence)}. <a href="${escapeHtml(finding.documentationUrl)}">Rule documentation</a></p></details>`).join("")}</section>`;
 }
 
 function prependDiff(base: string, diffText: string): string {

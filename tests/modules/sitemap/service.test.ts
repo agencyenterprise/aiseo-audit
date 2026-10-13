@@ -182,6 +182,7 @@ describe("analyzeSitemap", () => {
         "https://example.com",
         expect.any(Number),
         expect.any(String),
+        undefined,
       );
     });
 
@@ -208,6 +209,7 @@ describe("analyzeSitemap", () => {
         "https://example.com",
         expect.any(Number),
         expect.any(String),
+        undefined,
       );
     });
 
@@ -654,5 +656,126 @@ describe("analyzeSitemap", () => {
       expect(result.sitemapUrl).toBe("https://example.com/sitemap.xml");
       expect(result.signalsBase).toBe(mockDomainSignals.signalsBase);
     });
+  });
+});
+
+describe("sitemap execution controls", () => {
+  function setupPages(count = 5) {
+    vi.mocked(httpGet).mockResolvedValue({
+      status: 200,
+      data: `<urlset>${Array.from({ length: count }, (_, i) => `<url><loc>https://example.com/page-${i}</loc></url>`).join("")}</urlset>`,
+      headers: {},
+      finalUrl: "https://example.com/sitemap.xml",
+    });
+    vi.mocked(analyzeUrlWithSignals).mockImplementation(async (url) =>
+      makeMockAnalyzerResult(url, 75),
+    );
+  }
+
+  it("caps the audited URL count and reports progress", async () => {
+    setupPages();
+    const progress = vi.fn();
+    const result = await analyzeSitemap(
+      {
+        sitemapUrl: "https://example.com/sitemap.xml",
+        maxUrls: 2,
+        onProgress: progress,
+      },
+      mockConfig,
+    );
+    expect(result.totalUrls).toBe(2);
+    expect(fetchUrl).toHaveBeenCalledTimes(2);
+    expect(progress.mock.calls.map(([entry]) => entry.completed)).toEqual([
+      1, 2,
+    ]);
+    expect(result.warnings.join(" ")).toContain("URL limit");
+  });
+
+  it("bounds parallel requests and preserves sitemap result order", async () => {
+    setupPages();
+    let active = 0;
+    let maximum = 0;
+    vi.mocked(fetchUrl).mockImplementation(async ({ url }) => {
+      active++;
+      maximum = Math.max(active, maximum);
+      await new Promise((resolve) =>
+        setTimeout(resolve, url.endsWith("0") ? 20 : 1),
+      );
+      active--;
+      return {
+        url,
+        finalUrl: url,
+        statusCode: 200,
+        contentType: "text/html",
+        html: "test",
+        fetchTimeMs: 1,
+      };
+    });
+    const result = await analyzeSitemap(
+      { sitemapUrl: "https://example.com/sitemap.xml", concurrency: 2 },
+      mockConfig,
+    );
+    expect(maximum).toBe(2);
+    expect(
+      result.urlResults.map((entry) =>
+        entry.status === "success" ? entry.result.url : entry.url,
+      ),
+    ).toEqual(
+      Array.from({ length: 5 }, (_, i) => `https://example.com/page-${i}`),
+    );
+  });
+
+  it("stops scheduling new pages after cancellation", async () => {
+    setupPages();
+    const controller = new AbortController();
+    await expect(
+      analyzeSitemap(
+        {
+          sitemapUrl: "https://example.com/sitemap.xml",
+          signal: controller.signal,
+          onProgress: () => controller.abort(),
+        },
+        mockConfig,
+      ),
+    ).rejects.toThrow();
+    expect(fetchUrl).toHaveBeenCalledTimes(1);
+  });
+
+  it("fetches robots for each final origin after redirects", async () => {
+    setupPages(2);
+    vi.mocked(fetchUrl).mockImplementation(async ({ url }) => ({
+      url,
+      finalUrl: url.replace(
+        "example.com",
+        url.endsWith("0") ? "first.example" : "second.example",
+      ),
+      statusCode: 200,
+      html: "test",
+      contentType: "text/html",
+      fetchTimeMs: 1,
+    }));
+    await analyzeSitemap(
+      { sitemapUrl: "https://example.com/sitemap.xml" },
+      mockConfig,
+    );
+    expect(
+      vi.mocked(fetchDomainSignals).mock.calls.map(([base]) => base),
+    ).toEqual(["https://first.example", "https://second.example"]);
+  });
+
+  it("validates work limits before fetching", async () => {
+    await expect(
+      analyzeSitemap(
+        { sitemapUrl: "https://example.com/sitemap.xml", maxUrls: 0 },
+        mockConfig,
+      ),
+    ).rejects.toThrow("maxUrls");
+    await expect(
+      analyzeSitemap(
+        { sitemapUrl: "https://example.com/sitemap.xml", concurrency: 17 },
+        mockConfig,
+      ),
+    ).rejects.toThrow("concurrency");
+    expect(httpGet).not.toHaveBeenCalled();
   });
 });

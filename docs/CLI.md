@@ -185,7 +185,7 @@ The result contains:
 - A host-level profile of site-name consistency, Organization schema, bylines, and about/contact presence.
 - Per-URL scores, grades, and leading recommendations.
 
-Sitemap indexes are traversed and flattened through five levels. Domain signals are fetched once and reused across every URL. URLs are processed sequentially with no CLI URL cap, so scope large sitemaps intentionally.
+Sitemap indexes are traversed and flattened through five levels. Domain signals are cached per final origin. URLs are processed sequentially by default; `--max-urls`, `--concurrency`, and `--progress` control larger runs. Failed pages cause exit code 2 unless `--failed-pages ignore` explicitly permits partial coverage.
 
 The default domain-signal location is the sitemap origin. Override it when a subdirectory deployment or other topology needs a different base:
 
@@ -306,3 +306,10 @@ When `stageWeights` is present, the overall score is computed from the four stag
 - The library exports support both ESM and CommonJS.
 - Programmatic consumers that also use Zod should use Zod 4 or later to avoid type incompatibilities.
 - See [MIGRATION-2.0.md](MIGRATION-2.0.md) when upgrading results, config, CI thresholds, or the GitHub Action from 1.x.
+
+## New input modes and quality gates
+
+See [Reliable audits and integrations](RELIABILITY.md) for local file/stdin input,
+snapshot replay, explicit evaluation dates, regression gates, sitemap limits,
+concurrency, progress, and the failed-page policy. These options target the next
+release after 2.0.2.

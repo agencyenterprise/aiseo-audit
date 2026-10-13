@@ -21,6 +21,7 @@ import type {
 export type RunAuditsOptionsType = {
   queries?: string[];
   domain?: "auto" | "product" | "informational";
+  evaluationDate?: Date;
 };
 
 export function runAudits(
@@ -43,7 +44,7 @@ export function runAudits(
   const answerability = auditAnswerability(page, entities, { domain });
   const entityClarity = auditEntityClarity(page, entities);
   const groundingSignals = auditGroundingSignals(page, entities);
-  const authorityContext = auditAuthorityContext(page);
+  const authorityContext = auditAuthorityContext(page, options.evaluationDate);
   const readability = auditReadabilityForCompression(page);
 
   const conditionalCategories: Partial<

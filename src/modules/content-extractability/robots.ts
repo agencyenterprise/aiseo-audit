@@ -23,8 +23,9 @@ type RobotGroup = { agents: string[]; rules: RobotRule[] };
 
 export function checkCrawlerAccess(
   robotsTxt: string | null,
+  pagePath = "/",
 ): CrawlerAccessResultType {
-  if (!robotsTxt) {
+  if (robotsTxt === null) {
     return { allowed: [], blocked: [], unknown: [...AI_CRAWLERS] };
   }
 
@@ -38,11 +39,11 @@ export function checkCrawlerAccess(
     const applicableRules = rulesApplyingTo(groups, crawler.toLowerCase());
 
     if (applicableRules.length === 0) {
-      unknown.push(crawler);
+      allowed.push(crawler);
       continue;
     }
 
-    if (resolvesPathAsBlocked(applicableRules, "/")) {
+    if (resolvesPathAsBlocked(applicableRules, pagePath)) {
       blocked.push(crawler);
       continue;
     }
@@ -114,13 +115,16 @@ function rulesApplyingTo(
 ): RobotRule[] {
   const specific: RobotRule[] = [];
   const wildcard: RobotRule[] = [];
+  let hasSpecificGroup = false;
 
   for (const group of groups) {
-    if (group.agents.includes(crawlerLower)) specific.push(...group.rules);
-    else if (group.agents.includes("*")) wildcard.push(...group.rules);
+    if (group.agents.includes(crawlerLower)) {
+      hasSpecificGroup = true;
+      specific.push(...group.rules);
+    } else if (group.agents.includes("*")) wildcard.push(...group.rules);
   }
 
-  return specific.length > 0 ? specific : wildcard;
+  return hasSpecificGroup ? specific : wildcard;
 }
 
 function resolvesPathAsBlocked(rules: RobotRule[], path: string): boolean {

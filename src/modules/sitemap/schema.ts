@@ -34,6 +34,7 @@ export const SitemapResultSchema = z.object({
   totalUrls: z.number(),
   succeededCount: z.number(),
   failedCount: z.number(),
+  failedSitemapCount: z.number().optional(),
   averageScore: z.number(),
   averageGrade: z.string(),
   categoryAverages: z.record(z.string(), CategoryAverageSchema),
@@ -51,6 +52,15 @@ export type SitemapOptionsType = {
   signalsBase?: string;
   timeout?: number;
   userAgent?: string;
+  maxUrls?: number;
+  concurrency?: number;
+  signal?: AbortSignal;
+  evaluationDate?: string;
+  onProgress?: (progress: {
+    completed: number;
+    total: number;
+    result: SitemapUrlResultType;
+  }) => void;
 };
 
 export type SitemapUrlResultType = z.infer<typeof SitemapUrlResultSchema>;

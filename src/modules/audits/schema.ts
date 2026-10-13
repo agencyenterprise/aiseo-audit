@@ -35,6 +35,9 @@ export const EvidenceTierSchema = z.enum([
 export const DomainSignalsSchema = z.object({
   signalsBase: z.string(),
   robotsTxt: z.string().nullable(),
+  robotsStatus: z
+    .enum(["available", "absent", "unavailable", "not_checked"])
+    .optional(),
   llmsTxtExists: z.boolean(),
   llmsFullTxtExists: z.boolean(),
 });
@@ -78,6 +81,13 @@ export const FreshnessResultSchema = z.object({
 });
 
 export const AuditRawDataSchema = z.object({
+  language: z
+    .object({
+      code: z.string().nullable(),
+      source: z.enum(["html", "header", "inferred", "unknown"]),
+      supported: z.boolean(),
+    })
+    .optional(),
   title: z.string(),
   metaDescription: z.string(),
   wordCount: z.number(),

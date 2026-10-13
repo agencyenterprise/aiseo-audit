@@ -15,6 +15,8 @@ export function renderJsonTldr(result: AnalyzerResultType): string {
       overallScore: result.overallScore,
       grade: result.grade,
       tldr,
+      warnings: result.warnings,
+      meta: result.meta,
     },
     null,
     2,

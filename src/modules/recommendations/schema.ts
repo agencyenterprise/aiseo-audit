@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { EvidenceTierSchema } from "../audits/schema.js";
+import { FindingLocationSchema } from "../findings/schema.js";
+import { StageNameSchema } from "../audits/stage.js";
 
 export const RecommendationDirectionSchema = z.enum([
   "simplify",
@@ -23,6 +25,11 @@ export const RecommendationSchema = z.object({
   steps: z.array(z.string()).optional(),
   codeExample: z.string().optional(),
   learnMoreUrl: z.string().url().optional(),
+  ruleId: z.string().optional(),
+  location: FindingLocationSchema.optional(),
+  stage: StageNameSchema.optional(),
+  blocker: z.boolean().optional(),
+  weightedAuditPoints: z.number().min(0).optional(),
 });
 
 export type RecommendationDirectionType = z.infer<

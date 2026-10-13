@@ -1,7 +1,9 @@
 import { Command, CommanderError } from "commander";
 import { resolve } from "node:path";
 import { z } from "zod";
-import { analyzeUrl } from "../modules/analyzer/service.js";
+import { analyzeInput } from "./input.js";
+import { checkRegressionGate, checkSitemapGate } from "./quality-gates.js";
+import type { DiffResultType } from "../modules/diff/schema.js";
 import {
   DomainOptionSchema,
   EngineProfileSchema,
@@ -40,20 +42,36 @@ const CliOptionsSchema = z.object({
   query: z.array(z.string().min(1)).optional(),
   domain: DomainOptionSchema.optional(),
   engine: EngineProfileSchema.optional(),
+  file: z.string().optional(),
+  stdin: z.boolean().optional(),
+  url: z.string().optional(),
+  replay: z.string().optional(),
+  snapshotOut: z.string().optional(),
+  evaluationDate: z.string().optional(),
+  failOnRegression: z.boolean().optional(),
+  failOnNewBlocker: z.boolean().optional(),
+  failedPages: z.enum(["error", "ignore"]).optional(),
+  maxUrls: z.coerce.number().int().positive().optional(),
+  concurrency: z.coerce.number().int().min(1).max(16).optional(),
+  progress: z.boolean().optional(),
 });
 
 type CliOptionsType = z.infer<typeof CliOptionsSchema>;
 
 export async function runCli(argv: string[]): Promise<number> {
   let exitCode = 0;
+  const controller = new AbortController();
+  const cancel = () => controller.abort();
+  process.once("SIGINT", cancel);
   const program = buildProgram((code) => {
     exitCode = code;
-  });
+  }, controller.signal);
 
   try {
     await program.parseAsync(argv);
     return exitCode;
   } catch (error) {
+    if (controller.signal.aborted) return 130;
     if (error instanceof CliExit) {
       return error.exitCode;
     }
@@ -65,10 +83,15 @@ export async function runCli(argv: string[]): Promise<number> {
       error instanceof Error ? error.message : String(error),
     );
     return 2;
+  } finally {
+    process.removeListener("SIGINT", cancel);
   }
 }
 
-function buildProgram(onExit: (code: number) => void): Command {
+function buildProgram(
+  onExit: (code: number) => void,
+  signal: AbortSignal,
+): Command {
   const program = new Command();
 
   program
@@ -76,6 +99,39 @@ function buildProgram(onExit: (code: number) => void): Command {
     .description("Audit web pages for AI search readiness")
     .version(VERSION)
     .argument("[url]", "URL to audit")
+    .option("--file <path>", "Analyze a local HTML file without network access")
+    .option("--stdin", "Analyze HTML read from standard input")
+    .option("--url <url>", "Page URL for supplied HTML")
+    .option(
+      "--replay <path>",
+      "Replay a saved audit snapshot without network access",
+    )
+    .option(
+      "--snapshot-out <path>",
+      "Save fetched inputs, configuration, and evaluation date for replay",
+    )
+    .option(
+      "--evaluation-date <date>",
+      "UTC date for freshness scoring (YYYY-MM-DD)",
+    )
+    .option(
+      "--fail-on-regression",
+      "Fail on score, query, or eligibility regression against a comparable baseline",
+    )
+    .option(
+      "--fail-on-new-blocker",
+      "Fail on a new eligibility blocker against a comparable baseline",
+    )
+    .option(
+      "--failed-pages <policy>",
+      "Sitemap fetch failure policy: error (default) or ignore",
+    )
+    .option("--max-urls <count>", "Maximum number of sitemap pages to audit")
+    .option(
+      "--concurrency <count>",
+      "Concurrent sitemap page requests (1-16, default 1)",
+    )
+    .option("--progress", "Write sitemap progress to stderr")
     .option("--sitemap <url>", "Audit all URLs in a sitemap.xml")
     .option(
       "--signals-base <url>",
@@ -120,7 +176,7 @@ function buildProgram(onExit: (code: number) => void): Command {
       "Diff against a specific prior JSON result (bypasses history tracking)",
     )
     .action(async (url: string | undefined, rawOpts: unknown) => {
-      onExit(await execute(url, rawOpts));
+      onExit(await execute(url, rawOpts, signal));
     });
 
   program.exitOverride();
@@ -130,10 +186,13 @@ function buildProgram(onExit: (code: number) => void): Command {
 async function execute(
   url: string | undefined,
   rawOpts: unknown,
+  signal: AbortSignal,
 ): Promise<number> {
   const opts = parseOptions(rawOpts);
+  if (url && opts.url) fail("Pass a positional URL or --url, not both");
+  url = url ?? opts.url;
 
-  if (!url && !opts.sitemap && !(opts.diff && opts.all)) {
+  if (!url && !opts.sitemap && !opts.replay && !(opts.diff && opts.all)) {
     fail("Provide a URL to audit, use --sitemap <url>, or use --diff --all");
   }
   if (url && opts.sitemap) {
@@ -147,6 +206,7 @@ async function execute(
   if (opts.out) {
     await assertWritableOutputPath(opts.out);
   }
+  if (opts.snapshotOut) await assertWritableOutputPath(opts.snapshotOut);
 
   const { config: loadedConfig, path: discoveredConfigPath } =
     await loadConfigWithPath(opts.config);
@@ -175,6 +235,14 @@ async function execute(
         signalsBase: opts.signalsBase,
         timeout,
         userAgent,
+        signal,
+        evaluationDate: opts.evaluationDate,
+        maxUrls: opts.maxUrls,
+        concurrency: opts.concurrency,
+        onProgress: opts.progress
+          ? ({ completed, total }) =>
+              console.error(`Audited ${completed}/${total} pages`)
+          : undefined,
       },
       config,
     );
@@ -185,28 +253,26 @@ async function execute(
 
     await emit(renderSitemapReport(sitemapResult, { format }), opts.out);
 
-    if (failUnder !== undefined && sitemapResult.averageScore < failUnder) {
-      const belowCount = sitemapResult.urlResults.filter(
-        (r) => r.status === "success" && r.result.overallScore < failUnder,
-      ).length;
-      console.error(
-        `\nAverage score ${sitemapResult.averageScore} is below threshold ${failUnder} (${belowCount} URLs individually below threshold)`,
-      );
-      return 1;
-    }
-    return 0;
+    const gate = checkSitemapGate(sitemapResult, {
+      failUnder,
+      failedPages: opts.failedPages,
+    });
+    if (gate.message) console.error(gate.message);
+    return gate.code;
   }
 
-  if (!isValidUrl(url!)) {
+  if (!opts.replay && !isValidUrl(url!)) {
     fail(`Invalid URL "${url}"`);
   }
 
-  const result = await analyzeUrl(
-    { url: url!, signalsBase: opts.signalsBase, timeout, userAgent },
+  const result = await analyzeInput(
+    url,
+    { ...opts, timeout, userAgent, signal },
     config,
   );
 
   let output: string;
+  let comparison: DiffResultType | null = null;
   if (opts.diff || opts.baseline) {
     const outcome = await orchestrateDiff({
       result,
@@ -214,6 +280,7 @@ async function execute(
       configPath,
       baselinePath: opts.baseline,
     });
+    comparison = outcome.diff;
 
     for (const note of outcome.notifications) {
       console.error(`💡 ${note}`);
@@ -230,6 +297,9 @@ async function execute(
   }
 
   await emit(output, opts.out);
+  const regressionGate = checkRegressionGate(comparison, opts);
+  if (regressionGate.message) console.error(regressionGate.message);
+  if (regressionGate.code !== 0) return regressionGate.code;
 
   if (failUnder !== undefined && result.overallScore < failUnder) {
     console.error(
@@ -278,16 +348,77 @@ function assertFlagsAreCompatible(
   url: string | undefined,
   opts: CliOptionsType,
 ): void {
+  if (
+    [opts.file, opts.stdin, opts.replay, opts.sitemap].filter(Boolean).length >
+    1
+  )
+    fail("Choose one input mode: --file, --stdin, --replay, or --sitemap");
+  if ((opts.file || opts.stdin) && !url) fail("Supplied HTML requires --url");
+  if (
+    opts.replay &&
+    (url ||
+      opts.config ||
+      opts.query?.length ||
+      opts.domain ||
+      opts.engine ||
+      opts.evaluationDate ||
+      opts.signalsBase ||
+      opts.snapshotOut)
+  )
+    fail(
+      "--replay uses the URL, configuration, signals, and date stored in the snapshot",
+    );
+  if ((opts.file || opts.stdin) && (opts.signalsBase || opts.snapshotOut))
+    fail("--signals-base and --snapshot-out require a fetched URL");
+  if (
+    opts.snapshotOut &&
+    opts.out &&
+    resolve(opts.snapshotOut) === resolve(opts.out)
+  )
+    fail("Snapshot and report output paths must differ");
+  if (
+    [opts.file, opts.replay, opts.baseline, opts.config].some(
+      (path) =>
+        path &&
+        [opts.out, opts.snapshotOut].some(
+          (output) => output && resolve(path) === resolve(output),
+        ),
+    )
+  )
+    fail(
+      "Output paths must not overwrite an input, baseline, or configuration file",
+    );
+  if (
+    (opts.failOnRegression || opts.failOnNewBlocker) &&
+    !(opts.diff || opts.baseline)
+  )
+    fail("Regression gates require --diff or --baseline");
+  if (
+    !opts.sitemap &&
+    (opts.maxUrls || opts.concurrency || opts.progress || opts.failedPages)
+  )
+    fail("Sitemap controls require --sitemap");
   const formatFlags = [opts.json, opts.md, opts.html].filter(Boolean).length;
   if (formatFlags > 1) {
     fail("Pass at most one of --json, --md, --html");
   }
   if (opts.sitemap) {
+    if (opts.snapshotOut)
+      fail("--snapshot-out is not supported with --sitemap");
     if (opts.diff) fail("--diff is not supported with --sitemap");
     if (opts.baseline) fail("--baseline is not supported with --sitemap");
     if (opts.tldr) fail("--tldr is not supported with --sitemap");
   }
   if (opts.all) {
+    if (
+      opts.replay ||
+      opts.file ||
+      opts.stdin ||
+      opts.sitemap ||
+      opts.failOnRegression ||
+      opts.failOnNewBlocker
+    )
+      fail("--all only renders tracked history");
     if (!opts.diff) fail("--all requires --diff");
     if (url) fail("--diff --all renders all tracked URLs; omit the URL");
   }

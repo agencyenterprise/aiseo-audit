@@ -4,6 +4,30 @@ All notable changes to this project are documented in this file, following
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Releases before 2.0.0
 are documented on [GitHub Releases](https://github.com/agencyenterprise/aiseo-audit/releases).
 
+## [Unreleased]
+
+### Added
+
+- Offline `analyzeHtml`, CLI file/stdin input, and snapshot capture/replay.
+- Explicit UTC evaluation dates, scoring/input/configuration fingerprints, and comparability warnings.
+- Stable findings with rule IDs, expected thresholds, excerpts, selectors, and finding-level diffs.
+- Regression and new-blocker CI gates, also exposed by the GitHub Action.
+- Bounded sitemap concurrency, URL limits, progress, cancellation, and per-origin signals.
+- Language applicability warnings and an annotated public benchmark.
+
+### Fixed
+
+- Query-aware audits now run through the built ESM entry point with the CommonJS BM25 dependency.
+- Crawler eligibility now evaluates the final audited path instead of `/`.
+- Unavailable robots.txt requests no longer earn full access points or claim that all crawlers are allowed.
+- Configuration changes no longer appear as unqualified content improvements in comparisons.
+
+### Changed
+
+- Failed pages and incomplete child sitemaps fail the CLI by default; `--failed-pages ignore` explicitly permits partial coverage.
+- Recommendations prioritize blockers, evidence strength, and configured weights.
+- Scoring model `2.1` requires new baselines. Old report schemas remain readable.
+
 ## [2.0.0] - Unreleased
 
 A research-driven rescoring. Ten peer-reviewed papers (2025-2026) were reviewed from primary

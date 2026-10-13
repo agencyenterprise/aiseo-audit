@@ -12,6 +12,7 @@ export type HttpRequestOptionsType = {
   url: string;
   timeout: number;
   userAgent: string;
+  signal?: AbortSignal;
 };
 
 export type HttpResponseType = {
@@ -23,6 +24,7 @@ export type HttpResponseType = {
 
 export type FetchErrorCode =
   | "TIMEOUT"
+  | "ABORTED"
   | "DNS_FAILURE"
   | "CONNECTION_REFUSED"
   | "TLS_ERROR"
@@ -75,7 +77,9 @@ async function request(
         ...DEFAULT_HEADERS,
         ...extraHeaders,
       },
-      signal: controller.signal,
+      signal: options.signal
+        ? AbortSignal.any([controller.signal, options.signal])
+        : controller.signal,
       redirect: "follow",
     });
 
@@ -86,6 +90,8 @@ async function request(
       finalUrl: response.url,
     };
   } catch (err) {
+    if (options.signal?.aborted)
+      throw new FetchError("ABORTED", options.url, "Audit cancelled.");
     throw classifyFetchError(err, options.url);
   } finally {
     clearTimeout(timer);

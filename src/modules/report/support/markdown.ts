@@ -92,6 +92,12 @@ export function renderMarkdown(result: AnalyzerResultType): string {
       for (const rec of categoryRecs) {
         const tag = priorityTag(rec.priority);
         lines.push(`- [${tag}] **${rec.factor}**: ${rec.recommendation}`);
+        if (rec.location?.selector)
+          lines.push(`  - Location: ${rec.location.selector}`);
+        if (rec.location?.excerpt)
+          lines.push(
+            `  - Excerpt: ${rec.location.excerpt.replace(/\n/g, " ")}`,
+          );
 
         if (rec.steps && rec.steps.length > 0) {
           rec.steps.forEach((step, idx) => {
