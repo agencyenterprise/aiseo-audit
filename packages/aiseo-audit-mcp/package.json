@@ -19,7 +19,7 @@
   "author": "Agency Enterprise",
   "license": "MIT",
   "engines": {
-    "node": ">=20.19"
+    "node": ">=22.23.4"
   },
   "keywords": [
     "aiseo-audit",
